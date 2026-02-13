@@ -35,7 +35,7 @@ const DASHBOARD_URL =
 const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
 const API_REF_URL =
   process.env.NEXT_PUBLIC_API_REF_URL || "http://localhost:4000/api/reference";
-const GITHUB_URL = "https://github.com/novabilling/novabilling";
+const GITHUB_URL = "https://github.com/novabilling/billing";
 
 /* ================================================================
    HERO
@@ -581,7 +581,7 @@ function DeveloperExperience() {
               </div>
               <pre className="overflow-x-auto rounded-b-lg bg-[var(--code-bg)] p-5 text-[13px] leading-6 text-gray-300">
                 <code>{`# Clone and run
-git clone https://github.com/novabilling/novabilling
+git clone https://github.com/novabilling/billing
 cd novabilling
 docker compose up -d
 

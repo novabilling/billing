@@ -11,7 +11,7 @@ const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
 const API_REF_URL =
   process.env.NEXT_PUBLIC_API_REF_URL || "http://localhost:4000/api/reference";
 
-const GITHUB_URL = "https://github.com/novabilling/novabilling";
+const GITHUB_URL = "https://github.com/novabilling/billing";
 
 const navLinks = [
   { label: "Features", href: "#features" },

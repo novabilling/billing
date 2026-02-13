@@ -14,7 +14,7 @@ We need people to deploy NovaBilling and put it through its paces:
 - **Test the billing flows** — create customers, plans, subscriptions, generate invoices
 - **Try the payment providers** — Stripe, Paystack, Flutterwave, DPO, PayU, PesaPal
 - **Break things** — edge cases, error handling, unexpected inputs
-- **Report bugs** via [GitHub Issues](https://github.com/novabilling/novabilling/issues) with steps to reproduce
+- **Report bugs** via [GitHub Issues](https://github.com/novabilling/billing/issues) with steps to reproduce
 
 No code required. Just your time and feedback.
 
@@ -43,7 +43,7 @@ Interested? Open an issue or comment on an existing one to say you're working on
 
 - **Star the repo** — helps with visibility
 - **Share NovaBilling** — blog posts, tweets, talks
-- **Answer questions** in [Discussions](https://github.com/novabilling/novabilling/discussions)
+- **Answer questions** in [Discussions](https://github.com/novabilling/billing/discussions)
 - **Review PRs** — fresh eyes always help
 
 ## Getting Started
@@ -59,8 +59,8 @@ Interested? Open an issue or comment on an existing one to say you're working on
 1. **Clone the repo**
 
    ```bash
-   git clone https://github.com/novabilling/novabilling.git
-   cd novabilling
+   git clone https://github.com/novabilling/billing.git
+   cd billing
    ```
 
 2. **Copy environment variables**
@@ -208,7 +208,7 @@ Steps to verify the change works.
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/novabilling/novabilling/issues) to report bugs or request features.
+Use [GitHub Issues](https://github.com/novabilling/billing/issues) to report bugs or request features.
 
 For bugs, include:
 - Steps to reproduce
@@ -219,7 +219,7 @@ For bugs, include:
 
 ## Questions?
 
-Open a [Discussion](https://github.com/novabilling/novabilling/discussions) for general questions, ideas, or help with setup.
+Open a [Discussion](https://github.com/novabilling/billing/discussions) for general questions, ideas, or help with setup.
 
 ## License
 
