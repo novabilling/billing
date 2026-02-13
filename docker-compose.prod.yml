@@ -1,26 +1,158 @@
-# Production override — uses pre-built images from GHCR
-# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Production compose — uses pre-built images from GHCR
+# Usage: docker compose -f docker-compose.prod.yml up -d
 #
-# Set GHCR_OWNER to your GitHub org (e.g., novabilling)
-# Images: ghcr.io/${GHCR_OWNER}/api:latest, etc.
+# Required env vars (set in .env or export):
+#   GHCR_OWNER          — GitHub org/user (default: novabilling)
+#   JWT_SECRET           — JWT signing secret
+#   JWT_REFRESH_SECRET   — JWT refresh signing secret
+#   ENCRYPTION_KEY       — 64-char hex key for encrypting provider credentials
 
 services:
+  # ─── Infrastructure ────────────────────────────────────────────
+
+  central-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: central
+      POSTGRES_USER: central
+      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD:-centralpass}
+    volumes:
+      - central_db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U central"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  internal-tenant-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${TENANT_DB_PASSWORD:-tenantpass}
+    volumes:
+      - internal_tenant_db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Backend API ───────────────────────────────────────────────
+
   api:
     image: ghcr.io/${GHCR_OWNER:-novabilling}/api:latest
-    build: !reset null
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      API_BASE_URL: ${API_URL:-http://localhost:4000}
+      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:-centralpass}@central-db:5432/central
+      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRATION: 1h
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      JWT_REFRESH_EXPIRATION: 7d
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@novabilling.com}
+      PDF_STORAGE_PATH: /app/uploads/invoices
+      CORS_ORIGINS: ${LANDING_URL:-http://localhost:4001},${DASHBOARD_URL:-http://localhost:4002}
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      central-db:
+        condition: service_healthy
+      internal-tenant-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+    restart: unless-stopped
 
+  # BullMQ Worker
   worker:
     image: ghcr.io/${GHCR_OWNER:-novabilling}/api:latest
-    build: !reset null
+    environment:
+      NODE_ENV: production
+      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:-centralpass}@central-db:5432/central
+      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRATION: 1h
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      JWT_REFRESH_EXPIRATION: 7d
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@novabilling.com}
+    command: node dist/main
+    depends_on:
+      central-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+    restart: unless-stopped
+
+  # ─── Frontend Apps ─────────────────────────────────────────────
 
   landing:
     image: ghcr.io/${GHCR_OWNER:-novabilling}/landing:latest
-    build: !reset null
+    ports:
+      - "${LANDING_PORT:-4001}:4001"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    restart: unless-stopped
 
   dashboard:
     image: ghcr.io/${GHCR_OWNER:-novabilling}/dashboard:latest
-    build: !reset null
+    ports:
+      - "${DASHBOARD_PORT:-4002}:4002"
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://api:4000
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ─── Documentation ─────────────────────────────────────────────
 
   docs:
     image: ghcr.io/${GHCR_OWNER:-novabilling}/docs:latest
-    build: !reset null
+    ports:
+      - "${DOCS_PORT:-4003}:4003"
+    restart: unless-stopped
+
+volumes:
+  central_db_data:
+  internal_tenant_db_data:
+  redis_data:
+  uploads:
