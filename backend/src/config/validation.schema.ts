@@ -21,17 +21,17 @@ export const validationSchema = Joi.object({
 
   ENCRYPTION_KEY: Joi.string().length(64).required(),
 
-  EMAIL_HOST: Joi.string().optional(),
+  EMAIL_HOST: Joi.string().optional().allow(''),
 
-  EMAIL_PORT: Joi.number().optional(),
+  EMAIL_PORT: Joi.number().optional().allow(''),
 
-  EMAIL_USER: Joi.string().optional(),
+  EMAIL_USER: Joi.string().optional().allow(''),
 
-  EMAIL_PASSWORD: Joi.string().optional(),
+  EMAIL_PASSWORD: Joi.string().optional().allow(''),
 
-  EMAIL_FROM: Joi.string().optional(),
+  EMAIL_FROM: Joi.string().optional().allow(''),
 
-  EMAIL_FROM_NAME: Joi.string().optional(),
+  EMAIL_FROM_NAME: Joi.string().optional().allow(''),
 
   PDF_STORAGE_PATH: Joi.string().optional().default('./uploads/invoices'),
 
