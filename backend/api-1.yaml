@@ -1,0 +1,1971 @@
+openapi: 3.0.0
+paths:
+  /api/auth/register:
+    post:
+      description: Create a new tenant account with a company name. This provisions an
+        isolated database, generates an API key, and returns JWT tokens.
+      operationId: AuthController_register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDto"
+      responses:
+        "201":
+          description: Tenant registered successfully. Returns JWT tokens and API key.
+        "409":
+          description: Email already registered
+      summary: Register a new tenant
+      tags:
+        - Auth
+  /api/auth/login:
+    post:
+      description: Authenticate with email and password. Returns an access token and
+        refresh token.
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginDto"
+      responses:
+        "200":
+          description: Login successful. Returns access and refresh tokens.
+        "401":
+          description: Invalid email or password
+      summary: Login as tenant
+      tags:
+        - Auth
+  /api/auth/refresh:
+    post:
+      description: Exchange a valid refresh token for a new access/refresh token pair.
+      operationId: AuthController_refreshTokens
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenDto"
+      responses:
+        "200":
+          description: New token pair issued
+        "401":
+          description: Invalid or expired refresh token
+      summary: Refresh access token
+      tags:
+        - Auth
+  /api/auth/forgot-password:
+    post:
+      description: Send a password reset email to the specified address. Always
+        returns success to prevent email enumeration.
+      operationId: AuthController_forgotPassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordDto"
+      responses:
+        "200":
+          description: Reset email sent if account exists
+      summary: Request password reset
+      tags:
+        - Auth
+  /api/auth/reset-password:
+    post:
+      description: Set a new password using the token received via email.
+      operationId: AuthController_resetPassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordDto"
+      responses:
+        "200":
+          description: Password reset successful
+        "400":
+          description: Invalid or expired reset token
+      summary: Reset password with token
+      tags:
+        - Auth
+  /api/tenants/me:
+    get:
+      description: Retrieve the authenticated tenant's profile including settings and
+        webhook configuration.
+      operationId: TenantsController_getMe
+      parameters: []
+      responses:
+        "200":
+          description: Tenant profile details
+      security:
+        - JWT: []
+      summary: Get current tenant info
+      tags:
+        - Tenants
+    patch:
+      description: Update tenant profile fields such as company name, webhook URL, or
+        custom settings.
+      operationId: TenantsController_updateMe
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantDto"
+      responses:
+        "200":
+          description: Tenant profile updated
+      security:
+        - JWT: []
+      summary: Update current tenant
+      tags:
+        - Tenants
+  /api/tenants/me/usage:
+    get:
+      description: Retrieve usage metrics including customer count, active
+        subscriptions, and total revenue.
+      operationId: TenantsController_getUsage
+      parameters: []
+      responses:
+        "200":
+          description: Usage metrics for the current billing period
+      security:
+        - JWT: []
+      summary: Get tenant usage statistics
+      tags:
+        - Tenants
+  /api/tenants/me/api-keys:
+    post:
+      description: Generate a new API key with specified scopes. The full key is
+        returned only once in the response — store it securely.
+      operationId: TenantsController_createApiKey
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyBodyDto"
+      responses:
+        "201":
+          description: API key created. The key value is shown only once.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  key:
+                    type: string
+                    description: Full API key (shown only once)
+                  name:
+                    type: string
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+      security:
+        - JWT: []
+      summary: Create a new API key
+      tags:
+        - Tenants
+    get:
+      description: Retrieve all API keys for the tenant. Keys are masked for security
+        — only the last 8 characters are shown.
+      operationId: TenantsController_listApiKeys
+      parameters: []
+      responses:
+        "200":
+          description: List of API keys with masked values
+      security:
+        - JWT: []
+      summary: List API keys
+      tags:
+        - Tenants
+  /api/tenants/me/api-keys/{id}:
+    delete:
+      description: Permanently revoke an API key. Any requests using this key will
+        immediately fail.
+      operationId: TenantsController_deleteApiKey
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: API key ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API key deleted
+        "404":
+          description: API key not found
+      security:
+        - JWT: []
+      summary: Delete an API key
+      tags:
+        - Tenants
+  /api/customers:
+    get:
+      description: Retrieve a paginated list of customers. Supports filtering by
+        search term, country, and currency.
+      operationId: CustomersController_findAll
+      parameters:
+        - name: page
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 20
+            type: number
+        - name: search
+          required: false
+          in: query
+          description: Search by name or email
+          schema:
+            type: string
+        - name: country
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: currency
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          required: false
+          in: query
+          schema:
+            default: createdAt
+            type: string
+        - name: sortOrder
+          required: false
+          in: query
+          schema:
+            default: desc
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: Paginated list of customers with metadata
+        "401":
+          description: Unauthorized - invalid or missing API key
+      security:
+        - api-key: []
+      summary: List customers
+      tags:
+        - Customers
+    post:
+      description: Create a customer record. The externalId should be unique and map
+        to your application's user ID.
+      operationId: CustomersController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerDto"
+      responses:
+        "201":
+          description: Customer created successfully
+        "409":
+          description: Customer with this externalId already exists
+      security:
+        - api-key: []
+      summary: Create a new customer
+      tags:
+        - Customers
+  /api/customers/{id}:
+    get:
+      description: Retrieve detailed information about a specific customer including
+        their billing history summary.
+      operationId: CustomersController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer details
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Get customer by ID
+      tags:
+        - Customers
+    patch:
+      description: Update customer fields. Only provided fields will be changed.
+      operationId: CustomersController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomerDto"
+      responses:
+        "200":
+          description: Customer updated successfully
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Update a customer
+      tags:
+        - Customers
+    delete:
+      description: Permanently delete a customer. Fails if the customer has active
+        subscriptions.
+      operationId: CustomersController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer deleted successfully
+        "400":
+          description: Cannot delete - customer has active subscriptions
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Delete a customer
+      tags:
+        - Customers
+  /api/customers/{id}/subscriptions:
+    get:
+      description: Retrieve all subscriptions for a specific customer.
+      operationId: CustomersController_findSubscriptions
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of customer subscriptions
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Get customer subscriptions
+      tags:
+        - Customers
+  /api/customers/{id}/invoices:
+    get:
+      description: Retrieve all invoices for a specific customer.
+      operationId: CustomersController_findInvoices
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of customer invoices
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Get customer invoices
+      tags:
+        - Customers
+  /api/customers/{id}/payments:
+    get:
+      description: Retrieve all payments made by a specific customer.
+      operationId: CustomersController_findPayments
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of customer payments
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Get customer payments
+      tags:
+        - Customers
+  /api/plans:
+    get:
+      description: Retrieve all billing plans with their prices. Optionally filter by
+        active status.
+      operationId: PlansController_findAll
+      parameters:
+        - name: isActive
+          required: false
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of plans with prices
+      security:
+        - api-key: []
+      summary: List all plans
+      tags:
+        - Plans
+    post:
+      description: Create a billing plan with a unique code. Optionally include prices
+        for different currencies. Plans can have MONTHLY, QUARTERLY, or YEARLY
+        billing intervals.
+      operationId: PlansController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanDto"
+      responses:
+        "201":
+          description: Plan created
+        "409":
+          description: Plan with this code already exists
+      security:
+        - api-key: []
+      summary: Create a new plan
+      tags:
+        - Plans
+  /api/plans/{id}:
+    get:
+      description: Retrieve a plan with all its prices and features.
+      operationId: PlansController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Plan details with prices
+        "404":
+          description: Plan not found
+      security:
+        - api-key: []
+      summary: Get plan by ID
+      tags:
+        - Plans
+    patch:
+      description: Update plan details like name, description, features, or billing
+        interval.
+      operationId: PlansController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanDto"
+      responses:
+        "200":
+          description: Plan updated
+        "404":
+          description: Plan not found
+      security:
+        - api-key: []
+      summary: Update a plan
+      tags:
+        - Plans
+    delete:
+      description: Delete a billing plan. Plans with active subscriptions should be
+        deactivated instead.
+      operationId: PlansController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Plan deleted
+        "404":
+          description: Plan not found
+      security:
+        - api-key: []
+      summary: Delete a plan
+      tags:
+        - Plans
+  /api/plans/{id}/prices:
+    post:
+      description: Add a price in a specific currency to a plan. Each plan can have
+        one price per currency.
+      operationId: PlansController_addPrice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanPriceDto"
+      responses:
+        "201":
+          description: Price added to plan
+        "404":
+          description: Plan not found
+      security:
+        - api-key: []
+      summary: Add a price to a plan
+      tags:
+        - Plans
+  /api/plans/{id}/prices/{priceId}:
+    patch:
+      description: Change the amount for an existing price on a plan.
+      operationId: PlansController_updatePrice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+        - name: priceId
+          required: true
+          in: path
+          description: Price ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Price updated
+        "404":
+          description: Plan or price not found
+      security:
+        - api-key: []
+      summary: Update a plan price
+      tags:
+        - Plans
+    delete:
+      description: Remove a price from a plan. Active subscriptions using this price
+        will not be affected.
+      operationId: PlansController_deletePrice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+        - name: priceId
+          required: true
+          in: path
+          description: Price ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Price deleted
+        "404":
+          description: Plan or price not found
+      security:
+        - api-key: []
+      summary: Delete a plan price
+      tags:
+        - Plans
+  /api/subscriptions:
+    get:
+      description: Retrieve a paginated list of subscriptions. Supports filtering by
+        status, customer, and plan.
+      operationId: SubscriptionsController_findAll
+      parameters:
+        - name: status
+          required: false
+          in: query
+          description: Filter by status (ACTIVE, TRIALING, PAUSED, CANCELED)
+          schema:
+            type: string
+        - name: customerId
+          required: false
+          in: query
+          description: Filter by customer ID
+          schema:
+            type: string
+        - name: planId
+          required: false
+          in: query
+          description: Filter by plan ID
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of subscriptions with customer and plan details
+      security:
+        - api-key: []
+      summary: List subscriptions
+      tags:
+        - Subscriptions
+    post:
+      description: Subscribe a customer to a plan. The plan must have a price matching
+        the specified currency. Optionally set a trial period in days.
+      operationId: SubscriptionsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionDto"
+      responses:
+        "201":
+          description: "Subscription created (status: ACTIVE or TRIALING)"
+        "400":
+          description: Plan inactive or no price for specified currency
+        "404":
+          description: Customer or plan not found
+      security:
+        - api-key: []
+      summary: Create a new subscription
+      tags:
+        - Subscriptions
+  /api/subscriptions/{id}:
+    get:
+      description: Retrieve detailed subscription information including customer, plan
+        with prices, and recent invoices.
+      operationId: SubscriptionsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Subscription ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription details with related records
+        "404":
+          description: Subscription not found
+      security:
+        - api-key: []
+      summary: Get subscription by ID
+      tags:
+        - Subscriptions
+    patch:
+      description: Update the metadata field on a subscription. Other fields cannot be
+        changed directly.
+      operationId: SubscriptionsController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Subscription ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriptionDto"
+      responses:
+        "200":
+          description: Subscription metadata updated
+        "404":
+          description: Subscription not found
+      security:
+        - api-key: []
+      summary: Update subscription metadata
+      tags:
+        - Subscriptions
+  /api/subscriptions/{id}/cancel:
+    post:
+      description: Cancel a subscription either immediately or at the end of the
+        current billing period. When set to "period_end", the subscription
+        remains active until the current period expires.
+      operationId: SubscriptionsController_cancel
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Subscription ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelSubscriptionDto"
+      responses:
+        "200":
+          description: Subscription canceled or scheduled for cancellation
+        "400":
+          description: Subscription is already canceled
+        "404":
+          description: Subscription not found
+      security:
+        - api-key: []
+      summary: Cancel a subscription
+      tags:
+        - Subscriptions
+  /api/subscriptions/{id}/pause:
+    post:
+      description: Temporarily pause an active subscription. Only active subscriptions
+        can be paused.
+      operationId: SubscriptionsController_pause
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Subscription ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription paused
+        "400":
+          description: Only active subscriptions can be paused
+        "404":
+          description: Subscription not found
+      security:
+        - api-key: []
+      summary: Pause a subscription
+      tags:
+        - Subscriptions
+  /api/subscriptions/{id}/resume:
+    post:
+      description: Resume a previously paused subscription back to active status.
+      operationId: SubscriptionsController_resume
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Subscription ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription resumed
+        "400":
+          description: Only paused subscriptions can be resumed
+        "404":
+          description: Subscription not found
+      security:
+        - api-key: []
+      summary: Resume a paused subscription
+      tags:
+        - Subscriptions
+  /api/subscriptions/{id}/change-plan:
+    post:
+      description: Switch a subscription to a different plan. The new plan must have a
+        price for the subscription's currency. A new billing period starts
+        immediately with the new plan.
+      operationId: SubscriptionsController_changePlan
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Subscription ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePlanDto"
+      responses:
+        "200":
+          description: Plan changed and billing period reset
+        "400":
+          description: New plan inactive or no matching price
+        "404":
+          description: Subscription or new plan not found
+      security:
+        - api-key: []
+      summary: Change subscription plan
+      tags:
+        - Subscriptions
+  /api/invoices:
+    get:
+      description: Retrieve a paginated list of invoices. Supports filtering by
+        status, customer, and date range.
+      operationId: InvoicesController_findAll
+      parameters:
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: customerId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 20
+            type: number
+      responses:
+        "200":
+          description: Paginated list of invoices
+        "401":
+          description: Unauthorized
+      security:
+        - api-key: []
+      summary: List invoices
+      tags:
+        - Invoices
+    post:
+      description: Create a draft invoice with line items. The total amount is
+        automatically calculated from the items.
+      operationId: InvoicesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceDto"
+      responses:
+        "201":
+          description: Invoice created in draft status
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Create a new invoice
+      tags:
+        - Invoices
+  /api/invoices/{id}:
+    get:
+      description: Retrieve detailed invoice information including associated
+        customer, subscription, and payments.
+      operationId: InvoicesController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice details with related records
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Get invoice by ID
+      tags:
+        - Invoices
+  /api/invoices/{id}/finalize:
+    post:
+      description: Move an invoice from draft to pending status, making it ready for
+        payment.
+      operationId: InvoicesController_finalize
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice finalized and set to pending
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Finalize a draft invoice
+      tags:
+        - Invoices
+  /api/invoices/{id}/void:
+    post:
+      description: Cancel an unpaid invoice. Paid invoices cannot be voided — use a
+        refund instead.
+      operationId: InvoicesController_voidInvoice
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice voided
+        "400":
+          description: Cannot void a paid invoice
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Void an invoice
+      tags:
+        - Invoices
+  /api/invoices/{id}/mark-paid:
+    post:
+      description: Record an offline or manual payment against an invoice. Creates a
+        payment record with provider "manual".
+      operationId: InvoicesController_markPaid
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice marked as paid
+        "400":
+          description: Invoice is already paid
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Manually mark invoice as paid
+      tags:
+        - Invoices
+  /api/invoices/{id}/checkout:
+    post:
+      description: Initiate a payment session with the configured payment provider
+        (Stripe, Paystack, Flutterwave, or M-Pesa). Returns a checkout URL that
+        redirects the customer to the provider's hosted payment page.
+      operationId: InvoicesController_checkout
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callbackUrl:
+                  type: string
+                  description: URL to redirect customer after payment
+                  example: https://myapp.com/payment/complete
+      responses:
+        "200":
+          description: Checkout session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkoutUrl:
+                    type: string
+                    description: Payment URL to redirect customer to
+                  paymentId:
+                    type: string
+                    description: Internal payment record ID
+                  provider:
+                    type: string
+                    description: Payment provider used
+                  expiresAt:
+                    type: string
+                    description: Checkout session expiry (ISO 8601)
+        "400":
+          description: Invoice already paid, voided, or no provider configured
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Generate a checkout URL
+      tags:
+        - Invoices
+  /api/invoices/{id}/pdf:
+    get:
+      description: Retrieve the URL for the generated PDF version of the invoice.
+      operationId: InvoicesController_getPdf
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF URL (may be null if not yet generated)
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Get invoice PDF URL
+      tags:
+        - Invoices
+  /api/payments:
+    get:
+      description: Retrieve a paginated list of payments. Supports filtering by
+        status, provider, invoice, and date range.
+      operationId: PaymentsController_findAll
+      parameters:
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: provider
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: invoiceId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 20
+            type: number
+      responses:
+        "200":
+          description: Paginated list of payments with invoice and customer details
+        "401":
+          description: Unauthorized
+      security:
+        - api-key: []
+      summary: List payments
+      tags:
+        - Payments
+  /api/payments/{id}:
+    get:
+      description: Retrieve detailed payment information including the associated
+        invoice and customer.
+      operationId: PaymentsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Payment ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment details
+        "404":
+          description: Payment not found
+      security:
+        - api-key: []
+      summary: Get payment by ID
+      tags:
+        - Payments
+  /api/payments/{id}/refund:
+    post:
+      description: Issue a full or partial refund for a succeeded payment. If amount
+        is omitted, the full payment amount is refunded.
+      operationId: PaymentsController_refund
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Payment ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundPaymentDto"
+      responses:
+        "200":
+          description: Payment refunded successfully
+        "400":
+          description: Payment not eligible for refund or refund amount exceeds payment
+        "404":
+          description: Payment not found
+      security:
+        - api-key: []
+      summary: Refund a payment
+      tags:
+        - Payments
+  /api/payment-providers:
+    get:
+      description: Retrieve all configured payment providers for the tenant.
+        Credentials are never returned.
+      operationId: PaymentProvidersController_findAll
+      parameters: []
+      responses:
+        "200":
+          description: List of configured providers (without credentials)
+      security:
+        - api-key: []
+      summary: List payment providers
+      tags:
+        - Payment Providers
+    post:
+      description: Set up a payment provider (stripe, paystack, flutterwave, or mpesa)
+        with encrypted credentials. The provider with the lowest priority number
+        is used by default for checkout.
+      operationId: PaymentProvidersController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderDto"
+      responses:
+        "201":
+          description: Provider configured successfully
+        "409":
+          description: Provider already configured
+      security:
+        - api-key: []
+      summary: Configure a payment provider
+      tags:
+        - Payment Providers
+  /api/payment-providers/{id}:
+    get:
+      description: Retrieve a specific payment provider configuration. Credentials are
+        not included.
+      operationId: PaymentProvidersController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Payment provider ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider details (without credentials)
+        "404":
+          description: Provider not found
+      security:
+        - api-key: []
+      summary: Get payment provider by ID
+      tags:
+        - Payment Providers
+    patch:
+      description: Update provider settings such as active status, priority, or credentials.
+      operationId: PaymentProvidersController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Payment provider ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProviderDto"
+      responses:
+        "200":
+          description: Provider updated
+        "404":
+          description: Provider not found
+      security:
+        - api-key: []
+      summary: Update a payment provider
+      tags:
+        - Payment Providers
+    delete:
+      description: Remove a payment provider configuration. This does not affect
+        existing payments.
+      operationId: PaymentProvidersController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Payment provider ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider deleted
+        "404":
+          description: Provider not found
+      security:
+        - api-key: []
+      summary: Delete a payment provider
+      tags:
+        - Payment Providers
+  /api/payment-providers/{id}/test:
+    post:
+      description: Verify that the provider credentials are valid by making a test API
+        call to the provider.
+      operationId: PaymentProvidersController_test
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Payment provider ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "404":
+          description: Provider not found
+      security:
+        - api-key: []
+      summary: Test provider connection
+      tags:
+        - Payment Providers
+  /webhooks/paystack:
+    post:
+      description: Receives payment event notifications from Paystack. The signature
+        is verified using HMAC-SHA512 with the provider's secret key. On
+        success, updates the payment/invoice status and sends customer
+        notifications.
+      operationId: WebhooksController_paystack
+      parameters:
+        - name: x-paystack-signature
+          required: true
+          in: header
+          description: Paystack HMAC-SHA512 signature
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Paystack webhook endpoint
+      tags:
+        - Webhooks
+  /webhooks/flutterwave:
+    post:
+      description: Receives payment event notifications from Flutterwave. Verified
+        using the verif-hash header against the configured encryption key.
+      operationId: WebhooksController_flutterwave
+      parameters:
+        - name: verif-hash
+          required: false
+          in: header
+          description: Flutterwave verification hash
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Flutterwave webhook endpoint
+      tags:
+        - Webhooks
+  /webhooks/mpesa:
+    post:
+      description: Receives payment callback notifications from M-Pesa (Safaricom).
+        Processes STK push results and updates payment status accordingly.
+      operationId: WebhooksController_mpesa
+      parameters: []
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: M-Pesa webhook endpoint
+      tags:
+        - Webhooks
+  /webhooks/stripe:
+    post:
+      description: Receives event notifications from Stripe (e.g.
+        checkout.session.completed, payment_intent.succeeded). Verified using
+        the stripe-signature header with the configured webhook secret.
+      operationId: WebhooksController_stripe
+      parameters:
+        - name: stripe-signature
+          required: true
+          in: header
+          description: Stripe webhook signature
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Stripe webhook endpoint
+      tags:
+        - Webhooks
+  /api/analytics/revenue:
+    get:
+      description: Retrieve revenue metrics including total revenue, MRR (monthly
+        recurring revenue), and revenue breakdown by period. Supports filtering
+        by date range and currency.
+      operationId: AnalyticsController_revenue
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            example: 2025-01-01
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            example: 2025-12-31
+            type: string
+        - name: currency
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: groupBy
+          required: false
+          in: query
+          schema:
+            default: month
+            type: string
+            enum:
+              - day
+              - week
+              - month
+      responses:
+        "200":
+          description: Revenue metrics and breakdown
+      security:
+        - api-key: []
+      summary: Get revenue analytics
+      tags:
+        - Analytics
+  /api/analytics/subscriptions:
+    get:
+      description: Retrieve subscription metrics including active count, churn rate,
+        new subscriptions, and status distribution.
+      operationId: AnalyticsController_subscriptions
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            example: 2025-01-01
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            example: 2025-12-31
+            type: string
+        - name: currency
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: groupBy
+          required: false
+          in: query
+          schema:
+            default: month
+            type: string
+            enum:
+              - day
+              - week
+              - month
+      responses:
+        "200":
+          description: Subscription metrics and trends
+      security:
+        - api-key: []
+      summary: Get subscription analytics
+      tags:
+        - Analytics
+  /api/analytics/customers:
+    get:
+      description: Retrieve customer metrics including total count, new customers, and
+        geographic distribution.
+      operationId: AnalyticsController_customers
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            example: 2025-01-01
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            example: 2025-12-31
+            type: string
+        - name: currency
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: groupBy
+          required: false
+          in: query
+          schema:
+            default: month
+            type: string
+            enum:
+              - day
+              - week
+              - month
+      responses:
+        "200":
+          description: Customer metrics and distribution
+      security:
+        - api-key: []
+      summary: Get customer analytics
+      tags:
+        - Analytics
+  /api/analytics/payments:
+    get:
+      description: Retrieve payment metrics including success rate, failure rate,
+        total volume, and breakdown by payment provider.
+      operationId: AnalyticsController_payments
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            example: 2025-01-01
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            example: 2025-12-31
+            type: string
+        - name: currency
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: groupBy
+          required: false
+          in: query
+          schema:
+            default: month
+            type: string
+            enum:
+              - day
+              - week
+              - month
+        - name: provider
+          required: false
+          in: query
+          description: Filter by payment provider name
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment metrics and provider breakdown
+      security:
+        - api-key: []
+      summary: Get payment analytics
+      tags:
+        - Analytics
+info:
+  title: NovaBilling API
+  description: >-
+    NovaBilling is a multi-tenant billing and subscription management API. It
+    supports African and global payment providers including Stripe, Paystack,
+    Flutterwave, and M-Pesa.
+
+
+    ## Authentication
+
+    - **JWT (Bearer)**: Used for tenant management endpoints
+    (`/api/tenants/me/*`, `/api/auth/*`). Obtain tokens via `/api/auth/login`.
+
+    - **API Key**: Used for all billing resource endpoints (customers, plans,
+    subscriptions, invoices, payments, analytics). Pass your API key in the
+    `Authorization` header as `Bearer sk_live_...`.
+
+
+    ## Webhooks
+
+    Payment provider webhooks are received at `/webhooks/{provider}` (no `/api`
+    prefix). Configure your provider dashboard to point to these URLs.
+
+    NovaBilling also forwards billing events to your application via the webhook
+    URL configured in your tenant settings.
+  version: "1.0"
+  contact: {}
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Tenants
+    description: Tenant management
+  - name: Customers
+    description: Customer management
+  - name: Plans
+    description: Plan management
+  - name: Subscriptions
+    description: Subscription management
+  - name: Invoices
+    description: Invoice management
+  - name: Payments
+    description: Payment management
+  - name: Payment Providers
+    description: Payment provider configuration
+  - name: Webhooks
+    description: Webhook endpoints
+  - name: Analytics
+    description: Analytics and reporting
+servers:
+  - url: http://localhost:3000
+    description: API Server
+components:
+  securitySchemes:
+    JWT:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+    api-key:
+      type: apiKey
+      in: header
+      name: Authorization
+  schemas:
+    RegisterDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: John Doe
+          description: Full name of the tenant owner
+        email:
+          type: string
+          example: john@company.com
+          description: Email address
+        password:
+          type: string
+          example: securePassword123
+          description: Password (min 8 characters)
+        companyName:
+          type: string
+          example: Acme Corp
+          description: Company name (used to generate slug)
+      required:
+        - name
+        - email
+        - password
+        - companyName
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: john@company.com
+        password:
+          type: string
+          example: securePassword123
+      required:
+        - email
+        - password
+    RefreshTokenDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: Refresh token
+      required:
+        - refreshToken
+    ForgotPasswordDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: john@company.com
+      required:
+        - email
+    ResetPasswordDto:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Password reset token
+        newPassword:
+          type: string
+          example: newSecurePassword123
+          description: New password (min 8 characters)
+      required:
+        - token
+        - newPassword
+    UpdateTenantDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Updated Company Name
+        webhookUrl:
+          type: string
+          example: https://example.com/webhooks
+        settings:
+          type: object
+          description: Custom tenant settings
+    CreateApiKeyBodyDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Production API Key
+        scopes:
+          example:
+            - read
+            - write
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+      required:
+        - name
+        - scopes
+    CreateCustomerDto:
+      type: object
+      properties:
+        externalId:
+          type: string
+          example: user_12345
+          description: Tenant's user ID
+        email:
+          type: string
+          example: customer@example.com
+        name:
+          type: string
+          example: Jane Doe
+        country:
+          type: string
+          example: NG
+        currency:
+          type: string
+          example: NGN
+          description: ISO currency code
+        metadata:
+          type: object
+          description: Custom metadata
+      required:
+        - externalId
+        - email
+        - currency
+    UpdateCustomerDto:
+      type: object
+      properties:
+        externalId:
+          type: string
+          example: user_12345
+          description: Tenant's user ID
+        email:
+          type: string
+          example: customer@example.com
+        name:
+          type: string
+          example: Jane Doe
+        country:
+          type: string
+          example: NG
+        currency:
+          type: string
+          example: NGN
+          description: ISO currency code
+        metadata:
+          type: object
+          description: Custom metadata
+    CreatePlanPriceDto:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: NGN
+          description: ISO currency code
+        amount:
+          type: number
+          example: 9999.99
+          description: Price amount
+      required:
+        - currency
+        - amount
+    CreatePlanDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Premium Monthly
+        code:
+          type: string
+          example: premium_monthly
+          description: Unique plan code (lowercase, underscores)
+        description:
+          type: string
+          example: Premium plan with all features
+        billingInterval:
+          type: string
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - YEARLY
+          example: MONTHLY
+        features:
+          example:
+            - Unlimited users
+            - Priority support
+          type: array
+          items:
+            type: string
+        prices:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreatePlanPriceDto"
+      required:
+        - name
+        - code
+        - billingInterval
+    UpdatePlanDto:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        billingInterval:
+          type: string
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - YEARLY
+        features:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+    CreateSubscriptionDto:
+      type: object
+      properties:
+        customerId:
+          type: string
+          description: Customer ID
+        planId:
+          type: string
+          description: Plan ID
+        currency:
+          type: string
+          example: NGN
+          description: Currency for billing
+        trialDays:
+          type: number
+          example: 14
+          description: Number of trial days
+        metadata:
+          type: object
+      required:
+        - customerId
+        - planId
+        - currency
+    UpdateSubscriptionDto:
+      type: object
+      properties:
+        metadata:
+          type: object
+    CancelSubscriptionDto:
+      type: object
+      properties:
+        cancelAt:
+          type: string
+          enum:
+            - now
+            - period_end
+          description: "When to cancel: immediately or at end of current period"
+      required:
+        - cancelAt
+    ChangePlanDto:
+      type: object
+      properties:
+        newPlanId:
+          type: string
+          description: New plan ID
+        prorate:
+          type: boolean
+          default: false
+          description: Whether to prorate charges
+      required:
+        - newPlanId
+    InvoiceItemDto:
+      type: object
+      properties:
+        description:
+          type: string
+          example: Premium Monthly Plan
+        quantity:
+          type: number
+          example: 1
+        unitAmount:
+          type: number
+          example: 9999.99
+      required:
+        - description
+        - quantity
+        - unitAmount
+    CreateInvoiceDto:
+      type: object
+      properties:
+        customerId:
+          type: string
+          description: Customer ID
+        subscriptionId:
+          type: string
+          description: Subscription ID (optional)
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceItemDto"
+        dueDate:
+          type: string
+          example: 2025-02-15
+          description: Due date
+      required:
+        - customerId
+        - items
+        - dueDate
+    RefundPaymentDto:
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Amount to refund (full refund if omitted)
+        reason:
+          type: string
+          description: Reason for refund
+    CreateProviderDto:
+      type: object
+      properties:
+        providerName:
+          type: string
+          example: flutterwave
+          description: Provider name
+        credentials:
+          type: object
+          description: Provider credentials (will be encrypted)
+        isActive:
+          type: boolean
+          default: true
+        priority:
+          type: number
+          default: 1
+          description: Priority (lower = higher)
+      required:
+        - providerName
+        - credentials
+    UpdateProviderDto:
+      type: object
+      properties:
+        providerName:
+          type: string
+          example: flutterwave
+          description: Provider name
+        credentials:
+          type: object
+          description: Provider credentials (will be encrypted)
+        isActive:
+          type: boolean
+          default: true
+        priority:
+          type: number
+          default: 1
+          description: Priority (lower = higher)

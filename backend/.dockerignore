@@ -1,0 +1,54 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build output
+dist
+build
+.next
+out
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Testing
+coverage
+.nyc_output
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+logs
+*.log
+
+# Temp files
+*.tmp
+.cache
+
+# Prisma (keep migrations if they exist)
+# prisma/migrations
+
+# Uploads (if you have local uploads for development)
+uploads

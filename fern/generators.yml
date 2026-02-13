@@ -1,0 +1,46 @@
+api:
+  specs:
+    - openapi: ../backend/api-1.yaml
+      overrides: overrides.yml
+
+default-group: local
+groups:
+  local:
+    generators:
+      - name: fernapi/fern-typescript-sdk
+        version: 3.46.3
+        output:
+          location: local-file-system
+          path: ../sdks/typescript
+        config:
+          namespaceExport: NovaBilling
+
+      - name: fernapi/fern-python-sdk
+        version: 4.55.1
+        output:
+          location: local-file-system
+          path: ../sdks/python
+        config:
+          client_class_name: NovaBilling
+          package_name: novabilling
+
+  publish:
+    generators:
+      - name: fernapi/fern-typescript-sdk
+        version: 3.46.3
+        output:
+          location: npm
+          package-name: novabilling
+          token: ${NPM_TOKEN}
+        config:
+          namespaceExport: NovaBilling
+
+      - name: fernapi/fern-python-sdk
+        version: 4.55.1
+        output:
+          location: pypi
+          package-name: novabilling
+          token: ${PYPI_TOKEN}
+        config:
+          client_class_name: NovaBilling
+          package_name: novabilling

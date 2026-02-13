@@ -1,0 +1,118 @@
+# Backend-only compose for standalone development.
+# For the full stack (landing, dashboard, docs), use the root docker-compose.yml.
+services:
+  # Central management database
+  central-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: central
+      POSTGRES_USER: central
+      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD:-centralpass}
+    volumes:
+      - central_db_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U central']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Internal PostgreSQL for tenant databases
+  internal-tenant-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${TENANT_DB_PASSWORD:-tenantpass}
+    volumes:
+      - internal_tenant_db_data:/var/lib/postgresql/data
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for BullMQ
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NestJS API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:-centralpass}@central-db:5432/central
+      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRATION: 1h
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      JWT_REFRESH_EXPIRATION: 7d
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.example.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@novabilling.com}
+      PDF_STORAGE_PATH: /app/uploads/invoices
+    ports:
+      - '3000:3000'
+    depends_on:
+      central-db:
+        condition: service_healthy
+      internal-tenant-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  # BullMQ Worker (separate container)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:-centralpass}@central-db:5432/central
+      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRATION: 1h
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      JWT_REFRESH_EXPIRATION: 7d
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.example.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@novabilling.com}
+    command: node dist/main
+    depends_on:
+      central-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+    restart: unless-stopped
+
+volumes:
+  central_db_data:
+  internal_tenant_db_data:
+  redis_data:

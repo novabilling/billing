@@ -1,0 +1,78 @@
+# NovaBilling — Nginx reverse proxy configuration
+#
+# Copy to /etc/nginx/sites-available/novabilling.conf
+# then:  ln -s /etc/nginx/sites-available/novabilling.conf /etc/nginx/sites-enabled/
+#         nginx -t && systemctl reload nginx
+#
+# SSL with Certbot:
+#   apt install certbot python3-certbot-nginx
+#   certbot --nginx -d yourdomain.com -d api.yourdomain.com -d app.yourdomain.com -d docs.yourdomain.com
+#
+# Replace "yourdomain.com" with your actual domain.
+
+# ─── Landing page (yourdomain.com) ──────────────────────────────
+server {
+    listen 80;
+    server_name yourdomain.com www.yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:4001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# ─── API (api.yourdomain.com) ───────────────────────────────────
+server {
+    listen 80;
+    server_name api.yourdomain.com;
+
+    client_max_body_size 10M;
+
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Webhook endpoints may take time
+        proxy_read_timeout 30s;
+    }
+}
+
+# ─── Dashboard (app.yourdomain.com) ─────────────────────────────
+server {
+    listen 80;
+    server_name app.yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:4002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+# ─── Docs (docs.yourdomain.com) ─────────────────────────────────
+server {
+    listen 80;
+    server_name docs.yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:4003;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

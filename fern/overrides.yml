@@ -1,0 +1,206 @@
+paths:
+  /api/auth/login:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: login
+  /api/auth/register:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: register
+  /api/auth/refresh:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: refreshToken
+  /api/auth/forgot-password:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: forgotPassword
+  /api/auth/reset-password:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: resetPassword
+  /api/tenants/me:
+    get:
+      x-fern-sdk-group-name: tenants
+      x-fern-sdk-method-name: getMe
+    patch:
+      x-fern-sdk-group-name: tenants
+      x-fern-sdk-method-name: updateMe
+  /api/tenants/me/usage:
+    get:
+      x-fern-sdk-group-name: tenants
+      x-fern-sdk-method-name: getUsage
+  /api/tenants/me/api-keys:
+    get:
+      x-fern-sdk-group-name: apiKeys
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: apiKeys
+      x-fern-sdk-method-name: create
+  /api/tenants/me/api-keys/{id}:
+    delete:
+      x-fern-sdk-group-name: apiKeys
+      x-fern-sdk-method-name: delete
+  /api/customers:
+    get:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: create
+  /api/customers/{id}:
+    get:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: delete
+  /api/customers/{id}/subscriptions:
+    get:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: getSubscriptions
+  /api/customers/{id}/invoices:
+    get:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: getInvoices
+  /api/customers/{id}/payments:
+    get:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: getPayments
+  /api/plans:
+    get:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: create
+  /api/plans/{id}:
+    get:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: delete
+  /api/plans/{id}/prices:
+    post:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: addPrice
+  /api/plans/{id}/prices/{priceId}:
+    patch:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: updatePrice
+    delete:
+      x-fern-sdk-group-name: plans
+      x-fern-sdk-method-name: deletePrice
+  /api/subscriptions:
+    get:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: create
+  /api/subscriptions/{id}:
+    get:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: update
+  /api/subscriptions/{id}/cancel:
+    post:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: cancel
+  /api/subscriptions/{id}/pause:
+    post:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: pause
+  /api/subscriptions/{id}/resume:
+    post:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: resume
+  /api/subscriptions/{id}/change-plan:
+    post:
+      x-fern-sdk-group-name: subscriptions
+      x-fern-sdk-method-name: changePlan
+  /api/invoices:
+    get:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: create
+  /api/invoices/{id}:
+    get:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: get
+  /api/invoices/{id}/finalize:
+    post:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: finalize
+  /api/invoices/{id}/void:
+    post:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: void
+  /api/invoices/{id}/mark-paid:
+    post:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: markPaid
+  /api/invoices/{id}/pdf:
+    get:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: getPdf
+  /api/payments:
+    get:
+      x-fern-sdk-group-name: payments
+      x-fern-sdk-method-name: list
+  /api/payments/{id}:
+    get:
+      x-fern-sdk-group-name: payments
+      x-fern-sdk-method-name: get
+  /api/payments/{id}/refund:
+    post:
+      x-fern-sdk-group-name: payments
+      x-fern-sdk-method-name: refund
+  /api/payment-providers:
+    get:
+      x-fern-sdk-group-name: paymentProviders
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: paymentProviders
+      x-fern-sdk-method-name: configure
+  /api/payment-providers/{id}:
+    get:
+      x-fern-sdk-group-name: paymentProviders
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: paymentProviders
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: paymentProviders
+      x-fern-sdk-method-name: delete
+  /api/payment-providers/{id}/test:
+    post:
+      x-fern-sdk-group-name: paymentProviders
+      x-fern-sdk-method-name: testConnection
+  /api/analytics/revenue:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getRevenue
+  /api/analytics/subscriptions:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getSubscriptions
+  /api/analytics/customers:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getCustomers
+  /api/analytics/payments:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getPayments

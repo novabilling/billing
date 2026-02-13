@@ -1,0 +1,26 @@
+# Production override — uses pre-built images from GHCR
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Set GHCR_OWNER to your GitHub org (e.g., novabilling)
+# Images: ghcr.io/${GHCR_OWNER}/api:latest, etc.
+
+services:
+  api:
+    image: ghcr.io/${GHCR_OWNER:-novabilling}/api:latest
+    build: !reset null
+
+  worker:
+    image: ghcr.io/${GHCR_OWNER:-novabilling}/api:latest
+    build: !reset null
+
+  landing:
+    image: ghcr.io/${GHCR_OWNER:-novabilling}/landing:latest
+    build: !reset null
+
+  dashboard:
+    image: ghcr.io/${GHCR_OWNER:-novabilling}/dashboard:latest
+    build: !reset null
+
+  docs:
+    image: ghcr.io/${GHCR_OWNER:-novabilling}/docs:latest
+    build: !reset null

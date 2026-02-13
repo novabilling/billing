@@ -1,0 +1,102 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma-central"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DatabaseProvider {
+  INTERNAL
+}
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  email        String   @unique
+  password     String
+  apiKey       String   @unique @default(cuid())
+  webhookUrl   String?
+  webhookSecret String?
+  isActive     Boolean  @default(true)
+  settings     Json?
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  databaseConnection DatabaseConnection?
+  tenantBilling      TenantBilling?
+  apiKeys            ApiKey[]
+  webhookLogs        WebhookLog[]
+
+  @@index([apiKey])
+  @@index([slug])
+  @@index([email])
+}
+
+model DatabaseConnection {
+  id              String           @id @default(cuid())
+  tenantId        String           @unique
+  provider        DatabaseProvider @default(INTERNAL)
+  connectionUrl   String
+  isHealthy       Boolean          @default(true)
+  lastHealthCheck DateTime?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model TenantBilling {
+  id               String    @id @default(cuid())
+  tenantId         String    @unique
+  stripeCustomerId String?   @unique
+  planId           String?
+  status           String    @default("active")
+  trialEndsAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id        String    @id @default(cuid())
+  tenantId  String
+  key       String    @unique
+  name      String
+  scopes    String[]
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([key])
+}
+
+model WebhookLog {
+  id           String   @id @default(cuid())
+  tenantId     String
+  event        String
+  url          String
+  payload      Json
+  response     Json?
+  statusCode   Int?
+  success      Boolean  @default(false)
+  attemptCount Int      @default(1)
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([event])
+  @@index([createdAt])
+}

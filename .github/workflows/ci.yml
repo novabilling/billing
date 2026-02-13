@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Backend: lint, type-check, unit tests
+  # ──────────────────────────────────────────────
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma clients
+        run: |
+          npx prisma generate --schema=./prisma/schema-central.prisma
+          npx prisma generate --schema=./prisma/schema-tenant.prisma
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx jest test/unit --no-coverage --forceExit
+
+  # ──────────────────────────────────────────────
+  # Dashboard: type-check and build
+  # ──────────────────────────────────────────────
+  dashboard-build:
+    name: Dashboard Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  # ──────────────────────────────────────────────
+  # Landing: type-check and build
+  # ──────────────────────────────────────────────
+  landing-build:
+    name: Landing Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: landing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: landing/package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  # ──────────────────────────────────────────────
+  # E2E: full stack with Docker Compose
+  # Runs only on push to main (saves minutes on PRs)
+  # ──────────────────────────────────────────────
+  e2e-test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend-test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose up -d --build --wait
+        timeout-minutes: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install test dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/health > /dev/null 2>&1; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 5
+          done
+          echo "API failed to start"
+          docker compose logs api
+          exit 1
+
+      - name: Run E2E tests
+        working-directory: backend
+        run: npx jest test/e2e --runInBand --no-coverage --forceExit
+        env:
+          E2E_API_URL: http://localhost:4000
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
+
+  # ──────────────────────────────────────────────
+  # Docker build check (ensures images build)
+  # ──────────────────────────────────────────────
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        service: [backend, dashboard, landing, docs]
+        include:
+          - service: backend
+            context: ./backend
+          - service: dashboard
+            context: ./dashboard
+          - service: landing
+            context: ./landing
+          - service: docs
+            context: ./docs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.service }}
+        run: docker build -t novabilling/${{ matrix.service }}:ci ${{ matrix.context }}

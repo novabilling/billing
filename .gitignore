@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+.nuxt/
+.output/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-workspace
+
+# Logs
+*.log
+npm-debug.log*
+
+# Generated SDKs (rebuild from Fern)
+sdks/typescript/
+sdks/python/
+
+# Uploads
+uploads/
+
+# Coverage
+coverage/
+
+# Temp
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+CLAUDE.md
+

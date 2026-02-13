@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+:root {
+    --bg: #ffffff;
+    --fg: #0a0a0a;
+    --primary: #6d28d9;
+    --primary-light: #8b5cf6;
+    --primary-dark: #5b21b6;
+    --muted: #6b7280;
+    --muted-light: #9ca3af;
+    --border: #e5e7eb;
+    --card: #f9fafb;
+    --card-hover: #f3f4f6;
+    --surface: #ffffff;
+    --accent-green: #10b981;
+    --accent-blue: #3b82f6;
+    --accent-orange: #f59e0b;
+    --accent-pink: #ec4899;
+    --hero-glow: rgba(109, 40, 217, 0.08);
+    --code-bg: #0d1117;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #050507;
+        --fg: #f0f0f3;
+        --primary: #8b5cf6;
+        --primary-light: #a78bfa;
+        --primary-dark: #7c3aed;
+        --muted: #9ca3af;
+        --muted-light: #6b7280;
+        --border: #1e1e24;
+        --card: #0e0e12;
+        --card-hover: #16161d;
+        --surface: #111116;
+        --accent-green: #34d399;
+        --accent-blue: #60a5fa;
+        --accent-orange: #fbbf24;
+        --accent-pink: #f472b6;
+        --hero-glow: rgba(139, 92, 246, 0.06);
+        --code-bg: #0a0a0f;
+    }
+}
+
+body {
+    background: var(--bg);
+    color: var(--fg);
+}
+
+/* Gradient text utility */
+.text-gradient {
+    background: linear-gradient(
+        135deg,
+        var(--primary),
+        var(--primary-light),
+        var(--accent-pink)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Glow effects */
+.glow-primary {
+    box-shadow:
+        0 0 80px rgba(109, 40, 217, 0.15),
+        0 0 160px rgba(109, 40, 217, 0.05);
+}
+
+.glow-card {
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+    .glow-primary {
+        box-shadow:
+            0 0 80px rgba(139, 92, 246, 0.12),
+            0 0 160px rgba(139, 92, 246, 0.04);
+    }
+    .glow-card {
+        box-shadow:
+            0 1px 3px rgba(0, 0, 0, 0.2),
+            0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+}
+
+/* Animated gradient border */
+@keyframes border-rotate {
+    from {
+        --angle: 0deg;
+    }
+    to {
+        --angle: 360deg;
+    }
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Stats counter animation */
+@keyframes count-up {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-count {
+    animation: count-up 0.6s ease-out forwards;
+}
+
+/* Floating animation for decorative elements */
+@keyframes float {
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+/* Staggered fade-in */
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in-up 0.6s ease-out forwards;
+}
