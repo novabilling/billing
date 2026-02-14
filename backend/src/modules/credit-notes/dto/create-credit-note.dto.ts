@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsNumber, Min, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsDateString, Min, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateCreditNoteDto {
@@ -27,6 +27,16 @@ export class CreateCreditNoteDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: 'Override status for imports', enum: ['DRAFT', 'FINALIZED', 'VOIDED'] })
+  @IsOptional()
+  @IsEnum(['DRAFT', 'FINALIZED', 'VOIDED'] as const)
+  status?: 'DRAFT' | 'FINALIZED' | 'VOIDED';
+
+  @ApiPropertyOptional({ description: 'Backdate createdAt (ISO 8601). For data imports.' })
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
 }
 
 export class UpdateCreditNoteDto {

@@ -97,6 +97,7 @@ export class EmailService {
     template: string,
     context: Record<string, unknown>,
     tenantId?: string,
+    attachments?: { filename: string; content: string; contentType: string }[],
   ): Promise<void> {
     const { transporter, from } = await this.getTransporterForTenant(tenantId);
 
@@ -108,6 +109,12 @@ export class EmailService {
 
     const html = this.renderTemplate(template, context);
 
+    const mailAttachments = attachments?.map((a) => ({
+      filename: a.filename,
+      content: Buffer.from(a.content, 'base64'),
+      contentType: a.contentType,
+    }));
+
     try {
       await transporter.sendMail({
         from,
@@ -115,6 +122,7 @@ export class EmailService {
         subject,
         html,
         text: this.stripHtml(html),
+        ...(mailAttachments?.length && { attachments: mailAttachments }),
       });
       this.logger.log(`Email sent to ${to}: ${subject}${tenantId ? ` (tenant: ${tenantId})` : ''}`);
     } catch (error) {
@@ -357,7 +365,7 @@ Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span
             metricRow('Due date', s('dueDate')) +
             metricRow('Status', 'Pending'),
         ),
-        context.pdfUrl ? button('Download Invoice PDF', String(context.pdfUrl)) : '',
+        paragraph('The invoice PDF is attached to this email for your records.'),
         paragraph('Please ensure payment is made by the due date to avoid service interruption.'),
       ].join('\n'),
 
@@ -426,7 +434,7 @@ Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span
             metricRow('Amount', `${s('currency')} ${s('amount')}`) +
             metricRow('Due date', s('dueDate')),
         ),
-        context.pdfUrl ? button('View Invoice', String(context.pdfUrl)) : '',
+        paragraph('The invoice PDF is attached for your reference.'),
         paragraph('Please ensure payment is made by the due date to avoid any disruption to your service.'),
       ].join('\n'),
 
@@ -442,7 +450,7 @@ Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span
             metricRow('Amount', `${s('currency')} ${s('amount')}`) +
             metricRow('Status', badge('Due Today', '#fef3c7', '#92400e')),
         ),
-        context.pdfUrl ? button('Pay Now', String(context.pdfUrl)) : '',
+        paragraph('The invoice PDF is attached for your reference.'),
         paragraph('Please make your payment today to avoid service interruption.'),
       ].join('\n'),
 
@@ -459,7 +467,7 @@ Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span
             metricRow('Due date', s('dueDate')) +
             metricRow('Status', badge('Overdue', '#fee2e2', '#991b1b')),
         ),
-        context.pdfUrl ? button('Pay Now', String(context.pdfUrl)) : '',
+        paragraph('The invoice PDF is attached for your reference.'),
         paragraph('Please make your payment as soon as possible to avoid service interruption or account suspension.'),
       ].join('\n'),
 

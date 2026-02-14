@@ -1,7 +1,8 @@
-import { Controller, Post, Body, Headers, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Headers, HttpCode, HttpStatus, Logger, Req, RawBodyRequest } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
@@ -132,11 +133,13 @@ export class WebhooksController {
   @ApiHeader({ name: 'stripe-signature', description: 'Stripe webhook signature', required: true })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   async stripe(
+    @Req() req: RawBodyRequest<Request>,
     @Body() payload: Record<string, unknown>,
     @Headers('stripe-signature') signature: string,
   ) {
     this.logger.log('Stripe webhook received');
-    await this.processProviderWebhook('stripe', payload, signature || '');
+    const rawBody = req.rawBody?.toString('utf8');
+    await this.processProviderWebhook('stripe', payload, signature || '', rawBody);
     return { received: true };
   }
 
@@ -151,6 +154,7 @@ export class WebhooksController {
     providerName: string,
     payload: Record<string, unknown>,
     signature: string,
+    rawBody?: string,
   ): Promise<void> {
     // Find all tenants that have this provider configured
     const tenants = await this.centralPrisma.client.tenant.findMany({
@@ -174,7 +178,7 @@ export class WebhooksController {
         // Verify signature and parse webhook data
         let webhookData;
         try {
-          webhookData = await provider.handleWebhook(payload, signature);
+          webhookData = await provider.handleWebhook(payload, signature, rawBody);
         } catch (error) {
           this.logger.warn(
             `Webhook signature verification failed for tenant ${tenant.id}: ${

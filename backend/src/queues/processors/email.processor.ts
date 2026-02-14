@@ -22,11 +22,11 @@ export class EmailProcessor extends WorkerHost {
   }
 
   private async handleSendEmail(job: Job<SendEmailData>): Promise<void> {
-    const { to, subject, template, context, tenantId } = job.data;
+    const { to, subject, template, context, tenantId, attachments } = job.data;
     this.logger.log(`Sending email to ${to}: ${subject}`);
 
     try {
-      await this.emailService.sendMail(to, subject, template, context, tenantId);
+      await this.emailService.sendMail(to, subject, template, context, tenantId, attachments);
       this.logger.log(`Email sent to ${to}`);
     } catch (error) {
       this.logger.error(`Failed to send email to ${to}`, error);

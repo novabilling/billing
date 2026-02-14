@@ -413,7 +413,7 @@ export class PdfService {
    * Used in emails where relative URLs don't work.
    */
   getInvoiceApiUrl(invoiceId: string): string {
-    const baseUrl = this.configService.get<string>('API_BASE_URL', 'http://localhost:3000');
-    return `${baseUrl}/invoices/${invoiceId}/pdf`;
+    const baseUrl = this.configService.get<string>('API_BASE_URL', 'http://localhost:4000');
+    return `${baseUrl}/api/invoices/${invoiceId}/pdf`;
   }
 }

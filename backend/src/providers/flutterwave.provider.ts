@@ -14,6 +14,7 @@ interface FlutterwaveCredentials {
   publicKey: string;
   secretKey: string;
   encryptionKey: string;
+  secretHash?: string;
 }
 
 export class FlutterwaveProvider extends BasePaymentProvider {
@@ -134,7 +135,14 @@ export class FlutterwaveProvider extends BasePaymentProvider {
     };
   }
 
-  async handleWebhook(payload: Record<string, unknown>, _signature: string): Promise<WebhookData> {
+  async handleWebhook(payload: Record<string, unknown>, signature: string): Promise<WebhookData> {
+    // Verify Flutterwave secret hash (verif-hash header must match stored secretHash)
+    if (this.credentials.secretHash) {
+      if (!signature || signature !== this.credentials.secretHash) {
+        throw new Error('Invalid Flutterwave webhook signature');
+      }
+    }
+
     const data = payload.data as Record<string, unknown> | undefined;
     const card = data?.card as Record<string, unknown> | undefined;
 

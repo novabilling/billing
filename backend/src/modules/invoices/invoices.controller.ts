@@ -105,9 +105,22 @@ export class InvoicesController {
   @ApiOperation({
     summary: 'Manually mark invoice as paid',
     description:
-      'Record an offline or manual payment against an invoice. Creates a payment record with provider "manual".',
+      'Record an offline or manual payment against an invoice. ' +
+      'Accepts an optional paymentMethod (e.g. "cash", "bank_transfer", "check", "manual").',
   })
   @ApiParam({ name: 'id', description: 'Invoice ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        paymentMethod: {
+          type: 'string',
+          description: 'Payment method used (cash, bank_transfer, check, manual). Defaults to "manual".',
+          example: 'cash',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 200, description: 'Invoice marked as paid', type: InvoiceResponse })
   @ApiResponse({ status: 400, description: 'Invoice is already paid' })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
@@ -115,8 +128,9 @@ export class InvoicesController {
     @TenantDb() db: PrismaClient,
     @Tenant() tenant: { id: string },
     @Param('id') id: string,
+    @Body() body: { paymentMethod?: string },
   ) {
-    return this.invoicesService.markPaid(db, tenant.id, id);
+    return this.invoicesService.markPaid(db, tenant.id, id, body.paymentMethod);
   }
 
   @Post(':id/checkout')

@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsObject,
   IsInt,
+  IsDateString,
   Min,
   Max,
   MaxLength,
@@ -51,4 +52,9 @@ export class CreateCustomerDto {
   @Max(365)
   @IsOptional()
   netPaymentTerms?: number;
+
+  @ApiProperty({ required: false, description: 'Backdate createdAt (ISO 8601). For data imports.' })
+  @IsDateString()
+  @IsOptional()
+  createdAt?: string;
 }

@@ -8,6 +8,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { PaymentsService } from './payments.service';
 import { PaymentQueryDto } from './dto/payment-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentResponse, PaginatedPaymentResponse } from './dto/payment-response.dto';
 
 @ApiTags('Payments')
@@ -32,6 +33,23 @@ export class PaymentsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(@TenantDb() db: PrismaClient, @Query() query: PaymentQueryDto) {
     return this.paymentsService.findAll(db, query);
+  }
+
+  @Post()
+  @ApiOperation({
+    summary: 'Create a payment record',
+    description:
+      'Create a payment record manually. Useful for importing historical data. ' +
+      'If status is SUCCEEDED, the associated invoice will also be marked as paid.',
+  })
+  @ApiResponse({ status: 201, description: 'Payment created', type: PaymentResponse })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  async create(
+    @TenantDb() db: PrismaClient,
+    @Tenant() tenant: { id: string },
+    @Body() dto: CreatePaymentDto,
+  ) {
+    return this.paymentsService.create(db, tenant.id, dto);
   }
 
   @Get(':id')

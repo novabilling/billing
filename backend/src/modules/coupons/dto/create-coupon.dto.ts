@@ -44,6 +44,11 @@ export class CreateCouponDto {
   @IsOptional()
   @IsDateString()
   expiresAt?: string;
+
+  @ApiPropertyOptional({ description: 'Backdate createdAt (ISO 8601). For data imports.' })
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
 }
 
 export class ApplyCouponDto {

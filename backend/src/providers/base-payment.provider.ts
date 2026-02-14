@@ -93,7 +93,7 @@ export abstract class BasePaymentProvider {
 
   abstract getPaymentStatus(transactionId: string): Promise<PaymentStatusResult>;
 
-  abstract handleWebhook(payload: Record<string, unknown>, signature: string): Promise<WebhookData>;
+  abstract handleWebhook(payload: Record<string, unknown>, signature: string, rawBody?: string): Promise<WebhookData>;
 
   abstract testConnection(): Promise<boolean>;
 
