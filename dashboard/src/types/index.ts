@@ -90,7 +90,7 @@ export interface Payment {
   customerName: string;
   amount: number;
   currency: string;
-  provider: "stripe" | "flutterwave" | "paystack" | "mpesa";
+  provider: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal";
   status: "succeeded" | "failed" | "pending" | "refunded";
   createdAt: string;
   updatedAt: string;
@@ -100,7 +100,7 @@ export interface Payment {
 export interface PaymentProvider {
   id: string;
   name: string;
-  code: "stripe" | "flutterwave" | "paystack" | "mpesa";
+  code: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal";
   description: string;
   isConfigured: boolean;
   isActive: boolean;

@@ -35,6 +35,12 @@ import { formatCurrency } from "@/lib/utils/currency";
 import type { Plan } from "@/types";
 import { toast } from "sonner";
 
+const SUPPORTED_CURRENCIES = [
+  "USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "UGX",
+  "TZS", "RWF", "XOF", "XAF", "EGP", "MAD", "INR", "BRL",
+  "CAD", "AUD", "JPY", "CNY",
+];
+
 interface PlanForm {
   name: string;
   code: string;
@@ -242,17 +248,26 @@ export default function PlansPage() {
       </div>
 
       {/* Currency Selector */}
-      <div className="flex gap-2">
-        {["USD", "NGN", "KES", "GHS", "ZAR"].map((currency) => (
-          <Button
-            key={currency}
-            variant={selectedCurrency === currency ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCurrency(currency)}
-          >
-            {currency}
-          </Button>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        {(() => {
+          const usedCurrencies = new Set<string>();
+          plans.forEach((plan) =>
+            plan.prices.forEach((p) => usedCurrencies.add(p.currency)),
+          );
+          const currencies = usedCurrencies.size > 0
+            ? Array.from(usedCurrencies).sort()
+            : ["USD"];
+          return currencies.map((currency) => (
+            <Button
+              key={currency}
+              variant={selectedCurrency === currency ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCurrency(currency)}
+            >
+              {currency}
+            </Button>
+          ));
+        })()}
       </div>
 
       {/* Plans Grid */}
@@ -512,16 +527,7 @@ export default function PlansPage() {
                         <SelectValue placeholder="Currency" />
                       </SelectTrigger>
                       <SelectContent>
-                        {[
-                          "USD",
-                          "NGN",
-                          "KES",
-                          "GHS",
-                          "ZAR",
-                          "UGX",
-                          "EUR",
-                          "GBP",
-                        ].map((c) => (
+                        {SUPPORTED_CURRENCIES.map((c) => (
                           <SelectItem key={c} value={c}>
                             {c}
                           </SelectItem>
