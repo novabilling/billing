@@ -310,7 +310,7 @@ export class PdfService {
         .font('Helvetica-Bold')
         .text('Total Due', totalsX, totalsY);
       doc.text(
-        `${invoice.currency} ${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        this.formatMoney(totalAmount, invoice.currency),
         totalsX,
         totalsY,
         { width: totalsWidth, align: 'right' },
@@ -381,8 +381,21 @@ export class PdfService {
     });
   }
 
+  private static readonly ZERO_DECIMAL_CURRENCIES = new Set([
+    'JPY', 'KRW', 'UGX', 'RWF', 'XOF', 'XAF', 'TZS',
+    'VND', 'CLP', 'GNF', 'BIF', 'DJF', 'KMF', 'PYG',
+  ]);
+
   private formatMoney(amount: number, currency: string): string {
-    return `${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const decimals = PdfService.ZERO_DECIMAL_CURRENCIES.has(currency?.toUpperCase()) ? 0 : 2;
+    return `${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  }
+
+  /** Format an amount as a string for use in emails and other contexts */
+  static formatAmount(amount: number | string | { toString(): string }, currency: string): string {
+    const num = Number(amount);
+    const decimals = PdfService.ZERO_DECIMAL_CURRENCIES.has(currency?.toUpperCase()) ? 0 : 2;
+    return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
 
   async savePdf(buffer: Buffer, filename: string): Promise<string> {
@@ -393,5 +406,14 @@ export class PdfService {
 
   getPublicUrl(filename: string): string {
     return `/uploads/invoices/${filename}`;
+  }
+
+  /**
+   * Returns the full API URL for downloading an invoice PDF via the API endpoint.
+   * Used in emails where relative URLs don't work.
+   */
+  getInvoiceApiUrl(invoiceId: string): string {
+    const baseUrl = this.configService.get<string>('API_BASE_URL', 'http://localhost:3000');
+    return `${baseUrl}/invoices/${invoiceId}/pdf`;
   }
 }

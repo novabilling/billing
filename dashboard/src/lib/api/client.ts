@@ -158,7 +158,7 @@ function mapInvoice(inv: any): Invoice {
 
   return {
     id: inv.id,
-    invoiceNumber: `INV-${inv.id.slice(-8).toUpperCase()}`,
+    invoiceNumber: inv.invoiceNumber || `INV-${inv.id.slice(-8).toUpperCase()}`,
     customerId: inv.customerId,
     customerName: inv.customer?.name || "",
     subscriptionId: inv.subscriptionId || undefined,
@@ -187,9 +187,8 @@ function mapPayment(p: any): Payment {
     id: p.id,
     transactionId: p.providerTransactionId || p.id.slice(-12).toUpperCase(),
     invoiceId: p.invoiceId || "",
-    invoiceNumber: p.invoiceId
-      ? `INV-${p.invoiceId.slice(-8).toUpperCase()}`
-      : "",
+    invoiceNumber: p.invoice?.invoiceNumber
+      || (p.invoiceId ? `INV-${p.invoiceId.slice(-8).toUpperCase()}` : ""),
     customerId: p.invoice?.customerId || "",
     customerName: p.invoice?.customer?.name || "",
     amount: Number(p.amount) || 0,

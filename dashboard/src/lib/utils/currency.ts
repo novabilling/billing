@@ -10,7 +10,27 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   TZS: "TSh",
   EGP: "E£",
   MAD: "DH",
+  JPY: "¥",
+  CNY: "¥",
+  INR: "₹",
+  BRL: "R$",
+  CAD: "C$",
+  AUD: "A$",
+  RWF: "RF",
+  XOF: "CFA",
+  XAF: "FCFA",
 };
+
+/** Currencies that have no decimal subunit (no cents) */
+export const ZERO_DECIMAL_CURRENCIES = new Set([
+  "JPY", "KRW", "UGX", "RWF", "XOF", "XAF", "TZS",
+  "VND", "CLP", "GNF", "BIF", "DJF", "KMF", "PYG",
+]);
+
+/** Returns the number of decimal places for a currency */
+export function getCurrencyDecimals(currency: string): number {
+  return ZERO_DECIMAL_CURRENCIES.has(currency?.toUpperCase()) ? 0 : 2;
+}
 
 export function formatCurrency(
   amount: number,
@@ -18,7 +38,8 @@ export function formatCurrency(
   options?: { showSymbol?: boolean; abbreviated?: boolean }
 ): string {
   const { showSymbol = true, abbreviated = false } = options || {};
-  
+  const decimals = getCurrencyDecimals(currency);
+
   let formattedAmount = amount;
   let suffix = "";
 
@@ -33,8 +54,8 @@ export function formatCurrency(
   }
 
   const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: abbreviated ? 1 : 2,
-    maximumFractionDigits: abbreviated ? 1 : 2,
+    minimumFractionDigits: abbreviated ? (decimals > 0 ? 1 : 0) : decimals,
+    maximumFractionDigits: abbreviated ? (decimals > 0 ? 1 : 0) : decimals,
   }).format(formattedAmount);
 
   if (showSymbol) {

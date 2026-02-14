@@ -619,10 +619,10 @@ export class BillingProcessor extends WorkerHost {
               tenantName: tenantInfo.name,
               customerName: customer.name || customer.email,
               invoiceId: invoiceNumber,
-              amount: String(totalAmount),
+              amount: PdfService.formatAmount(totalAmount, subscription.currency),
               currency: subscription.currency,
               dueDate: dueDate.toISOString().split('T')[0],
-              pdfUrl: pdfUrl || '',
+              pdfUrl: this.pdfService.getInvoiceApiUrl(invoice.id),
             },
           });
         }
@@ -735,7 +735,7 @@ export class BillingProcessor extends WorkerHost {
             context: {
               customerName: trial.customer.name || trial.customer.email,
               planName: trial.plan.name,
-              amount: price ? String(price.amount) : '0',
+              amount: price ? PdfService.formatAmount(price.amount, trial.currency) : '0',
               currency: trial.currency,
             },
           });
@@ -942,11 +942,11 @@ export class BillingProcessor extends WorkerHost {
               tenantName,
               customerName: invoice.customer.name || invoice.customer.email,
               invoiceId: invoice.invoiceNumber,
-              amount: String(invoice.amount),
+              amount: PdfService.formatAmount(invoice.amount, invoice.currency),
               currency: invoice.currency,
               dueDate: dueDateStr,
               daysOverdue: daysUntilDue < 0 ? String(Math.abs(daysUntilDue)) : '0',
-              pdfUrl: invoice.pdfUrl || '',
+              pdfUrl: this.pdfService.getInvoiceApiUrl(invoice.id),
             },
           });
 
@@ -1136,10 +1136,10 @@ export class BillingProcessor extends WorkerHost {
               tenantName,
               customerName: invoice.customer.name || invoice.customer.email,
               invoiceId: invoice.invoiceNumber,
-              amount: String(invoice.amount),
+              amount: PdfService.formatAmount(invoice.amount, invoice.currency),
               currency: invoice.currency,
               dueDate: invoice.dueDate?.toISOString().split('T')[0] || '',
-              pdfUrl: (invoice as any).pdfUrl || '',
+              pdfUrl: this.pdfService.getInvoiceApiUrl(invoice.id),
             },
           });
         }

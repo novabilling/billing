@@ -8,7 +8,7 @@ describe('BillingProcessor', () => {
   let processor: BillingProcessor;
   let centralPrisma: { client: Record<string, any> };
   let tenantDbService: { getTenantClient: jest.Mock };
-  let pdfService: { generateInvoicePDF: jest.Mock; savePdf: jest.Mock; getPublicUrl: jest.Mock };
+  let pdfService: { generateInvoicePDF: jest.Mock; savePdf: jest.Mock; getPublicUrl: jest.Mock; getInvoiceApiUrl: jest.Mock };
   let walletsService: { applyToInvoice: jest.Mock };
   let taxesService: { resolveTaxes: jest.Mock };
   let planOverridesService: {
@@ -37,6 +37,7 @@ describe('BillingProcessor', () => {
       generateInvoicePDF: jest.fn().mockResolvedValue(Buffer.from('pdf')),
       savePdf: jest.fn().mockResolvedValue(undefined),
       getPublicUrl: jest.fn().mockReturnValue('https://cdn.example.com/invoice.pdf'),
+      getInvoiceApiUrl: jest.fn().mockReturnValue('http://localhost:3000/invoices/test-id/pdf'),
     };
     walletsService = { applyToInvoice: jest.fn().mockResolvedValue(0) };
     taxesService = { resolveTaxes: jest.fn().mockResolvedValue([]) };

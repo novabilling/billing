@@ -67,7 +67,7 @@ export default function PlanOverridesPage() {
     try {
       const [overridesRes, customersRes, plansRes] = await Promise.all([
         apiClient.planOverrides.list({ limit: 100 }),
-        apiClient.customers.list({ limit: 200 }),
+        apiClient.customers.list({ limit: 100 }),
         apiClient.plans.list(),
       ]);
       setOverrides(overridesRes.data);
