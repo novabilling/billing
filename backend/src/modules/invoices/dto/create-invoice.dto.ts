@@ -30,4 +30,31 @@ export class CreateInvoiceDto {
   @ApiProperty({ example: '2025-02-15', description: 'Due date' })
   @IsDateString()
   dueDate: string;
+
+  // --- Backdating fields (for data imports) ---
+
+  @ApiProperty({ required: false, description: 'Override invoice status for imports', enum: ['DRAFT', 'PENDING', 'PAID', 'FAILED', 'CANCELED'] })
+  @IsOptional()
+  @IsString()
+  status?: 'DRAFT' | 'PENDING' | 'PAID' | 'FAILED' | 'CANCELED';
+
+  @ApiProperty({ required: false, description: 'Override invoice number (e.g. INV-00042). Auto-generated if omitted.' })
+  @IsOptional()
+  @IsString()
+  invoiceNumber?: string;
+
+  @ApiProperty({ required: false, description: 'Currency override (defaults to customer currency)' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiProperty({ required: false, description: 'Paid at date (ISO 8601). For importing paid invoices.' })
+  @IsOptional()
+  @IsDateString()
+  paidAt?: string;
+
+  @ApiProperty({ required: false, description: 'Backdate createdAt (ISO 8601). For data imports.' })
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
 }

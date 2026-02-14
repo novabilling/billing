@@ -101,6 +101,8 @@ export class CreditNotesService {
         currency: dto.currency.toUpperCase(),
         reason: dto.reason,
         metadata: dto.metadata as any,
+        ...(dto.status && { status: dto.status }),
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
       },
       include: {
         invoice: { select: { id: true, invoiceNumber: true, amount: true } },

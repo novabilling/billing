@@ -116,7 +116,8 @@ export class InvoicesService {
     }
 
     const totalAmount = dto.items.reduce((sum, item) => sum + item.quantity * item.unitAmount, 0);
-    const invoiceNumber = await this.generateInvoiceNumber(db);
+    const invoiceNumber = dto.invoiceNumber || await this.generateInvoiceNumber(db);
+    const currency = dto.currency?.toUpperCase() || customer.currency;
 
     const invoice = await db.invoice.create({
       data: {
@@ -124,9 +125,12 @@ export class InvoicesService {
         customerId: dto.customerId,
         subscriptionId: dto.subscriptionId,
         amount: totalAmount,
-        currency: customer.currency,
+        currency,
         dueDate: new Date(dto.dueDate),
         metadata: { items: dto.items } as any,
+        ...(dto.status && { status: dto.status }),
+        ...(dto.paidAt && { paidAt: new Date(dto.paidAt) }),
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
       },
       include: { customer: true },
     });
@@ -189,9 +193,21 @@ export class InvoicesService {
       include: { customer: true },
     });
 
-    // Email customer the finalized invoice
+    // Email customer the finalized invoice with PDF attachment
     if (invoice.customer?.email) {
       const tenantInfo = await this.getTenantInfo(tenantId);
+      let pdfAttachments: { filename: string; content: string; contentType: string }[] | undefined;
+      try {
+        const pdfBuffer = await this.generateOrGetPdf(db, tenantId, id);
+        pdfAttachments = [{
+          filename: `${invoice.invoiceNumber || 'invoice'}.pdf`,
+          content: pdfBuffer.toString('base64'),
+          contentType: 'application/pdf',
+        }];
+      } catch (error) {
+        this.logger.error(`Failed to generate PDF attachment for invoice ${id}`, error);
+      }
+
       await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
         tenantId,
         to: invoice.customer.email,
@@ -204,8 +220,8 @@ export class InvoicesService {
           amount: PdfService.formatAmount(invoice.amount, invoice.currency),
           currency: invoice.currency,
           dueDate: invoice.dueDate?.toISOString().split('T')[0] || '',
-          pdfUrl: this.pdfService.getInvoiceApiUrl(id),
         },
+        attachments: pdfAttachments,
       });
     }
 
@@ -274,7 +290,7 @@ export class InvoicesService {
     return updated;
   }
 
-  async markPaid(db: PrismaClient, tenantId: string, id: string) {
+  async markPaid(db: PrismaClient, tenantId: string, id: string, paymentMethod?: string) {
     const invoice = await db.invoice.findUnique({
       where: { id },
       include: { customer: true },
@@ -288,6 +304,7 @@ export class InvoicesService {
     }
 
     const now = new Date();
+    const provider = paymentMethod || 'manual';
 
     const [updatedInvoice] = await Promise.all([
       db.invoice.update({
@@ -298,7 +315,7 @@ export class InvoicesService {
       db.payment.create({
         data: {
           invoiceId: id,
-          provider: 'manual',
+          provider,
           amount: invoice.amount,
           currency: invoice.currency,
           status: 'SUCCEEDED',
@@ -404,6 +421,18 @@ export class InvoicesService {
 
     const tenantInfo = await this.getTenantInfo(tenantId);
 
+    let pdfAttachments: { filename: string; content: string; contentType: string }[] | undefined;
+    try {
+      const pdfBuffer = await this.generateOrGetPdf(db, tenantId, id);
+      pdfAttachments = [{
+        filename: `${invoice.invoiceNumber || 'invoice'}.pdf`,
+        content: pdfBuffer.toString('base64'),
+        contentType: 'application/pdf',
+      }];
+    } catch (error) {
+      this.logger.error(`Failed to generate PDF attachment for invoice ${id}`, error);
+    }
+
     await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
       tenantId,
       to: email,
@@ -416,8 +445,8 @@ export class InvoicesService {
         amount: PdfService.formatAmount(invoice.amount, invoice.currency),
         currency: invoice.currency,
         dueDate: invoice.dueDate?.toISOString().split('T')[0] || '',
-        pdfUrl: this.pdfService.getInvoiceApiUrl(id),
       },
+      attachments: pdfAttachments,
     });
 
     return { message: `Invoice email queued for ${email}` };

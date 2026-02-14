@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsDateString, ValidateNested, IsNumber, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -37,6 +37,11 @@ export class CreateAddOnDto {
   @ValidateNested({ each: true })
   @Type(() => AddOnPriceDto)
   prices: AddOnPriceDto[];
+
+  @ApiPropertyOptional({ description: 'Backdate createdAt (ISO 8601). For data imports.' })
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
 }
 
 export class UpdateAddOnDto {

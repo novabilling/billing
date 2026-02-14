@@ -52,6 +52,11 @@ export class CreateWalletDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, unknown>;
+
+  @ApiProperty({ required: false, description: 'Backdate createdAt (ISO 8601). For data imports.' })
+  @IsDateString()
+  @IsOptional()
+  createdAt?: string;
 }
 
 export class UpdateWalletDto {

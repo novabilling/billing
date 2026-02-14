@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, Loader2, Copy, ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,7 @@ const credentialFields: Record<
   flutterwave: [
     { key: "secretKey", label: "Secret Key", placeholder: "FLWSECK_..." },
     { key: "encryptionKey", label: "Encryption Key", placeholder: "" },
+    { key: "secretHash", label: "Secret Hash", placeholder: "Your webhook secret hash" },
   ],
   dpo: [
     { key: "companyToken", label: "Company Token", placeholder: "" },
@@ -66,6 +67,55 @@ const credentialFields: Record<
     { key: "environment", label: "Environment", placeholder: "sandbox or live" },
   ],
 };
+
+const webhookDocs: Record<string, { label: string; url: string }> = {
+  stripe: { label: "Stripe Webhooks", url: "https://dashboard.stripe.com/webhooks" },
+  paystack: { label: "Paystack Webhooks", url: "https://dashboard.paystack.com/#/settings/developer" },
+  flutterwave: { label: "Flutterwave Webhooks", url: "https://app.flutterwave.com/dashboard/settings/webhooks" },
+  dpo: { label: "DPO Settings", url: "https://dpogroup.com" },
+  payu: { label: "PayU Settings", url: "https://developers.payu.co.za" },
+  pesapal: { label: "Pesapal Settings", url: "https://dashboard.pesapal.com" },
+};
+
+const signatureVerification: Record<string, { method: string; detail: string }> = {
+  stripe: {
+    method: "HMAC-SHA256",
+    detail: "Verified using the Webhook Secret (stripe-signature header)",
+  },
+  paystack: {
+    method: "HMAC-SHA512",
+    detail: "Verified automatically using your Secret Key (x-paystack-signature header)",
+  },
+  flutterwave: {
+    method: "Secret Hash",
+    detail: "Verified using the Secret Hash you set in the Flutterwave dashboard (verif-hash header)",
+  },
+  dpo: {
+    method: "API Callback",
+    detail: "Transactions verified via server-to-server API call (no signature header)",
+  },
+  payu: {
+    method: "API Callback",
+    detail: "IPN verified via server-to-server API call (no signature header)",
+  },
+  pesapal: {
+    method: "API Callback",
+    detail: "IPN verified via server-to-server status fetch (no signature header)",
+  },
+};
+
+function getApiBaseUrl(): string {
+  if (typeof window === "undefined") return "https://your-api-domain.com";
+  // Derive from NEXT_PUBLIC_API_URL env if set, otherwise from current origin
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  // Convention: if dashboard is app.domain.com, API is api.domain.com
+  const { protocol, hostname } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return `${protocol}//localhost:4000`;
+  }
+  return `${protocol}//api.${hostname.replace(/^app\./, "")}`;
+}
 
 export default function ProvidersPage() {
   const [providers, setProviders] = useState<PaymentProvider[]>([]);
@@ -286,25 +336,54 @@ export default function ProvidersPage() {
                 </div>
 
                 {/* Webhook URL */}
-                {provider.isConfigured && (
-                  <div className="text-xs">
-                    <p className="text-muted-foreground mb-1">Webhook URL:</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 px-2 py-1 bg-muted rounded font-mono text-xs truncate">
-                        https://api.novabilling.com/webhooks/{provider.code}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            `https://api.novabilling.com/webhooks/${provider.code}`,
-                          );
-                          toast.success("Webhook URL copied");
-                        }}
+                <div className="rounded-md border border-border bg-muted/50 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">Webhook URL</p>
+                    {webhookDocs[provider.code] && (
+                      <a
+                        href={webhookDocs[provider.code].url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
                       >
-                        Copy
-                      </Button>
+                        Set up
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <code className="flex-1 px-2 py-1.5 bg-background border border-border rounded font-mono text-xs truncate select-all">
+                      {getApiBaseUrl()}/webhooks/{provider.code}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `${getApiBaseUrl()}/webhooks/${provider.code}`,
+                        );
+                        toast.success("Webhook URL copied");
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Paste this URL in your {provider.name} dashboard to receive payment notifications.
+                  </p>
+                </div>
+
+                {/* Signature Verification */}
+                {signatureVerification[provider.code] && (
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0 text-green-600" />
+                    <div>
+                      <span className="font-medium text-foreground">
+                        {signatureVerification[provider.code].method}
+                      </span>
+                      {" — "}
+                      {signatureVerification[provider.code].detail}
                     </div>
                   </div>
                 )}
@@ -424,6 +503,63 @@ export default function ProvidersPage() {
                   />
                 </div>
               ))}
+
+            {/* Webhook URL in dialog */}
+            {configProvider && (
+              <div className="rounded-md border border-border bg-muted/50 p-3 space-y-2">
+                <Label className="text-xs">Webhook URL</Label>
+                <div className="flex items-center gap-1.5">
+                  <code className="flex-1 px-2 py-1.5 bg-background border border-border rounded font-mono text-xs truncate select-all">
+                    {getApiBaseUrl()}/webhooks/{configProvider.code}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `${getApiBaseUrl()}/webhooks/${configProvider.code}`,
+                      );
+                      toast.success("Webhook URL copied");
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Add this URL to your{" "}
+                  {webhookDocs[configProvider.code] ? (
+                    <a
+                      href={webhookDocs[configProvider.code].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      {configProvider.name} dashboard
+                    </a>
+                  ) : (
+                    `${configProvider.name} dashboard`
+                  )}{" "}
+                  to receive payment notifications.
+                </p>
+              </div>
+            )}
+
+            {/* Signature verification info in dialog */}
+            {configProvider && signatureVerification[configProvider.code] && (
+              <div className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-3 text-xs">
+                <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+                <div>
+                  <p className="font-medium text-foreground">
+                    Signature Verification: {signatureVerification[configProvider.code].method}
+                  </p>
+                  <p className="text-muted-foreground mt-0.5">
+                    {signatureVerification[configProvider.code].detail}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfigOpen(false)}>

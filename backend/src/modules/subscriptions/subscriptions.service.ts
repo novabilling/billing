@@ -119,27 +119,33 @@ export class SubscriptionsService {
       throw new BadRequestException(`No price found for currency ${dto.currency} on this plan`);
     }
 
-    const now = new Date();
-    const periodEnd = this.calculatePeriodEnd(now, plan.billingInterval);
+    const now = dto.startDate ? new Date(dto.startDate) : new Date();
+    const periodEnd = dto.currentPeriodEnd
+      ? new Date(dto.currentPeriodEnd)
+      : this.calculatePeriodEnd(now, plan.billingInterval);
 
     const hasTrial = dto.trialDays && dto.trialDays > 0;
     const trialEnd = hasTrial
       ? new Date(now.getTime() + dto.trialDays! * 24 * 60 * 60 * 1000)
       : null;
 
+    const resolvedStatus = dto.status || (hasTrial ? 'TRIALING' : 'ACTIVE');
+
     const subscription = await db.subscription.create({
       data: {
         customerId: dto.customerId,
         planId: dto.planId,
-        externalId: (dto as any).externalId ?? undefined,
+        externalId: dto.externalId ?? undefined,
         currency: dto.currency.toUpperCase(),
         billingTiming: plan.billingTiming || 'IN_ARREARS',
-        status: hasTrial ? 'TRIALING' : 'ACTIVE',
+        status: resolvedStatus,
         currentPeriodStart: now,
         currentPeriodEnd: hasTrial ? trialEnd! : periodEnd,
         trialStart: hasTrial ? now : null,
         trialEnd: trialEnd,
         metadata: (dto.metadata ?? undefined) as any,
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
+        ...(dto.canceledAt && { canceledAt: new Date(dto.canceledAt) }),
       },
       include: { customer: true, plan: true },
     });

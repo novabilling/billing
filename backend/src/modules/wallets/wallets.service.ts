@@ -39,6 +39,7 @@ export class WalletsService {
         rateAmount,
         expirationAt: dto.expirationAt ? new Date(dto.expirationAt) : null,
         metadata: dto.metadata as any,
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
       },
       include: { customer: true },
     });

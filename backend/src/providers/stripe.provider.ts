@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   BasePaymentProvider,
   ChargeParams,
@@ -156,8 +157,12 @@ export class StripeProvider extends BasePaymentProvider {
     };
   }
 
-  async handleWebhook(payload: Record<string, unknown>, _signature: string): Promise<WebhookData> {
-    // In production you'd verify the signature with this.credentials.webhookSecret
+  async handleWebhook(payload: Record<string, unknown>, signature: string, rawBody?: string): Promise<WebhookData> {
+    // Verify Stripe webhook signature (HMAC-SHA256)
+    if (this.credentials.webhookSecret && signature && rawBody) {
+      this.verifyStripeSignature(signature, rawBody);
+    }
+
     const event = payload as {
       type?: string;
       data?: { object?: Record<string, unknown> };
@@ -187,6 +192,50 @@ export class StripeProvider extends BasePaymentProvider {
     }
 
     return result;
+  }
+
+  private verifyStripeSignature(signatureHeader: string, rawBody: string): void {
+    // Parse stripe-signature header: "t=timestamp,v1=signature"
+    const parts = signatureHeader.split(',').reduce(
+      (acc, part) => {
+        const [key, value] = part.split('=');
+        if (key === 't') acc.timestamp = value;
+        if (key === 'v1') acc.signatures.push(value);
+        return acc;
+      },
+      { timestamp: '', signatures: [] as string[] },
+    );
+
+    if (!parts.timestamp || parts.signatures.length === 0) {
+      throw new Error('Invalid Stripe signature header format');
+    }
+
+    // Reject timestamps older than 5 minutes to prevent replay attacks
+    const timestampAge = Math.floor(Date.now() / 1000) - Number(parts.timestamp);
+    if (timestampAge > 300) {
+      throw new Error('Stripe webhook timestamp too old');
+    }
+
+    // Compute expected signature: HMAC-SHA256(secret, "timestamp.rawBody")
+    const expectedSig = createHmac('sha256', this.credentials.webhookSecret)
+      .update(`${parts.timestamp}.${rawBody}`)
+      .digest('hex');
+
+    // Check if any of the v1 signatures match (timing-safe comparison)
+    const isValid = parts.signatures.some((sig) => {
+      try {
+        return timingSafeEqual(
+          Buffer.from(expectedSig, 'hex'),
+          Buffer.from(sig, 'hex'),
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    if (!isValid) {
+      throw new Error('Invalid Stripe webhook signature');
+    }
   }
 
   async testConnection(): Promise<boolean> {

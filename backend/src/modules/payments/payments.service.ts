@@ -11,6 +11,7 @@ import { CentralPrismaService } from '../../database/central-prisma.service';
 import { PdfService } from '../../services/pdf.service';
 import { PaymentQueryDto } from './dto/payment-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 import {
   EMAIL_QUEUE,
   WEBHOOK_QUEUE,
@@ -82,6 +83,51 @@ export class PaymentsService {
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
+
+    return payment;
+  }
+
+  async create(db: PrismaClient, tenantId: string, dto: CreatePaymentDto) {
+    const invoice = await db.invoice.findUnique({ where: { id: dto.invoiceId } });
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const payment = await db.payment.create({
+      data: {
+        invoiceId: dto.invoiceId,
+        provider: dto.provider,
+        amount: dto.amount,
+        currency: dto.currency.toUpperCase(),
+        status: dto.status,
+        providerTransactionId: dto.providerTransactionId,
+        failureReason: dto.failureReason,
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
+      },
+      include: { invoice: { include: { customer: true } } },
+    });
+
+    // If the payment is SUCCEEDED, also mark the invoice as paid
+    if (dto.status === 'SUCCEEDED' && invoice.status !== 'PAID') {
+      await db.invoice.update({
+        where: { id: dto.invoiceId },
+        data: { status: 'PAID', paidAt: dto.createdAt ? new Date(dto.createdAt) : new Date() },
+      });
+    }
+
+    // Webhook
+    await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
+      tenantId,
+      event: 'payment.created',
+      payload: {
+        paymentId: payment.id,
+        invoiceId: dto.invoiceId,
+        amount: dto.amount,
+        currency: dto.currency.toUpperCase(),
+        status: dto.status,
+        provider: dto.provider,
+      },
+    });
 
     return payment;
   }

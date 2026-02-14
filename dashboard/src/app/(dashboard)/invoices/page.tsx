@@ -83,6 +83,12 @@ export default function InvoicesPage() {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  // Mark paid dialog state
+  const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
+  const [markPaidInvoice, setMarkPaidInvoice] = useState<Invoice | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+
   useEffect(() => {
     loadInvoices();
   }, [page, statusFilter]);
@@ -174,13 +180,24 @@ export default function InvoicesPage() {
     }
   }
 
-  async function handleMarkPaid(invoice: Invoice) {
+  function openMarkPaidDialog(invoice: Invoice) {
+    setMarkPaidInvoice(invoice);
+    setPaymentMethod("cash");
+    setMarkPaidDialogOpen(true);
+  }
+
+  async function handleMarkPaid() {
+    if (!markPaidInvoice) return;
+    setIsMarkingPaid(true);
     try {
-      await apiClient.invoices.update(invoice.id, { status: "paid" });
+      await apiClient.invoices.markPaid(markPaidInvoice.id, paymentMethod);
       toast.success("Invoice marked as paid");
+      setMarkPaidDialogOpen(false);
       loadInvoices();
     } catch (error: any) {
       toast.error(error.message || "Failed to mark invoice as paid");
+    } finally {
+      setIsMarkingPaid(false);
     }
   }
 
@@ -222,7 +239,7 @@ export default function InvoicesPage() {
 
   function openEmailDialog(invoice: Invoice) {
     setEmailInvoice(invoice);
-    setRecipientEmail("");
+    setRecipientEmail(invoice.customerEmail || "");
     setEmailDialogOpen(true);
   }
 
@@ -408,7 +425,7 @@ export default function InvoicesPage() {
                                     Generate Checkout URL
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => handleMarkPaid(invoice)}
+                                    onClick={() => openMarkPaidDialog(invoice)}
                                   >
                                     <CheckCircle className="mr-2 h-4 w-4" />
                                     Mark as Paid
@@ -626,6 +643,60 @@ export default function InvoicesPage() {
               )}
               <Mail className="mr-2 h-4 w-4" />
               Send Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as Paid Dialog */}
+      <Dialog open={markPaidDialogOpen} onOpenChange={setMarkPaidDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Mark Invoice as Paid</DialogTitle>
+            <DialogDescription>
+              Record a payment for invoice {markPaidInvoice?.invoiceNumber}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  <SelectItem value="manual">Other / Manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {markPaidInvoice && (
+              <div className="rounded-md bg-muted p-3 text-sm">
+                <p>
+                  <span className="text-muted-foreground">Amount:</span>{" "}
+                  <span className="font-bold">
+                    {formatCurrency(markPaidInvoice.amount, markPaidInvoice.currency)}
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMarkPaidDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleMarkPaid} disabled={isMarkingPaid}>
+              {isMarkingPaid && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Confirm Payment
             </Button>
           </DialogFooter>
         </DialogContent>

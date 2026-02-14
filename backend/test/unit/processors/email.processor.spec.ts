@@ -32,6 +32,7 @@ describe('EmailProcessor', () => {
         'payment-confirmation',
         { customerName: 'John', amount: '49.00', currency: 'USD' },
         'tenant_1',
+        undefined,
       );
     });
 

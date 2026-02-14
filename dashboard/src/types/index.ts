@@ -63,6 +63,7 @@ export interface Invoice {
   invoiceNumber: string;
   customerId: string;
   customerName: string;
+  customerEmail?: string;
   subscriptionId?: string;
   amount: number;
   currency: string;

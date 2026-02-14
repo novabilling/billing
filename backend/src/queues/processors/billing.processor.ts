@@ -557,8 +557,9 @@ export class BillingProcessor extends WorkerHost {
 
       // Generate PDF for the invoice
       let pdfUrl: string | undefined;
+      let pdfBuffer: Buffer | undefined;
       try {
-        const pdfBuffer = await this.pdfService.generateInvoicePDF(
+        pdfBuffer = await this.pdfService.generateInvoicePDF(
           {
             id: invoice.id,
             invoiceNumber,
@@ -608,8 +609,12 @@ export class BillingProcessor extends WorkerHost {
 
       // Skip email and auto-charge for DRAFT invoices (grace period active)
       if (!isDraft) {
-        // Send invoice email to customer
+        // Send invoice email to customer with PDF attachment
         if (customer?.email) {
+          const pdfAttachments = pdfBuffer
+            ? [{ filename: `${invoiceNumber}.pdf`, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' }]
+            : undefined;
+
           await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
             tenantId,
             to: customer.email,
@@ -622,8 +627,8 @@ export class BillingProcessor extends WorkerHost {
               amount: PdfService.formatAmount(totalAmount, subscription.currency),
               currency: subscription.currency,
               dueDate: dueDate.toISOString().split('T')[0],
-              pdfUrl: this.pdfService.getInvoiceApiUrl(invoice.id),
             },
+            attachments: pdfAttachments,
           });
         }
 
@@ -933,6 +938,36 @@ export class BillingProcessor extends WorkerHost {
         }
 
         if (reminderKey && template && subject) {
+          // Generate PDF attachment
+          let pdfAttachments: { filename: string; content: string; contentType: string }[] | undefined;
+          try {
+            const reminderPdfBuffer = await this.pdfService.generateInvoicePDF(
+              {
+                id: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                amount: String(invoice.amount),
+                currency: invoice.currency,
+                status: invoice.status,
+                dueDate: invoice.dueDate,
+                createdAt: invoice.createdAt,
+                metadata: invoice.metadata as Record<string, unknown> | null,
+              },
+              {
+                name: invoice.customer.name,
+                email: invoice.customer.email,
+                country: invoice.customer.country,
+              },
+              { name: tenantName },
+            );
+            pdfAttachments = [{
+              filename: `${invoice.invoiceNumber}.pdf`,
+              content: reminderPdfBuffer.toString('base64'),
+              contentType: 'application/pdf',
+            }];
+          } catch (pdfErr) {
+            this.logger.error(`Failed to generate PDF for reminder ${invoice.id}`, pdfErr);
+          }
+
           await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
             tenantId,
             to: invoice.customer.email,
@@ -946,8 +981,8 @@ export class BillingProcessor extends WorkerHost {
               currency: invoice.currency,
               dueDate: dueDateStr,
               daysOverdue: daysUntilDue < 0 ? String(Math.abs(daysUntilDue)) : '0',
-              pdfUrl: this.pdfService.getInvoiceApiUrl(invoice.id),
             },
+            attachments: pdfAttachments,
           });
 
           // Track which reminders have been sent
@@ -1125,8 +1160,37 @@ export class BillingProcessor extends WorkerHost {
         });
         const tenantName = tenant?.name || 'Your billing provider';
 
-        // Send invoice email
+        // Send invoice email with PDF attachment
         if (invoice.customer?.email) {
+          let finalizePdfAttachments: { filename: string; content: string; contentType: string }[] | undefined;
+          try {
+            const finalizePdfBuffer = await this.pdfService.generateInvoicePDF(
+              {
+                id: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                amount: String(invoice.amount),
+                currency: invoice.currency,
+                status: 'PENDING',
+                dueDate: invoice.dueDate,
+                createdAt: invoice.createdAt,
+                metadata: invoice.metadata as Record<string, unknown> | null,
+              },
+              {
+                name: invoice.customer.name,
+                email: invoice.customer.email,
+                country: invoice.customer.country,
+              },
+              { name: tenantName },
+            );
+            finalizePdfAttachments = [{
+              filename: `${invoice.invoiceNumber}.pdf`,
+              content: finalizePdfBuffer.toString('base64'),
+              contentType: 'application/pdf',
+            }];
+          } catch (pdfErr) {
+            this.logger.error(`Failed to generate PDF for finalized invoice ${invoice.id}`, pdfErr);
+          }
+
           await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
             tenantId,
             to: invoice.customer.email,
@@ -1139,8 +1203,8 @@ export class BillingProcessor extends WorkerHost {
               amount: PdfService.formatAmount(invoice.amount, invoice.currency),
               currency: invoice.currency,
               dueDate: invoice.dueDate?.toISOString().split('T')[0] || '',
-              pdfUrl: this.pdfService.getInvoiceApiUrl(invoice.id),
             },
+            attachments: finalizePdfAttachments,
           });
         }
 

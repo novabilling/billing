@@ -50,6 +50,7 @@ export class AddOnsService {
         code: dto.code.toLowerCase(),
         description: dto.description,
         invoiceDisplayName: dto.invoiceDisplayName,
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
         prices: {
           create: dto.prices.map((p) => ({
             currency: p.currency.toUpperCase(),

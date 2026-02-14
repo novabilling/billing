@@ -116,6 +116,7 @@ export class CustomersService {
         currency: dto.currency,
         metadata: (dto.metadata ?? undefined) as any,
         ...(dto.netPaymentTerms !== undefined && { netPaymentTerms: dto.netPaymentTerms }),
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
       },
     });
 

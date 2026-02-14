@@ -67,6 +67,7 @@ export class CouponsService {
         discountType: dto.discountType,
         discountValue: dto.discountValue,
         currency: dto.currency?.toUpperCase(),
+        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
         maxRedemptions: dto.maxRedemptions,
         appliesToPlanIds: dto.appliesToPlanIds || [],
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,

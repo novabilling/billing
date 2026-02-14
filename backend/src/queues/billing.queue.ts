@@ -53,10 +53,18 @@ export interface AutoChargeData {
   paymentMethodId: string;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  /** Base64-encoded content */
+  content: string;
+  contentType: string;
+}
+
 export interface SendEmailData {
   tenantId?: string;
   to: string;
   subject: string;
   template: string;
   context: Record<string, unknown>;
+  attachments?: EmailAttachment[];
 }
