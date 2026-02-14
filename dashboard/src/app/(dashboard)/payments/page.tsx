@@ -45,7 +45,9 @@ const providerLogos: Record<string, string> = {
   stripe: "💳",
   flutterwave: "🦋",
   paystack: "📦",
-  mpesa: "📱",
+  dpo: "🏦",
+  payu: "💰",
+  pesapal: "📱",
 };
 
 export default function PaymentsPage() {
@@ -142,7 +144,9 @@ export default function PaymentsPage() {
             <SelectItem value="stripe">Stripe</SelectItem>
             <SelectItem value="flutterwave">Flutterwave</SelectItem>
             <SelectItem value="paystack">Paystack</SelectItem>
-            <SelectItem value="mpesa">M-Pesa</SelectItem>
+            <SelectItem value="dpo">DPO Group</SelectItem>
+            <SelectItem value="payu">PayU</SelectItem>
+            <SelectItem value="pesapal">Pesapal</SelectItem>
           </SelectContent>
         </Select>
       </div>

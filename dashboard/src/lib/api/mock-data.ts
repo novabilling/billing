@@ -457,7 +457,7 @@ export function generatePayments(invoices: Invoice[]): Payment[] {
     "stripe",
     "flutterwave",
     "paystack",
-    "mpesa",
+    "pesapal",
   ];
   const providerWeights = [0.35, 0.35, 0.2, 0.1];
 
@@ -535,12 +535,32 @@ export function generatePaymentProviders(): PaymentProvider[] {
     },
     {
       id: generateId("prov"),
-      name: "M-Pesa",
-      code: "mpesa",
-      description: "Mobile money solution for East Africa",
+      name: "DPO Group",
+      code: "dpo",
+      description: "Pan-African payment gateway for cards, mobile wallets, and bank transfers",
       isConfigured: false,
       isActive: false,
       priority: 4,
+      config: {},
+    },
+    {
+      id: generateId("prov"),
+      name: "PayU",
+      code: "payu",
+      description: "Payment gateway for South Africa supporting credit cards, EFT, and instant payments",
+      isConfigured: false,
+      isActive: false,
+      priority: 5,
+      config: {},
+    },
+    {
+      id: generateId("prov"),
+      name: "Pesapal",
+      code: "pesapal",
+      description: "East African payment platform for mobile money, cards, and bank transfers",
+      isConfigured: false,
+      isActive: false,
+      priority: 6,
       config: {},
     },
   ];
