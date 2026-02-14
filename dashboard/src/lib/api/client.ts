@@ -89,11 +89,17 @@ function mapPlan(p: any): Plan {
       p.billingInterval || "MONTHLY"
     ).toLowerCase() as Plan["interval"],
     prices: (p.prices || []).map((pr: any) => ({
+      id: pr.id,
       currency: pr.currency,
       amount: Number(pr.amount),
     })),
     features: p.features || [],
     isActive: p.isActive !== false,
+    billingTiming: p.billingTiming || "IN_ARREARS",
+    netPaymentTerms: p.netPaymentTerms ?? undefined,
+    invoiceGracePeriodDays: p.invoiceGracePeriodDays ?? undefined,
+    progressiveBillingThreshold: p.progressiveBillingThreshold != null ? Number(p.progressiveBillingThreshold) : undefined,
+    minimumCommitment: p.minimumCommitment != null ? Number(p.minimumCommitment) : undefined,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };
@@ -324,28 +330,32 @@ export const apiClient = {
       return mapCustomer(result);
     },
 
-    async create(data: Partial<Customer>): Promise<Customer> {
+    async create(data: Partial<Customer> & { netPaymentTerms?: number }): Promise<Customer> {
+      const payload: any = {
+        externalId: data.externalId || `ext_${Date.now()}`,
+        email: data.email,
+        name: data.name,
+        country: data.country,
+        currency: data.currency || "USD",
+      };
+      if (data.netPaymentTerms !== undefined) payload.netPaymentTerms = data.netPaymentTerms;
       const result = await apiFetch<any>(`/customers`, {
         method: "POST",
-        body: JSON.stringify({
-          externalId: data.externalId || `ext_${Date.now()}`,
-          email: data.email,
-          name: data.name,
-          country: data.country,
-          currency: data.currency || "USD",
-        }),
+        body: JSON.stringify(payload),
       });
       return mapCustomer(result);
     },
 
-    async update(id: string, data: Partial<Customer>): Promise<Customer> {
+    async update(id: string, data: Partial<Customer> & { netPaymentTerms?: number | null }): Promise<Customer> {
+      const body: any = {};
+      if (data.name !== undefined) body.name = data.name;
+      if (data.email !== undefined) body.email = data.email;
+      if (data.country !== undefined) body.country = data.country;
+      if (data.currency !== undefined) body.currency = data.currency;
+      if (data.netPaymentTerms !== undefined) body.netPaymentTerms = data.netPaymentTerms;
       const result = await apiFetch<any>(`/customers/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          country: data.country,
-        }),
+        body: JSON.stringify(body),
       });
       return mapCustomer(result);
     },
@@ -367,32 +377,49 @@ export const apiClient = {
       return mapPlan(result);
     },
 
-    async create(data: Partial<Plan> & { billingTiming?: string }): Promise<Plan> {
+    async create(data: Partial<Plan> & {
+      billingTiming?: string;
+      netPaymentTerms?: number;
+      invoiceGracePeriodDays?: number;
+      progressiveBillingThreshold?: number;
+    }): Promise<Plan> {
+      const payload: any = {
+        name: data.name,
+        code: data.code,
+        description: data.description,
+        billingInterval: (data.interval || "monthly").toUpperCase(),
+        billingTiming: data.billingTiming || "IN_ARREARS",
+        features: data.features,
+        prices: (data.prices || []).map((p) => ({
+          amount: p.amount,
+          currency: p.currency,
+        })),
+      };
+      if (data.netPaymentTerms !== undefined) payload.netPaymentTerms = data.netPaymentTerms;
+      if (data.invoiceGracePeriodDays !== undefined) payload.invoiceGracePeriodDays = data.invoiceGracePeriodDays;
+      if (data.progressiveBillingThreshold !== undefined) payload.progressiveBillingThreshold = data.progressiveBillingThreshold;
       const result = await apiFetch<any>(`/plans`, {
         method: "POST",
-        body: JSON.stringify({
-          name: data.name,
-          code: data.code,
-          description: data.description,
-          billingInterval: (data.interval || "monthly").toUpperCase(),
-          billingTiming: data.billingTiming || "IN_ARREARS",
-          features: data.features,
-          prices: (data.prices || []).map((p) => ({
-            amount: p.amount,
-            currency: p.currency,
-          })),
-        }),
+        body: JSON.stringify(payload),
       });
       return mapPlan(result);
     },
 
-    async update(id: string, data: Partial<Plan> & { billingTiming?: string }): Promise<Plan> {
+    async update(id: string, data: Partial<Plan> & {
+      billingTiming?: string;
+      netPaymentTerms?: number | null;
+      invoiceGracePeriodDays?: number | null;
+      progressiveBillingThreshold?: number | null;
+    }): Promise<Plan> {
       const body: any = {};
       if (data.name) body.name = data.name;
       if (data.description !== undefined) body.description = data.description;
       if (data.isActive !== undefined) body.isActive = data.isActive;
       if (data.features) body.features = data.features;
-      if ((data as any).billingTiming) body.billingTiming = (data as any).billingTiming;
+      if (data.billingTiming) body.billingTiming = data.billingTiming;
+      if (data.netPaymentTerms !== undefined) body.netPaymentTerms = data.netPaymentTerms;
+      if (data.invoiceGracePeriodDays !== undefined) body.invoiceGracePeriodDays = data.invoiceGracePeriodDays;
+      if (data.progressiveBillingThreshold !== undefined) body.progressiveBillingThreshold = data.progressiveBillingThreshold;
       const result = await apiFetch<any>(`/plans/${id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
@@ -402,6 +429,26 @@ export const apiClient = {
 
     async delete(id: string): Promise<void> {
       await apiFetch(`/plans/${id}`, { method: "DELETE" });
+    },
+
+    async addPrice(planId: string, data: { currency: string; amount: number }): Promise<any> {
+      return apiFetch(`/plans/${planId}/prices`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+
+    async updatePrice(planId: string, priceId: string, amount: number): Promise<any> {
+      return apiFetch(`/plans/${planId}/prices/${priceId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ amount }),
+      });
+    },
+
+    async deletePrice(planId: string, priceId: string): Promise<any> {
+      return apiFetch(`/plans/${planId}/prices/${priceId}`, {
+        method: "DELETE",
+      });
     },
   },
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Tag, Edit, Trash2, X, Loader2 } from "lucide-react";
+import { Plus, Tag, Edit, Trash2, X, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,7 @@ import { Switch } from "@/components/ui/switch";
 import { apiClient } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateTime } from "@/lib/utils/date";
-import type { Coupon } from "@/types";
+import type { Coupon, Customer } from "@/types";
 import { toast } from "sonner";
 
 interface CouponForm {
@@ -65,6 +65,13 @@ export default function CouponsPage() {
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState<CouponForm>(emptyForm);
+
+  // Apply coupon dialog state
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyingCoupon, setApplyingCoupon] = useState<Coupon | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     loadCoupons();
@@ -186,6 +193,39 @@ export default function CouponsPage() {
       } catch (error) {
         toast.error("Failed to delete coupon");
       }
+    }
+  }
+
+  async function openApplyDialog(coupon: Coupon) {
+    setApplyingCoupon(coupon);
+    setSelectedCustomerId("");
+    setApplyOpen(true);
+    try {
+      const result = await apiClient.customers.list({ limit: 100 });
+      setCustomers(result.data);
+    } catch {
+      toast.error("Failed to load customers");
+    }
+  }
+
+  async function handleApplyCoupon() {
+    if (!applyingCoupon || !selectedCustomerId) {
+      toast.error("Please select a customer");
+      return;
+    }
+    setIsApplying(true);
+    try {
+      await apiClient.coupons.apply({
+        couponId: applyingCoupon.id,
+        customerId: selectedCustomerId,
+      });
+      toast.success("Coupon applied to customer");
+      setApplyOpen(false);
+      loadCoupons();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to apply coupon");
+    } finally {
+      setIsApplying(false);
     }
   }
 
@@ -395,6 +435,15 @@ export default function CouponsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Apply to customer"
+                            onClick={() => openApplyDialog(coupon)}
+                            disabled={!coupon.isActive}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => openEditDialog(coupon)}
                           >
                             <Edit className="h-4 w-4" />
@@ -541,14 +590,9 @@ export default function CouponsPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {[
-                            "USD",
-                            "NGN",
-                            "KES",
-                            "GHS",
-                            "ZAR",
-                            "UGX",
-                            "EUR",
-                            "GBP",
+                            "USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "UGX",
+                            "TZS", "RWF", "XOF", "XAF", "EGP", "MAD", "INR", "BRL",
+                            "CAD", "AUD", "JPY", "CNY",
                           ].map((c) => (
                             <SelectItem key={c} value={c}>
                               {c}
@@ -606,6 +650,47 @@ export default function CouponsPage() {
             <Button onClick={handleSubmit} disabled={isSaving}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingCoupon ? "Save Changes" : "Create Coupon"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply Coupon Dialog */}
+      <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Apply Coupon</DialogTitle>
+            <DialogDescription>
+              Apply <span className="font-mono font-semibold">{applyingCoupon?.code}</span> ({applyingCoupon && formatDiscount(applyingCoupon)} off) to a customer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Customer</Label>
+              <Select
+                value={selectedCustomerId}
+                onValueChange={setSelectedCustomerId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a customer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name || c.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApplyOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleApplyCoupon} disabled={isApplying || !selectedCustomerId}>
+              {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Apply Coupon
             </Button>
           </DialogFooter>
         </DialogContent>
