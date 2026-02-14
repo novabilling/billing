@@ -142,4 +142,32 @@ export class CustomersController {
   async findPayments(@TenantDb() db: PrismaClient, @Param('id') id: string) {
     return this.customersService.findPayments(db, id);
   }
+
+  @Get(':id/payment-methods')
+  @ApiOperation({
+    summary: 'Get customer payment methods',
+    description: 'Retrieve saved payment methods (cards, tokens) for a customer.',
+  })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @ApiResponse({ status: 200, description: 'List of saved payment methods' })
+  async findPaymentMethods(@TenantDb() db: PrismaClient, @Param('id') id: string) {
+    return this.customersService.findPaymentMethods(db, id);
+  }
+
+  @Delete(':id/payment-methods/:methodId')
+  @ApiOperation({
+    summary: 'Delete a payment method',
+    description: 'Remove a saved payment method from a customer.',
+  })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @ApiParam({ name: 'methodId', description: 'Payment method ID' })
+  @ApiResponse({ status: 200, description: 'Payment method deleted' })
+  @ApiResponse({ status: 404, description: 'Payment method not found' })
+  async deletePaymentMethod(
+    @TenantDb() db: PrismaClient,
+    @Param('id') id: string,
+    @Param('methodId') methodId: string,
+  ) {
+    return this.customersService.deletePaymentMethod(db, id, methodId);
+  }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,10 @@ interface CustomerTableProps {
   customers: Customer[];
   onEdit: (customer: Customer) => void;
   onDelete: (customer: Customer) => void;
+  onViewPaymentMethods?: (customer: Customer) => void;
 }
 
-export function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
+export function CustomerTable({ customers, onEdit, onDelete, onViewPaymentMethods }: CustomerTableProps) {
   return (
     <div className="rounded-md border border-border overflow-hidden">
       <div className="overflow-x-auto">
@@ -93,6 +94,12 @@ export function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProp
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
+                      {onViewPaymentMethods && (
+                        <DropdownMenuItem onClick={() => onViewPaymentMethods(customer)}>
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Payment Methods
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => onDelete(customer)}
                         className="text-red-600"

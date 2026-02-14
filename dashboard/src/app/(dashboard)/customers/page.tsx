@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Search, Loader2, CreditCard, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/dialog";
 import { CustomerTable } from "@/components/tables/customer-table";
 import { apiClient } from "@/lib/api/client";
-import type { Customer } from "@/types";
+import { Badge } from "@/components/ui/badge";
+import type { Customer, PaymentMethod } from "@/types";
 import { toast } from "sonner";
 
 export default function CustomersPage() {
@@ -44,6 +45,12 @@ export default function CustomersPage() {
     country: "",
     currency: "USD",
   });
+
+  // Payment methods dialog
+  const [pmDialogOpen, setPmDialogOpen] = useState(false);
+  const [pmCustomer, setPmCustomer] = useState<Customer | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [pmLoading, setPmLoading] = useState(false);
 
   useEffect(() => {
     loadCustomers();
@@ -154,6 +161,31 @@ export default function CustomersPage() {
     }
   }
 
+  async function openPaymentMethods(customer: Customer) {
+    setPmCustomer(customer);
+    setPmDialogOpen(true);
+    setPmLoading(true);
+    try {
+      const methods = await apiClient.customers.getPaymentMethods(customer.id);
+      setPaymentMethods(methods);
+    } catch {
+      toast.error("Failed to load payment methods");
+    } finally {
+      setPmLoading(false);
+    }
+  }
+
+  async function handleDeletePaymentMethod(methodId: string) {
+    if (!pmCustomer) return;
+    try {
+      await apiClient.customers.deletePaymentMethod(pmCustomer.id, methodId);
+      setPaymentMethods((prev) => prev.filter((m) => m.id !== methodId));
+      toast.success("Payment method removed");
+    } catch {
+      toast.error("Failed to remove payment method");
+    }
+  }
+
   const totalPages = Math.ceil(total / 10);
 
   return (
@@ -208,6 +240,7 @@ export default function CustomersPage() {
             customers={customers}
             onEdit={openEditDialog}
             onDelete={handleDelete}
+            onViewPaymentMethods={openPaymentMethods}
           />
 
           {/* Pagination */}
@@ -330,6 +363,84 @@ export default function CustomersPage() {
               {editingCustomer ? "Save Changes" : "Create Customer"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Methods Dialog */}
+      <Dialog open={pmDialogOpen} onOpenChange={setPmDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Payment Methods
+            </DialogTitle>
+            <DialogDescription>
+              Saved payment methods for {pmCustomer?.name || pmCustomer?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            {pmLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : paymentMethods.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No saved payment methods.
+                <br />
+                <span className="text-xs">Cards are saved automatically after the first successful payment.</span>
+              </div>
+            ) : (
+              paymentMethods.map((method) => (
+                <div
+                  key={method.id}
+                  className="flex items-center justify-between rounded-lg border border-border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-lg">
+                      {method.brand?.toLowerCase().includes("visa")
+                        ? "💳"
+                        : method.brand?.toLowerCase().includes("master")
+                          ? "💳"
+                          : "💳"}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {method.brand || method.type} {method.last4 ? `****${method.last4}` : ""}
+                        </span>
+                        {method.isDefault && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            Default
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="capitalize">{method.provider}</span>
+                        {method.expMonth && method.expYear && (
+                          <>
+                            <span>·</span>
+                            <span>
+                              Exp {String(method.expMonth).padStart(2, "0")}/{method.expYear}
+                            </span>
+                          </>
+                        )}
+                        <span>·</span>
+                        <span>{new Date(method.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                    onClick={() => handleDeletePaymentMethod(method.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

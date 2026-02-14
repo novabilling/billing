@@ -393,11 +393,19 @@ Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span
       // --- Payment lifecycle ---
       'payment-confirmation': [
         heading('Payment successful'),
-        subtext('Your payment has been processed.'),
+        subtext(s('invoiceId') ? `Invoice ${s('invoiceId')} has been paid.` : 'Your payment has been processed.'),
         greeting(),
         paragraph(
           `Your payment of <strong>${s('currency')} ${s('amount')}</strong> has been successfully processed. Thank you!`,
         ),
+        s('invoiceId')
+          ? metricTable(
+              metricRow('Invoice', s('invoiceId')) +
+                metricRow('Amount', `${s('currency')} ${s('amount')}`) +
+                metricRow('Status', badge('Paid', '#dcfce7', '#166534')),
+            )
+          : '',
+        s('invoiceId') ? paragraph('The paid invoice is attached to this email for your records.') : '',
       ].join('\n'),
 
       'payment-failed': [
