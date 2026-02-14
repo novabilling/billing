@@ -5,6 +5,7 @@ import type {
   Invoice,
   Payment,
   PaymentProvider,
+  PaymentMethod,
   RevenueData,
   ActivityEvent,
   Coupon,
@@ -362,6 +363,15 @@ export const apiClient = {
 
     async delete(id: string): Promise<void> {
       await apiFetch(`/customers/${id}`, { method: "DELETE" });
+    },
+
+    async getPaymentMethods(customerId: string): Promise<PaymentMethod[]> {
+      const result = await apiFetch<any>(`/customers/${customerId}/payment-methods`);
+      return result || [];
+    },
+
+    async deletePaymentMethod(customerId: string, methodId: string): Promise<void> {
+      await apiFetch(`/customers/${customerId}/payment-methods/${methodId}`, { method: "DELETE" });
     },
   },
 

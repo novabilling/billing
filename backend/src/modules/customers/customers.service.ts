@@ -223,4 +223,22 @@ export class CustomersService {
 
     return invoices.flatMap((invoice: any) => invoice.payments);
   }
+
+  async findPaymentMethods(db: PrismaClient, customerId: string) {
+    return db.paymentMethod.findMany({
+      where: { customerId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async deletePaymentMethod(db: PrismaClient, customerId: string, paymentMethodId: string) {
+    const method = await db.paymentMethod.findFirst({
+      where: { id: paymentMethodId, customerId },
+    });
+    if (!method) {
+      throw new NotFoundException('Payment method not found');
+    }
+    await db.paymentMethod.delete({ where: { id: paymentMethodId } });
+    return { message: 'Payment method deleted' };
+  }
 }

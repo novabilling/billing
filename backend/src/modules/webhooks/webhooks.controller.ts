@@ -3,7 +3,10 @@ import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiExcludeEndpoint } fro
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Request } from 'express';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 import { Public } from '../../common/decorators/public.decorator';
+import { PdfService } from '../../services/pdf.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { EncryptionService } from '../../services/encryption.service';
@@ -159,7 +162,7 @@ export class WebhooksController {
     // Find all tenants that have this provider configured
     const tenants = await this.centralPrisma.client.tenant.findMany({
       where: { isActive: true },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     for (const tenant of tenants) {
@@ -262,32 +265,59 @@ export class WebhooksController {
             }
           }
 
-          // Send payment confirmation email
+          // Send payment confirmation email with invoice PDF attached
           if (payment.invoice.customer?.email) {
+            const tenantName = tenant.name || 'Your billing provider';
+            const invoiceNumber = payment.invoice.invoiceNumber || payment.invoiceId;
+            const formattedAmount = PdfService.formatAmount(payment.amount, payment.currency);
+
+            // Try to attach the existing invoice PDF
+            let pdfAttachments: { filename: string; content: string; contentType: string }[] | undefined;
+            try {
+              const pdfPath = join(process.cwd(), 'uploads', `invoice-${payment.invoice.id}.pdf`);
+              const pdfBuffer = await readFile(pdfPath);
+              pdfAttachments = [{
+                filename: `${invoiceNumber}.pdf`,
+                content: pdfBuffer.toString('base64'),
+                contentType: 'application/pdf',
+              }];
+            } catch {
+              this.logger.debug(`No PDF found for invoice ${payment.invoice.id}, skipping attachment`);
+            }
+
             await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
               tenantId: tenant.id,
               to: payment.invoice.customer.email,
-              subject: 'Payment Confirmation',
+              subject: `Payment received for ${invoiceNumber} — ${tenantName}`,
               template: 'payment-confirmation',
               context: {
-                customerName: payment.invoice.customer.name,
-                amount: String(payment.amount),
+                tenantName,
+                customerName: payment.invoice.customer.name || payment.invoice.customer.email,
+                invoiceId: invoiceNumber,
+                amount: formattedAmount,
                 currency: payment.currency,
               },
+              attachments: pdfAttachments,
             });
           }
         }
 
         // If payment failed, notify customer
         if (webhookData.status === 'failed' && payment.invoice?.customer?.email) {
+          const tenantName = tenant.name || 'Your billing provider';
+          const invoiceNumber = payment.invoice.invoiceNumber || payment.invoiceId;
+          const formattedAmount = PdfService.formatAmount(payment.amount, payment.currency);
+
           await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
             tenantId: tenant.id,
             to: payment.invoice.customer.email,
-            subject: 'Payment Failed',
+            subject: `Payment failed for ${invoiceNumber} — ${tenantName}`,
             template: 'payment-failed',
             context: {
-              customerName: payment.invoice.customer.name,
-              amount: String(payment.amount),
+              tenantName,
+              customerName: payment.invoice.customer.name || payment.invoice.customer.email,
+              invoiceId: invoiceNumber,
+              amount: formattedAmount,
               currency: payment.currency,
               reason: 'Payment was declined by the payment provider',
             },

@@ -13,6 +13,22 @@ export interface Customer {
   metadata?: Record<string, any>;
 }
 
+export interface PaymentMethod {
+  id: string;
+  customerId: string;
+  provider: string;
+  type: "CARD" | "BANK_ACCOUNT" | "WALLET";
+  tokenId: string;
+  isDefault: boolean;
+  last4?: string;
+  brand?: string;
+  expMonth?: number;
+  expYear?: number;
+  cardholderName?: string;
+  country?: string;
+  createdAt: string;
+}
+
 export interface Plan {
   id: string;
   code: string;
