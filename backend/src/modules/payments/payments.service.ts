@@ -8,6 +8,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaClient } from '../../generated/prisma-tenant/client';
 import { CentralPrismaService } from '../../database/central-prisma.service';
+import { PdfService } from '../../services/pdf.service';
 import { PaymentQueryDto } from './dto/payment-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
 import {
@@ -131,7 +132,7 @@ export class PaymentsService {
         context: {
           tenantName,
           customerName: customer.name || customer.email,
-          amount: String(refundAmount),
+          amount: PdfService.formatAmount(refundAmount, payment.currency),
           currency: payment.currency,
         },
       });

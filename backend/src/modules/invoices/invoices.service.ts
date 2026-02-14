@@ -201,10 +201,10 @@ export class InvoicesService {
           tenantName: tenantInfo.name,
           customerName: invoice.customer.name || invoice.customer.email,
           invoiceId: invoice.invoiceNumber,
-          amount: String(invoice.amount),
+          amount: PdfService.formatAmount(invoice.amount, invoice.currency),
           currency: invoice.currency,
           dueDate: invoice.dueDate?.toISOString().split('T')[0] || '',
-          pdfUrl: invoice.pdfUrl || '',
+          pdfUrl: this.pdfService.getInvoiceApiUrl(id),
         },
       });
     }
@@ -318,7 +318,7 @@ export class InvoicesService {
           tenantName: tenantInfo.name,
           customerName: invoice.customer.name || invoice.customer.email,
           invoiceId: invoice.invoiceNumber,
-          amount: String(invoice.amount),
+          amount: PdfService.formatAmount(invoice.amount, invoice.currency),
           currency: invoice.currency,
         },
       });
@@ -413,10 +413,10 @@ export class InvoicesService {
         tenantName: tenantInfo.name,
         customerName: invoice.customer?.name || email,
         invoiceId: invoice.invoiceNumber,
-        amount: String(invoice.amount),
+        amount: PdfService.formatAmount(invoice.amount, invoice.currency),
         currency: invoice.currency,
         dueDate: invoice.dueDate?.toISOString().split('T')[0] || '',
-        pdfUrl: invoice.pdfUrl || '',
+        pdfUrl: this.pdfService.getInvoiceApiUrl(id),
       },
     });
 

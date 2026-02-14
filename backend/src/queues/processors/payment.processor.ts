@@ -4,6 +4,7 @@ import { Job, Queue } from 'bullmq';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { EncryptionService } from '../../services/encryption.service';
+import { PdfService } from '../../services/pdf.service';
 import { ProviderFactory } from '../../providers/provider.factory';
 import {
   PAYMENT_QUEUE,
@@ -126,7 +127,7 @@ export class PaymentProcessor extends WorkerHost {
             context: {
               tenantName,
               customerName: invoice.customer.name || invoice.customer.email,
-              amount: String(invoice.amount),
+              amount: PdfService.formatAmount(invoice.amount, invoice.currency),
               currency: invoice.currency,
             },
           });
@@ -166,7 +167,7 @@ export class PaymentProcessor extends WorkerHost {
             context: {
               tenantName,
               customerName: invoice.customer.name || invoice.customer.email,
-              amount: String(invoice.amount),
+              amount: PdfService.formatAmount(invoice.amount, invoice.currency),
               currency: invoice.currency,
               reason: result.error || 'Payment could not be processed',
             },
@@ -250,7 +251,7 @@ export class PaymentProcessor extends WorkerHost {
             context: {
               tenantName,
               customerName: invoice.customer.name || invoice.customer.email,
-              amount: String(amount ?? payment.amount),
+              amount: PdfService.formatAmount(amount ?? payment.amount, payment.currency),
               currency: payment.currency,
             },
           });
@@ -368,7 +369,7 @@ export class PaymentProcessor extends WorkerHost {
             context: {
               tenantName,
               customerName: invoice.customer.name || invoice.customer.email,
-              amount: String(invoice.amount),
+              amount: PdfService.formatAmount(invoice.amount, invoice.currency),
               currency: invoice.currency,
             },
           });
@@ -426,7 +427,7 @@ export class PaymentProcessor extends WorkerHost {
             context: {
               tenantName,
               customerName: invoice.customer.name || invoice.customer.email,
-              amount: String(invoice.amount),
+              amount: PdfService.formatAmount(invoice.amount, invoice.currency),
               currency: invoice.currency,
               reason: result.error || 'Payment could not be processed',
             },

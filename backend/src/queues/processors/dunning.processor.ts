@@ -7,6 +7,7 @@ import { CentralPrismaService } from '../../database/central-prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EMAIL_QUEUE, WEBHOOK_QUEUE, EmailJobType, WebhookJobType } from '../billing.queue';
+import { PdfService } from '../../services/pdf.service';
 
 @Processor('dunning')
 export class DunningProcessor extends WorkerHost {
@@ -178,7 +179,7 @@ export class DunningProcessor extends WorkerHost {
           template: 'payment-retry-success',
           context: {
             customerName: retry.invoice.customer.name,
-            amount: Number(retry.invoice.amount),
+            amount: PdfService.formatAmount(retry.invoice.amount, retry.invoice.currency),
             currency: retry.invoice.currency,
             invoiceNumber: retry.invoice.invoiceNumber,
           },
@@ -224,7 +225,7 @@ export class DunningProcessor extends WorkerHost {
             template: 'payment-retry-exhausted',
             context: {
               customerName: retry.invoice.customer.name,
-              amount: Number(retry.invoice.amount),
+              amount: PdfService.formatAmount(retry.invoice.amount, retry.invoice.currency),
               currency: retry.invoice.currency,
               invoiceNumber: retry.invoice.invoiceNumber,
             },
@@ -255,7 +256,7 @@ export class DunningProcessor extends WorkerHost {
             template: 'payment-retry-failed',
             context: {
               customerName: retry.invoice.customer.name,
-              amount: Number(retry.invoice.amount),
+              amount: PdfService.formatAmount(retry.invoice.amount, retry.invoice.currency),
               currency: retry.invoice.currency,
               invoiceNumber: retry.invoice.invoiceNumber,
               attemptNumber: retry.attemptNumber,
