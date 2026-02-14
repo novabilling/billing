@@ -525,6 +525,7 @@ Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span
     return html
       .replace(/<[^>]*>/g, '')
       .replace(/\s+/g, ' ')
+      .replace(/[<>]/g, '')
       .trim();
   }
 }
