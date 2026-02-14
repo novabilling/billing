@@ -196,16 +196,31 @@ function mapPayment(p: any): Payment {
   };
 }
 
+const providerDescriptions: Record<string, string> = {
+  stripe: "Global payment processing for cards, wallets, and bank debits across 46+ countries",
+  paystack: "Accept payments from customers in Africa via cards, bank transfers, and mobile money",
+  flutterwave: "Pan-African payment gateway supporting cards, mobile money, bank transfers, and USSD",
+  dpo: "Pan-African payment gateway for cards, mobile wallets, and bank transfers across 40+ countries",
+  payu: "Payment gateway for South Africa supporting credit cards, EFT, and instant payments",
+  pesapal: "East African payment platform for mobile money, cards, and bank transfers",
+};
+
+const providerDisplayNames: Record<string, string> = {
+  stripe: "Stripe",
+  paystack: "Paystack",
+  flutterwave: "Flutterwave",
+  dpo: "DPO Group",
+  payu: "PayU",
+  pesapal: "Pesapal",
+};
+
 function mapProvider(p: any): PaymentProvider {
+  const code = (p.providerName || p.code || "").toLowerCase();
   return {
     id: p.id,
-    name: p.providerName || p.name || "",
-    code: (
-      p.providerName ||
-      p.code ||
-      ""
-    ).toLowerCase() as PaymentProvider["code"],
-    description: "",
+    name: providerDisplayNames[code] || p.providerName || p.name || code,
+    code: code as PaymentProvider["code"],
+    description: providerDescriptions[code] || "",
     isConfigured: p.isConfigured !== undefined ? p.isConfigured : !!p.id,
     isActive: p.isActive !== false,
     priority: p.priority || 0,
@@ -352,7 +367,7 @@ export const apiClient = {
       return mapPlan(result);
     },
 
-    async create(data: Partial<Plan>): Promise<Plan> {
+    async create(data: Partial<Plan> & { billingTiming?: string }): Promise<Plan> {
       const result = await apiFetch<any>(`/plans`, {
         method: "POST",
         body: JSON.stringify({
@@ -360,6 +375,7 @@ export const apiClient = {
           code: data.code,
           description: data.description,
           billingInterval: (data.interval || "monthly").toUpperCase(),
+          billingTiming: data.billingTiming || "IN_ARREARS",
           features: data.features,
           prices: (data.prices || []).map((p) => ({
             amount: p.amount,
@@ -370,12 +386,13 @@ export const apiClient = {
       return mapPlan(result);
     },
 
-    async update(id: string, data: Partial<Plan>): Promise<Plan> {
+    async update(id: string, data: Partial<Plan> & { billingTiming?: string }): Promise<Plan> {
       const body: any = {};
       if (data.name) body.name = data.name;
       if (data.description !== undefined) body.description = data.description;
       if (data.isActive !== undefined) body.isActive = data.isActive;
       if (data.features) body.features = data.features;
+      if ((data as any).billingTiming) body.billingTiming = (data as any).billingTiming;
       const result = await apiFetch<any>(`/plans/${id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
@@ -630,6 +647,16 @@ export const apiClient = {
       if (providers.length === 0) {
         return [
           {
+            id: "default_stripe",
+            name: "Stripe",
+            code: "stripe" as const,
+            description:
+              "Global payment processing for cards, wallets, and bank debits across 46+ countries",
+            isConfigured: false,
+            isActive: false,
+            priority: 1,
+          },
+          {
             id: "default_paystack",
             name: "Paystack",
             code: "paystack" as const,
@@ -637,7 +664,7 @@ export const apiClient = {
               "Accept payments from customers in Africa via cards, bank transfers, and mobile money",
             isConfigured: false,
             isActive: false,
-            priority: 1,
+            priority: 2,
           },
           {
             id: "default_flutterwave",
@@ -647,27 +674,37 @@ export const apiClient = {
               "Pan-African payment gateway supporting cards, mobile money, bank transfers, and USSD",
             isConfigured: false,
             isActive: false,
-            priority: 2,
-          },
-          {
-            id: "default_mpesa",
-            name: "M-Pesa",
-            code: "mpesa" as const,
-            description:
-              "Mobile money payments via Safaricom M-Pesa for East Africa (Kenya, Tanzania, Uganda)",
-            isConfigured: false,
-            isActive: false,
             priority: 3,
           },
           {
-            id: "default_stripe",
-            name: "Stripe",
-            code: "stripe" as const,
+            id: "default_dpo",
+            name: "DPO Group",
+            code: "dpo" as const,
             description:
-              "Global payment processing for cards, wallets, and bank debits across 46+ countries",
+              "Pan-African payment gateway for cards, mobile wallets, and bank transfers across 40+ countries",
             isConfigured: false,
             isActive: false,
             priority: 4,
+          },
+          {
+            id: "default_payu",
+            name: "PayU",
+            code: "payu" as const,
+            description:
+              "Payment gateway for South Africa supporting credit cards, EFT, and instant payments",
+            isConfigured: false,
+            isActive: false,
+            priority: 5,
+          },
+          {
+            id: "default_pesapal",
+            name: "Pesapal",
+            code: "pesapal" as const,
+            description:
+              "East African payment platform for mobile money, cards, and bank transfers",
+            isConfigured: false,
+            isActive: false,
+            priority: 6,
           },
         ];
       }

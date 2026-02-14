@@ -30,7 +30,9 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   stripe: { logo: "💳", color: "bg-indigo-500" },
   flutterwave: { logo: "🦋", color: "bg-orange-500" },
   paystack: { logo: "📦", color: "bg-blue-500" },
-  mpesa: { logo: "📱", color: "bg-green-500" },
+  dpo: { logo: "🏦", color: "bg-teal-500" },
+  payu: { logo: "💰", color: "bg-emerald-500" },
+  pesapal: { logo: "📱", color: "bg-green-500" },
 };
 
 const credentialFields: Record<
@@ -48,11 +50,20 @@ const credentialFields: Record<
     { key: "secretKey", label: "Secret Key", placeholder: "FLWSECK_..." },
     { key: "encryptionKey", label: "Encryption Key", placeholder: "" },
   ],
-  mpesa: [
+  dpo: [
+    { key: "companyToken", label: "Company Token", placeholder: "" },
+    { key: "serviceType", label: "Service Type", placeholder: "e.g. 5525" },
+    { key: "environment", label: "Environment", placeholder: "test or live" },
+  ],
+  payu: [
+    { key: "apiKey", label: "API Key", placeholder: "" },
+    { key: "safeKey", label: "Safe Key", placeholder: "" },
+    { key: "environment", label: "Environment", placeholder: "staging or production" },
+  ],
+  pesapal: [
     { key: "consumerKey", label: "Consumer Key", placeholder: "" },
     { key: "consumerSecret", label: "Consumer Secret", placeholder: "" },
-    { key: "passkey", label: "Passkey", placeholder: "" },
-    { key: "shortCode", label: "Short Code", placeholder: "" },
+    { key: "environment", label: "Environment", placeholder: "sandbox or live" },
   ],
 };
 
@@ -194,7 +205,7 @@ export default function ProvidersPage() {
       {/* Provider Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {providers.map((provider) => {
-          const info = providerInfo[provider.code];
+          const info = providerInfo[provider.code] || { logo: "🔌", color: "bg-gray-500" };
 
           return (
             <Card key={provider.id} className="relative overflow-hidden">
@@ -313,7 +324,7 @@ export default function ProvidersPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div>
               <h4 className="font-medium mb-2">Stripe</h4>
               <a
@@ -348,9 +359,31 @@ export default function ProvidersPage() {
               </a>
             </div>
             <div>
-              <h4 className="font-medium mb-2">M-Pesa</h4>
+              <h4 className="font-medium mb-2">DPO Group</h4>
               <a
-                href="https://developer.safaricom.co.ke"
+                href="https://dpogroup.com/developers"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                View Documentation &rarr;
+              </a>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">PayU</h4>
+              <a
+                href="https://developers.payu.co.za"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                View Documentation &rarr;
+              </a>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Pesapal</h4>
+              <a
+                href="https://developer.pesapal.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:underline"

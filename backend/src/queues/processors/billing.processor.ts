@@ -255,9 +255,14 @@ export class BillingProcessor extends WorkerHost {
       }> = [];
 
       // Check for plan override (customer-specific pricing)
-      const priceOverride = await this.planOverridesService.resolvePrice(
-        db, customerId, subscription.planId, subscription.currency,
-      );
+      let priceOverride: number | null = null;
+      try {
+        priceOverride = await this.planOverridesService.resolvePrice(
+          db, customerId, subscription.planId, subscription.currency,
+        );
+      } catch (err) {
+        this.logger.warn(`Could not resolve plan override price: ${(err as Error).message}`);
+      }
       const basePlanAmount = priceOverride ?? Number(price.amount);
       let totalAmount = basePlanAmount;
 
@@ -328,9 +333,14 @@ export class BillingProcessor extends WorkerHost {
       }
 
       // 3) Minimum commitment check (with override support)
-      const commitmentOverride = await this.planOverridesService.resolveMinimumCommitment(
-        db, customerId, subscription.planId,
-      );
+      let commitmentOverride: number | null = null;
+      try {
+        commitmentOverride = await this.planOverridesService.resolveMinimumCommitment(
+          db, customerId, subscription.planId,
+        );
+      } catch (err) {
+        this.logger.warn(`Could not resolve commitment override: ${(err as Error).message}`);
+      }
       const effectiveMinCommitment = commitmentOverride ?? (plan.minimumCommitment ? Number(plan.minimumCommitment) : null);
       if (effectiveMinCommitment) {
         const minCommitment = effectiveMinCommitment;

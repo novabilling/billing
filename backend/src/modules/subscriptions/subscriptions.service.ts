@@ -197,7 +197,7 @@ export class SubscriptionsService {
     // Generate first invoice immediately for IN_ADVANCE billing (pay upfront)
     // IN_ARREARS invoices are generated at period end by the billing cron job
     if (!hasTrial && subscription.status === 'ACTIVE' && subscription.billingTiming === 'IN_ADVANCE') {
-      this.logger.log(`Queueing immediate invoice generation for IN_ADVANCE subscription ${subscription.id}`);
+      this.logger.log(`Queueing immediate invoice for IN_ADVANCE subscription ${subscription.id}`);
       await this.billingQueue.add(BillingJobType.GENERATE_INVOICE, {
         tenantId,
         subscriptionId: subscription.id,
