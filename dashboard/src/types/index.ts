@@ -24,12 +24,16 @@ export interface Plan {
   isActive: boolean;
   billingTiming?: "IN_ADVANCE" | "IN_ARREARS";
   minimumCommitment?: number;
+  netPaymentTerms?: number;
+  invoiceGracePeriodDays?: number;
+  progressiveBillingThreshold?: number;
   charges?: Charge[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface PlanPrice {
+  id?: string;
   currency: string;
   amount: number;
 }

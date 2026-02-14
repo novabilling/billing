@@ -48,7 +48,10 @@ interface PlanForm {
   interval: "hourly" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
   billingTiming: "IN_ADVANCE" | "IN_ARREARS";
   features: string[];
-  prices: { currency: string; amount: string }[];
+  prices: { id?: string; currency: string; amount: string }[];
+  netPaymentTerms: string;
+  invoiceGracePeriodDays: string;
+  progressiveBillingThreshold: string;
 }
 
 const emptyForm: PlanForm = {
@@ -59,6 +62,9 @@ const emptyForm: PlanForm = {
   billingTiming: "IN_ARREARS",
   features: [],
   prices: [{ currency: "USD", amount: "" }],
+  netPaymentTerms: "",
+  invoiceGracePeriodDays: "",
+  progressiveBillingThreshold: "",
 };
 
 export default function PlansPage() {
@@ -109,9 +115,13 @@ export default function PlansPage() {
       billingTiming: plan.billingTiming || "IN_ARREARS",
       features: [...plan.features],
       prices: plan.prices.map((p) => ({
+        id: p.id,
         currency: p.currency,
         amount: String(p.amount),
       })),
+      netPaymentTerms: plan.netPaymentTerms != null ? String(plan.netPaymentTerms) : "",
+      invoiceGracePeriodDays: plan.invoiceGracePeriodDays != null ? String(plan.invoiceGracePeriodDays) : "",
+      progressiveBillingThreshold: plan.progressiveBillingThreshold != null ? String(plan.progressiveBillingThreshold) : "",
     });
     setNewFeature("");
     setDialogOpen(true);
@@ -162,7 +172,38 @@ export default function PlansPage() {
           name: form.name,
           description: form.description,
           features: form.features,
+          billingTiming: form.billingTiming,
+          ...(form.netPaymentTerms ? { netPaymentTerms: Number(form.netPaymentTerms) } : {}),
+          ...(form.invoiceGracePeriodDays ? { invoiceGracePeriodDays: Number(form.invoiceGracePeriodDays) } : {}),
+          ...(form.progressiveBillingThreshold ? { progressiveBillingThreshold: Number(form.progressiveBillingThreshold) } : {}),
         });
+
+        // Sync prices: update existing, add new, delete removed
+        const originalPrices = editingPlan.prices;
+        const formPrices = form.prices.filter((p) => p.currency && p.amount);
+
+        // Delete removed prices
+        for (const op of originalPrices) {
+          if (op.id && !formPrices.some((fp) => fp.id === op.id)) {
+            await apiClient.plans.deletePrice(editingPlan.id, op.id);
+          }
+        }
+
+        // Update existing or add new prices
+        for (const fp of formPrices) {
+          if (fp.id) {
+            const original = originalPrices.find((op) => op.id === fp.id);
+            if (original && Number(fp.amount) !== original.amount) {
+              await apiClient.plans.updatePrice(editingPlan.id, fp.id, Number(fp.amount));
+            }
+          } else {
+            await apiClient.plans.addPrice(editingPlan.id, {
+              currency: fp.currency,
+              amount: Number(fp.amount),
+            });
+          }
+        }
+
         toast.success("Plan updated");
       } else {
         if (!form.code) {
@@ -182,6 +223,9 @@ export default function PlansPage() {
             currency: p.currency,
             amount: Number(p.amount),
           })),
+          ...(form.netPaymentTerms ? { netPaymentTerms: Number(form.netPaymentTerms) } : {}),
+          ...(form.invoiceGracePeriodDays ? { invoiceGracePeriodDays: Number(form.invoiceGracePeriodDays) } : {}),
+          ...(form.progressiveBillingThreshold ? { progressiveBillingThreshold: Number(form.progressiveBillingThreshold) } : {}),
         });
         toast.success("Plan created");
       }
@@ -473,6 +517,44 @@ export default function PlansPage() {
               </p>
             </div>
 
+            {/* Advanced Billing */}
+            <div className="space-y-2">
+              <Label>Net Payment Terms (days)</Label>
+              <Input
+                type="number"
+                placeholder="e.g. 30 (leave empty for org default)"
+                value={form.netPaymentTerms}
+                onChange={(e) => setForm({ ...form, netPaymentTerms: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Days after invoice before payment is due
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Invoice Grace Period (days)</Label>
+              <Input
+                type="number"
+                placeholder="e.g. 3 (0 = finalize immediately)"
+                value={form.invoiceGracePeriodDays}
+                onChange={(e) => setForm({ ...form, invoiceGracePeriodDays: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Days an invoice stays in DRAFT before auto-finalizing
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Progressive Billing Threshold</Label>
+              <Input
+                type="number"
+                placeholder="e.g. 1000 (leave empty to disable)"
+                value={form.progressiveBillingThreshold}
+                onChange={(e) => setForm({ ...form, progressiveBillingThreshold: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Usage cost threshold that triggers a mid-cycle invoice
+              </p>
+            </div>
+
             {/* Features */}
             <div className="space-y-2">
               <Label>Features</Label>
@@ -514,55 +596,54 @@ export default function PlansPage() {
             </div>
 
             {/* Prices */}
-            {!editingPlan && (
-              <div className="space-y-2">
-                <Label>Prices</Label>
-                {form.prices.map((p, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <Select
-                      value={p.currency}
-                      onValueChange={(v) => updatePrice(i, "currency", v)}
+            <div className="space-y-2">
+              <Label>Prices</Label>
+              {form.prices.map((p, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <Select
+                    value={p.currency}
+                    onValueChange={(v) => updatePrice(i, "currency", v)}
+                    disabled={!!editingPlan && !!editingPlan.prices[i]?.id}
+                  >
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue placeholder="Currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={p.amount}
+                    onChange={(e) => updatePrice(i, "amount", e.target.value)}
+                  />
+                  {form.prices.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removePrice(i)}
                     >
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue placeholder="Currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SUPPORTED_CURRENCIES.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      placeholder="Amount"
-                      value={p.amount}
-                      onChange={(e) => updatePrice(i, "amount", e.target.value)}
-                    />
-                    {form.prices.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removePrice(i)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addPrice}
-                >
-                  <Plus className="mr-1 h-3 w-3" />
-                  Add Price
-                </Button>
-              </div>
-            )}
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addPrice}
+              >
+                <Plus className="mr-1 h-3 w-3" />
+                Add Price
+              </Button>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
