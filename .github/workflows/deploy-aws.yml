@@ -1,0 +1,159 @@
+name: Deploy to AWS
+
+# Disabled — enable when ready to deploy to AWS ECS.
+# See infra/aws/ for Terraform configuration.
+# To enable: change 'on' to trigger on push to main + workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type 'deploy' to confirm AWS deployment"
+        required: true
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: novabilling
+
+jobs:
+  guard:
+    name: Deployment Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        if: github.event.inputs.confirm != 'deploy'
+        run: |
+          echo "Deployment not confirmed. Type 'deploy' to proceed."
+          exit 1
+
+  test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    needs: [guard]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma clients
+        run: |
+          npx prisma generate --schema=./prisma/schema-central.prisma
+          npx prisma generate --schema=./prisma/schema-tenant.prisma
+
+      - run: npx jest test/unit --no-coverage --forceExit
+
+  build-and-push:
+    name: Build & Push ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: [test]
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - service: api
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            ecr_repo: novabilling/api
+          - service: dashboard
+            context: ./dashboard
+            dockerfile: ./dashboard/Dockerfile
+            ecr_repo: novabilling/dashboard
+          - service: landing
+            context: ./landing
+            dockerfile: ./landing/Dockerfile
+            ecr_repo: novabilling/landing
+          - service: docs
+            context: ./docs
+            dockerfile: ./docs/Dockerfile
+            ecr_repo: novabilling/docs
+    outputs:
+      image_tag: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/${{ matrix.ecr_repo }}:latest
+            ${{ steps.ecr-login.outputs.registry }}/${{ matrix.ecr_repo }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_DASHBOARD_URL=${{ vars.DASHBOARD_URL }}
+            NEXT_PUBLIC_DOCS_URL=${{ vars.DOCS_URL }}
+            NEXT_PUBLIC_API_REF_URL=${{ vars.API_URL }}/api/reference
+            LANDING_URL=${{ vars.LANDING_URL }}
+            DASHBOARD_URL=${{ vars.DASHBOARD_URL }}
+            API_REF_URL=${{ vars.API_URL }}/api/reference
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    environment: production
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Force new deployment for all services
+        run: |
+          for service in api worker dashboard landing docs; do
+            echo "Deploying $service..."
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --service $service \
+              --force-new-deployment \
+              --no-cli-pager
+          done
+
+      - name: Wait for API service stability
+        run: |
+          echo "Waiting for API service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services api
+          echo "API service is stable"
+
+      - name: Wait for Worker service stability
+        run: |
+          echo "Waiting for Worker service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services worker
+          echo "Worker service is stable"

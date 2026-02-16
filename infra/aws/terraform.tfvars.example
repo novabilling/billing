@@ -1,0 +1,27 @@
+region      = "us-east-1"
+domain      = "novabilling.com"
+environment = "production"
+
+# Database
+central_db_password = ""  # openssl rand -base64 24
+tenant_db_password  = ""  # openssl rand -base64 24
+
+# Auth
+jwt_secret         = ""  # openssl rand -hex 32
+jwt_refresh_secret = ""  # openssl rand -hex 32
+encryption_key     = ""  # openssl rand -hex 32
+
+# Email (optional)
+email_host     = "smtp.gmail.com"
+email_port     = "587"
+email_user     = ""
+email_password = ""
+email_from     = "noreply@novabilling.com"
+
+# Scaling
+api_desired_count    = 2
+worker_desired_count = 2
+api_cpu              = 256   # 0.25 vCPU
+api_memory           = 512   # 512 MB
+worker_cpu           = 512   # 0.5 vCPU
+worker_memory        = 1024  # 1 GB

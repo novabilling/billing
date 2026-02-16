@@ -48,14 +48,6 @@ export default function SettingsPage() {
   const [testEmailTo, setTestEmailTo] = useState("");
   const [isTesting, setIsTesting] = useState(false);
 
-  // Usage stats
-  const [usage, setUsage] = useState<{
-    customers: number;
-    activeSubscriptions: number;
-    totalInvoices: number;
-    totalRevenue: string;
-  } | null>(null);
-
   const webhookEvents = [
     {
       id: "customer.created",
@@ -103,17 +95,11 @@ export default function SettingsPage() {
 
   async function loadSettings() {
     try {
-      const [profileRes, usageRes] = await Promise.all([
-        fetch("/api/proxy/tenants/me", { credentials: "include" }).then((r) =>
-          r.json(),
-        ),
-        fetch("/api/proxy/tenants/me/usage", { credentials: "include" }).then(
-          (r) => r.json(),
-        ),
-      ]);
+      const profileRes = await fetch("/api/proxy/tenants/me", { credentials: "include" }).then((r) =>
+        r.json(),
+      );
 
       const profile = profileRes.data?.data || profileRes.data || profileRes;
-      const usageData = usageRes.data?.data || usageRes.data || usageRes;
 
       setCompanyName(profile.name || "");
       setSlug(profile.slug || "");
@@ -135,7 +121,6 @@ export default function SettingsPage() {
         setSmtpFrom(smtp.from || "");
         setSmtpFromName(smtp.fromName || "");
       }
-      setUsage(usageData);
     } catch (error) {
       console.error("Failed to load settings:", error);
       toast.error("Failed to load settings");
@@ -278,7 +263,6 @@ export default function SettingsPage() {
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
           <TabsTrigger value="api">API Keys</TabsTrigger>
-          <TabsTrigger value="usage">Usage</TabsTrigger>
         </TabsList>
 
         {/* General Settings */}
@@ -720,69 +704,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Usage */}
-        <TabsContent value="usage" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Usage</CardTitle>
-              <CardDescription>
-                Overview of your current resource usage
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Customers</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <span className="text-2xl font-bold">
-                      {usage?.customers?.toLocaleString() || 0}
-                    </span>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">
-                      Active Subscriptions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <span className="text-2xl font-bold">
-                      {usage?.activeSubscriptions?.toLocaleString() || 0}
-                    </span>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Total Invoices</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <span className="text-2xl font-bold">
-                      {usage?.totalInvoices?.toLocaleString() || 0}
-                    </span>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Total Revenue</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <span className="text-2xl font-bold">
-                      {Number(usage?.totalRevenue || 0).toLocaleString()}
-                    </span>
-                    <span className="text-sm text-muted-foreground ml-1">
-                      (mixed currencies)
-                    </span>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );

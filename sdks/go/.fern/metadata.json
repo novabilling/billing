@@ -1,0 +1,11 @@
+{
+  "cliVersion": "3.78.0",
+  "generatorName": "fernapi/fern-go-sdk",
+  "generatorVersion": "1.24.0",
+  "generatorConfig": {
+    "module": {
+      "path": "github.com/novabilling/novabilling-go"
+    },
+    "import_path": "github.com/novabilling/novabilling-go"
+  }
+}

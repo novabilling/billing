@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -38,6 +39,7 @@ import {
 
 const navigation = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Plans", href: "/plans", icon: Package },
   { name: "Billable Metrics", href: "/billable-metrics", icon: Activity },
@@ -51,7 +53,6 @@ const navigation = [
   { name: "Plan Overrides", href: "/plan-overrides", icon: SlidersHorizontal },
   { name: "Payments", href: "/payments", icon: DollarSign },
   { name: "Providers", href: "/providers", icon: Plug },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -72,9 +73,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">N</span>
-          </div>
+          <Image src="/logo.png" alt="NovaBilling" width={32} height={32} className="h-8 w-8 rounded-lg" />
           {!sidebarCollapsed && (
             <span className="font-semibold text-lg">NovaBilling</span>
           )}
