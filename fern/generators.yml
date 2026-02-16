@@ -4,43 +4,100 @@ api:
       overrides: overrides.yml
 
 default-group: local
+
 groups:
+  # Local development group - generates SDKs locally for testing
   local:
     generators:
+      # TypeScript SDK
       - name: fernapi/fern-typescript-sdk
-        version: 3.46.3
+        version: 3.48.2  # Update to latest with: fern generator upgrade --generator typescript-sdk
         output:
           location: local-file-system
           path: ../sdks/typescript
         config:
           namespaceExport: NovaBilling
 
+      # Python SDK
       - name: fernapi/fern-python-sdk
-        version: 4.55.1
+        version: 4.57.2  # Update to latest with: fern generator upgrade --generator python-sdk
         output:
           location: local-file-system
           path: ../sdks/python
         config:
           client_class_name: NovaBilling
           package_name: novabilling
+          timeout_in_seconds: 60
 
-  publish:
-    generators:
-      - name: fernapi/fern-typescript-sdk
-        version: 3.46.3
+      # Go SDK
+      - name: fernapi/fern-go-sdk
+        version: 1.24.0  # Check latest: fern generator upgrade --list
         output:
-          location: npm
-          package-name: novabilling
-          token: ${NPM_TOKEN}
+          location: local-file-system
+          path: ../sdks/go
         config:
-          namespaceExport: NovaBilling
+          module:
+            path: github.com/novabilling/novabilling-go
+          import_path: github.com/novabilling/novabilling-go
 
-      - name: fernapi/fern-python-sdk
-        version: 4.55.1
+      # Java SDK
+      - name: fernapi/fern-java-sdk
+        version: 3.36.0  # Check latest: fern generator upgrade --list
         output:
-          location: pypi
-          package-name: novabilling
-          token: ${PYPI_TOKEN}
+          location: local-file-system
+          path: ../sdks/java
+        config:
+          group_id: com.novabilling
+          artifact_id: novabilling-sdk
+          client_class_name: NovaBillingClient
+
+      # Ruby SDK
+      - name: fernapi/fern-ruby-sdk
+        version: 1.0.0-rc85  # Check latest: fern generator upgrade --list
+        output:
+          location: local-file-system
+          path: ../sdks/ruby
         config:
           client_class_name: NovaBilling
-          package_name: novabilling
+          module_name: NovaBilling
+
+      # C# / .NET SDK
+      - name: fernapi/fern-csharp-sdk
+        version: 2.20.5  # Check latest: fern generator upgrade --list
+        output:
+          location: local-file-system
+          path: ../sdks/csharp
+        config:
+          namespace: NovaBilling
+          client_class_name: NovaBillingClient
+
+      # PHP SDK
+      - name: fernapi/fern-php-sdk
+        version: 2.0.0  # Check latest: fern generator upgrade --list
+        output:
+          location: local-file-system
+          path: ../sdks/php
+        config:
+          namespace: NovaBilling
+      
+      # Rust SDK
+      - name: fernapi/fern-rust-sdk
+        version: 0.17.2
+        output:
+          location: local-file-system
+          path: ../sdks/rust
+        config:
+          clientClassName: NovaBillingClient
+          crateName: novabilling-rust
+
+      # Swift SDK
+      - name: fernapi/fern-swift-sdk
+        version: 0.26.0
+        output:
+          location: local-file-system
+          path: ../sdks/swift
+        config:
+          clientClassName: NovaBillingClient
+          environmentEnumName: NovaBillingEnvironment
+
+ 

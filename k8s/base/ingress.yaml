@@ -1,0 +1,66 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: novabilling
+  namespace: novabilling
+  labels:
+    app.kubernetes.io/part-of: novabilling
+  annotations:
+    # Adjust for your ingress controller (nginx, traefik, etc.)
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+spec:
+  ingressClassName: nginx
+  rules:
+    # API — api.yourdomain.com
+    - host: api.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 4000
+    # Dashboard — app.yourdomain.com
+    - host: app.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dashboard
+                port:
+                  number: 4002
+    # Landing — yourdomain.com
+    - host: yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: landing
+                port:
+                  number: 4001
+    # Docs — docs.yourdomain.com
+    - host: docs.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: docs
+                port:
+                  number: 4003
+  # Uncomment and configure for TLS
+  # tls:
+  #   - hosts:
+  #       - api.yourdomain.com
+  #       - app.yourdomain.com
+  #       - yourdomain.com
+  #       - docs.yourdomain.com
+  #     secretName: novabilling-tls

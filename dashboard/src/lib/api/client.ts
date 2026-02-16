@@ -927,6 +927,7 @@ export const apiClient = {
       totalCustomers: number;
       customerChange: number;
       successRate: number;
+      successRateChange: number;
     }> {
       const now = new Date();
       const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -947,6 +948,7 @@ export const apiClient = {
         payments,
         lastMonthRevenue,
         lastMonthCustomers,
+        lastMonthPayments,
       ] = await Promise.all([
         apiFetch<any>(`/analytics/revenue`),
         apiFetch<any>(`/analytics/customers`),
@@ -958,6 +960,9 @@ export const apiClient = {
         apiFetch<any>(
           `/analytics/customers?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
         ).catch(() => ({ totalCustomers: 0 })),
+        apiFetch<any>(
+          `/analytics/payments?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
+        ).catch(() => ({ totalPayments: 0, succeeded: 0 })),
       ]);
 
       const currentMrr = Number(revenue.mrr) || 0;
@@ -974,6 +979,12 @@ export const apiClient = {
 
       const totalPayments = Number(payments.totalPayments) || 1;
       const successfulPayments = Number(payments.succeeded) || 0;
+      const currentSuccessRate = (successfulPayments / totalPayments) * 100;
+
+      const lastTotalPayments = Number(lastMonthPayments.totalPayments) || 1;
+      const lastSuccessfulPayments = Number(lastMonthPayments.succeeded) || 0;
+      const lastSuccessRate = (lastSuccessfulPayments / lastTotalPayments) * 100;
+      const successRateChange = currentSuccessRate - lastSuccessRate;
 
       return {
         mrr: currentMrr,
@@ -982,7 +993,8 @@ export const apiClient = {
         subscriptionChange: 0,
         totalCustomers: currentCustomers,
         customerChange: Math.round(customerChange * 10) / 10,
-        successRate: (successfulPayments / totalPayments) * 100,
+        successRate: currentSuccessRate,
+        successRateChange: Math.round(successRateChange * 10) / 10,
       };
     },
   },

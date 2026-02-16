@@ -1,0 +1,9 @@
+{
+  "cliVersion": "3.78.0",
+  "generatorName": "fernapi/fern-ruby-sdk",
+  "generatorVersion": "1.0.0-rc85",
+  "generatorConfig": {
+    "client_class_name": "NovaBilling",
+    "module_name": "NovaBilling"
+  }
+}

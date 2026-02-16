@@ -1,0 +1,49 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Override image tags for production
+images:
+  - name: ghcr.io/novabilling/api
+    newTag: v1.0.0
+  - name: ghcr.io/novabilling/dashboard
+    newTag: v1.0.0
+  - name: ghcr.io/novabilling/landing
+    newTag: v1.0.0
+  - name: ghcr.io/novabilling/docs
+    newTag: v1.0.0
+
+# Patch replicas for production scale
+patches:
+  - target:
+      kind: Deployment
+      name: api
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  - target:
+      kind: Deployment
+      name: worker
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  - target:
+      kind: Ingress
+      name: novabilling
+    patch: |
+      - op: replace
+        path: /spec/rules/0/host
+        value: api.novabilling.com
+      - op: replace
+        path: /spec/rules/1/host
+        value: app.novabilling.com
+      - op: replace
+        path: /spec/rules/2/host
+        value: novabilling.com
+      - op: replace
+        path: /spec/rules/3/host
+        value: docs.novabilling.com

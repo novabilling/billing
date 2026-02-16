@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: novabilling-config
+  namespace: novabilling
+  labels:
+    app.kubernetes.io/part-of: novabilling
+data:
+  NODE_ENV: "production"
+  JWT_EXPIRATION: "1h"
+  JWT_REFRESH_EXPIRATION: "7d"
+  REDIS_URL: "redis://redis:6379"
+  CENTRAL_DATABASE_URL: "postgresql://central:$(CENTRAL_DB_PASSWORD)@central-db:5432/central"
+  INTERNAL_POSTGRES_URL: "postgresql://postgres:$(TENANT_DB_PASSWORD)@tenant-db:5432/postgres"
+  PDF_STORAGE_PATH: "/app/uploads/invoices"
+  # Override these in your overlay or via env
+  API_URL: "http://api:4000"
+  DASHBOARD_URL: "http://dashboard:4002"
+  LANDING_URL: "http://landing:4001"
+  DOCS_URL: "http://docs:4003"
+  EMAIL_PORT: "587"
+  EMAIL_FROM: "noreply@novabilling.com"

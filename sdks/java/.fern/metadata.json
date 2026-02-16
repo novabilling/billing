@@ -1,0 +1,10 @@
+{
+  "cliVersion": "3.78.0",
+  "generatorName": "fernapi/fern-java-sdk",
+  "generatorVersion": "3.36.0",
+  "generatorConfig": {
+    "group_id": "com.novabilling",
+    "artifact_id": "novabilling-sdk",
+    "client_class_name": "NovaBillingClient"
+  }
+}

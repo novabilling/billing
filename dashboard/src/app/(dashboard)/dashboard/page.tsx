@@ -143,7 +143,7 @@ export default function DashboardPage() {
         <KPICard
           title="Success Rate"
           value={kpis ? `${kpis.successRate.toFixed(1)}%` : "0%"}
-          change={2.1}
+          change={kpis?.successRateChange || 0}
           icon={<TrendingUp className="h-6 w-6 text-blue-600" />}
           isLoading={isLoading}
         />

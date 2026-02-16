@@ -32,7 +32,11 @@ import { formatCurrency } from "@/lib/utils/currency";
 import type { AddOn } from "@/types";
 import { toast } from "sonner";
 
-const CURRENCIES = ["USD", "UGX", "KES", "NGN", "GBP", "EUR"];
+const CURRENCIES = [
+  "USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "UGX",
+  "TZS", "RWF", "XOF", "XAF", "EGP", "MAD", "INR", "BRL",
+  "CAD", "AUD", "JPY", "CNY",
+];
 
 interface AddOnForm {
   name: string;

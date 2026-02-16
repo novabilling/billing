@@ -1,0 +1,9 @@
+{
+  "cliVersion": "3.78.0",
+  "generatorName": "fernapi/fern-csharp-sdk",
+  "generatorVersion": "2.20.5",
+  "generatorConfig": {
+    "namespace": "NovaBilling",
+    "client_class_name": "NovaBillingClient"
+  }
+}

@@ -70,7 +70,7 @@ const emptyForm: PlanForm = {
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCurrency, setSelectedCurrency] = useState("USD");
+  const [selectedCurrency, setSelectedCurrency] = useState("");
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -87,6 +87,16 @@ export default function PlansPage() {
     try {
       const data = await apiClient.plans.list();
       setPlans(data);
+      // Auto-select first available currency from plans
+      if (!selectedCurrency || selectedCurrency === "") {
+        const currencies = new Set<string>();
+        data.forEach((plan) =>
+          plan.prices.forEach((p) => currencies.add(p.currency)),
+        );
+        const sorted = Array.from(currencies).sort();
+        if (sorted.length > 0) setSelectedCurrency(sorted[0]);
+        else setSelectedCurrency("USD");
+      }
     } catch (error) {
       toast.error("Failed to load plans");
     } finally {

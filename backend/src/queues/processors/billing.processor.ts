@@ -143,6 +143,22 @@ export class BillingProcessor extends WorkerHost {
         );
 
         for (const sub of expiringSubs) {
+          // Skip if an invoice already exists for this subscription's current period
+          const existingInvoice = await db.invoice.findFirst({
+            where: {
+              subscriptionId: sub.id,
+              createdAt: { gte: sub.currentPeriodStart },
+              status: { in: ['PENDING', 'PAID', 'DRAFT'] as any[] },
+            },
+          });
+
+          if (existingInvoice) {
+            this.logger.log(
+              `Skipping invoice generation for subscription ${sub.id} — invoice ${existingInvoice.invoiceNumber} already exists (${existingInvoice.status})`,
+            );
+            continue;
+          }
+
           await this.billingQueue.add(BillingJobType.GENERATE_INVOICE, {
             tenantId: conn.tenantId,
             subscriptionId: sub.id,
@@ -203,6 +219,22 @@ export class BillingProcessor extends WorkerHost {
 
       if (!subscription) {
         this.logger.warn(`Subscription ${subscriptionId} not found`);
+        return;
+      }
+
+      // Guard: skip if a non-voided invoice already exists for this period
+      const existingInvoice = await db.invoice.findFirst({
+        where: {
+          subscriptionId,
+          createdAt: { gte: subscription.currentPeriodStart },
+          status: { in: ['PENDING', 'PAID', 'DRAFT'] as any[] },
+        },
+      });
+
+      if (existingInvoice) {
+        this.logger.log(
+          `Invoice ${existingInvoice.invoiceNumber} already exists for subscription ${subscriptionId} in current period — skipping`,
+        );
         return;
       }
 

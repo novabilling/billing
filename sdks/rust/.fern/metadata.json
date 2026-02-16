@@ -1,0 +1,9 @@
+{
+  "cliVersion": "3.78.0",
+  "generatorName": "fernapi/fern-rust-sdk",
+  "generatorVersion": "0.17.2",
+  "generatorConfig": {
+    "clientClassName": "NovaBillingClient",
+    "crateName": "novabilling-rust"
+  }
+}

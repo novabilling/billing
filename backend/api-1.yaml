@@ -14,7 +14,11 @@ paths:
               $ref: "#/components/schemas/RegisterDto"
       responses:
         "201":
-          description: Tenant registered successfully. Returns JWT tokens and API key.
+          description: Tenant registered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
         "409":
           description: Email already registered
       summary: Register a new tenant
@@ -34,7 +38,11 @@ paths:
               $ref: "#/components/schemas/LoginDto"
       responses:
         "200":
-          description: Login successful. Returns access and refresh tokens.
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
         "401":
           description: Invalid email or password
       summary: Login as tenant
@@ -54,6 +62,10 @@ paths:
       responses:
         "200":
           description: New token pair issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPairResponse"
         "401":
           description: Invalid or expired refresh token
       summary: Refresh access token
@@ -74,6 +86,10 @@ paths:
       responses:
         "200":
           description: Reset email sent if account exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
       summary: Request password reset
       tags:
         - Auth
@@ -91,6 +107,10 @@ paths:
       responses:
         "200":
           description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
         "400":
           description: Invalid or expired reset token
       summary: Reset password with token
@@ -105,6 +125,10 @@ paths:
       responses:
         "200":
           description: Tenant profile details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
       security:
         - JWT: []
       summary: Get current tenant info
@@ -124,6 +148,10 @@ paths:
       responses:
         "200":
           description: Tenant profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
       security:
         - JWT: []
       summary: Update current tenant
@@ -138,6 +166,10 @@ paths:
       responses:
         "200":
           description: Usage metrics for the current billing period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantUsageResponse"
       security:
         - JWT: []
       summary: Get tenant usage statistics
@@ -161,19 +193,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  key:
-                    type: string
-                    description: Full API key (shown only once)
-                  name:
-                    type: string
-                  scopes:
-                    type: array
-                    items:
-                      type: string
+                $ref: "#/components/schemas/ApiKeyResponse"
       security:
         - JWT: []
       summary: Create a new API key
@@ -187,9 +207,48 @@ paths:
       responses:
         "200":
           description: List of API keys with masked values
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyResponse"
       security:
         - JWT: []
       summary: List API keys
+      tags:
+        - Tenants
+  /api/tenants/me/smtp/test:
+    post:
+      description: Send a test email using the tenant's saved SMTP settings (or system
+        defaults if not configured). Only requires recipient email address.
+      operationId: TenantsController_testSmtp
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+              properties:
+                to:
+                  type: string
+                  example: test@example.com
+                  description: Recipient email address
+      responses:
+        "200":
+          description: Test email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: SMTP test failed - check settings
+      security:
+        - JWT: []
+      summary: Test SMTP settings
       tags:
         - Tenants
   /api/tenants/me/api-keys/{id}:
@@ -214,6 +273,23 @@ paths:
       summary: Delete an API key
       tags:
         - Tenants
+  /api/currencies:
+    get:
+      description: Retrieve all supported currencies with their symbols and metadata.
+      operationId: CurrenciesController_getSupportedCurrencies
+      parameters: []
+      responses:
+        "200":
+          description: List of currencies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CurrencyResponse"
+      summary: List supported currencies
+      tags:
+        - Currencies
   /api/customers:
     get:
       description: Retrieve a paginated list of customers. Supports filtering by
@@ -266,6 +342,10 @@ paths:
       responses:
         "200":
           description: Paginated list of customers with metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCustomerResponse"
         "401":
           description: Unauthorized - invalid or missing API key
       security:
@@ -287,6 +367,10 @@ paths:
       responses:
         "201":
           description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerResponse"
         "409":
           description: Customer with this externalId already exists
       security:
@@ -309,6 +393,10 @@ paths:
       responses:
         "200":
           description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerResponse"
         "404":
           description: Customer not found
       security:
@@ -335,6 +423,10 @@ paths:
       responses:
         "200":
           description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerResponse"
         "404":
           description: Customer not found
       security:
@@ -379,6 +471,12 @@ paths:
       responses:
         "200":
           description: List of customer subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionResponse"
         "404":
           description: Customer not found
       security:
@@ -400,6 +498,12 @@ paths:
       responses:
         "200":
           description: List of customer invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvoiceResponse"
         "404":
           description: Customer not found
       security:
@@ -421,11 +525,63 @@ paths:
       responses:
         "200":
           description: List of customer payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentResponse"
         "404":
           description: Customer not found
       security:
         - api-key: []
       summary: Get customer payments
+      tags:
+        - Customers
+  /api/customers/{id}/payment-methods:
+    get:
+      description: Retrieve saved payment methods (cards, tokens) for a customer.
+      operationId: CustomersController_findPaymentMethods
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of saved payment methods
+      security:
+        - api-key: []
+      summary: Get customer payment methods
+      tags:
+        - Customers
+  /api/customers/{id}/payment-methods/{methodId}:
+    delete:
+      description: Remove a saved payment method from a customer.
+      operationId: CustomersController_deletePaymentMethod
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+        - name: methodId
+          required: true
+          in: path
+          description: Payment method ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment method deleted
+        "404":
+          description: Payment method not found
+      security:
+        - api-key: []
+      summary: Delete a payment method
       tags:
         - Customers
   /api/plans:
@@ -443,6 +599,12 @@ paths:
       responses:
         "200":
           description: List of plans with prices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanResponse"
       security:
         - api-key: []
       summary: List all plans
@@ -463,6 +625,10 @@ paths:
       responses:
         "201":
           description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
         "409":
           description: Plan with this code already exists
       security:
@@ -484,6 +650,10 @@ paths:
       responses:
         "200":
           description: Plan details with prices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
         "404":
           description: Plan not found
       security:
@@ -511,6 +681,10 @@ paths:
       responses:
         "200":
           description: Plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
         "404":
           description: Plan not found
       security:
@@ -532,6 +706,10 @@ paths:
       responses:
         "200":
           description: Plan deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
         "404":
           description: Plan not found
       security:
@@ -560,6 +738,10 @@ paths:
       responses:
         "201":
           description: Price added to plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPriceResponse"
         "404":
           description: Plan not found
       security:
@@ -587,6 +769,10 @@ paths:
       responses:
         "200":
           description: Price updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPriceResponse"
         "404":
           description: Plan or price not found
       security:
@@ -614,6 +800,10 @@ paths:
       responses:
         "200":
           description: Price deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanPriceResponse"
         "404":
           description: Plan or price not found
       security:
@@ -658,6 +848,10 @@ paths:
       responses:
         "200":
           description: Paginated list of subscriptions with customer and plan details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSubscriptionResponse"
       security:
         - api-key: []
       summary: List subscriptions
@@ -677,6 +871,10 @@ paths:
       responses:
         "201":
           description: "Subscription created (status: ACTIVE or TRIALING)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
         "400":
           description: Plan inactive or no price for specified currency
         "404":
@@ -701,6 +899,10 @@ paths:
       responses:
         "200":
           description: Subscription details with related records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
         "404":
           description: Subscription not found
       security:
@@ -728,6 +930,10 @@ paths:
       responses:
         "200":
           description: Subscription metadata updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
         "404":
           description: Subscription not found
       security:
@@ -757,6 +963,10 @@ paths:
       responses:
         "200":
           description: Subscription canceled or scheduled for cancellation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
         "400":
           description: Subscription is already canceled
         "404":
@@ -781,6 +991,10 @@ paths:
       responses:
         "200":
           description: Subscription paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
         "400":
           description: Only active subscriptions can be paused
         "404":
@@ -804,6 +1018,10 @@ paths:
       responses:
         "200":
           description: Subscription resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
         "400":
           description: Only paused subscriptions can be resumed
         "404":
@@ -835,6 +1053,10 @@ paths:
       responses:
         "200":
           description: Plan changed and billing period reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
         "400":
           description: New plan inactive or no matching price
         "404":
@@ -885,6 +1107,10 @@ paths:
       responses:
         "200":
           description: Paginated list of invoices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedInvoiceResponse"
         "401":
           description: Unauthorized
       security:
@@ -906,6 +1132,10 @@ paths:
       responses:
         "201":
           description: Invoice created in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
         "404":
           description: Customer not found
       security:
@@ -928,6 +1158,10 @@ paths:
       responses:
         "200":
           description: Invoice details with related records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
         "404":
           description: Invoice not found
       security:
@@ -950,6 +1184,10 @@ paths:
       responses:
         "200":
           description: Invoice finalized and set to pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
         "404":
           description: Invoice not found
       security:
@@ -972,6 +1210,10 @@ paths:
       responses:
         "200":
           description: Invoice voided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
         "400":
           description: Cannot void a paid invoice
         "404":
@@ -983,8 +1225,9 @@ paths:
         - Invoices
   /api/invoices/{id}/mark-paid:
     post:
-      description: Record an offline or manual payment against an invoice. Creates a
-        payment record with provider "manual".
+      description: Record an offline or manual payment against an invoice. Accepts an
+        optional paymentMethod (e.g. "cash", "bank_transfer", "check",
+        "manual").
       operationId: InvoicesController_markPaid
       parameters:
         - name: id
@@ -993,9 +1236,25 @@ paths:
           description: Invoice ID
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paymentMethod:
+                  type: string
+                  description: Payment method used (cash, bank_transfer, check, manual). Defaults
+                    to "manual".
+                  example: cash
       responses:
         "200":
           description: Invoice marked as paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
         "400":
           description: Invoice is already paid
         "404":
@@ -1035,20 +1294,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  checkoutUrl:
-                    type: string
-                    description: Payment URL to redirect customer to
-                  paymentId:
-                    type: string
-                    description: Internal payment record ID
-                  provider:
-                    type: string
-                    description: Payment provider used
-                  expiresAt:
-                    type: string
-                    description: Checkout session expiry (ISO 8601)
+                $ref: "#/components/schemas/CheckoutResponse"
         "400":
           description: Invoice already paid, voided, or no provider configured
         "404":
@@ -1058,9 +1304,49 @@ paths:
       summary: Generate a checkout URL
       tags:
         - Invoices
+  /api/invoices/{id}/send-email:
+    post:
+      description: Send the invoice to a specified email address, or to the customer's
+        email if none is provided.
+      operationId: InvoicesController_sendEmail
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Recipient email address. Defaults to the customer email if omitted.
+                  example: customer@example.com
+      responses:
+        "200":
+          description: Email queued for delivery
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: No email address available
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Send invoice email
+      tags:
+        - Invoices
   /api/invoices/{id}/pdf:
     get:
-      description: Retrieve the URL for the generated PDF version of the invoice.
+      description: Returns the PDF binary for the invoice. If a PDF has not been
+        generated yet, it will be created on-demand.
       operationId: InvoicesController_getPdf
       parameters:
         - name: id
@@ -1071,12 +1357,12 @@ paths:
             type: string
       responses:
         "200":
-          description: PDF URL (may be null if not yet generated)
+          description: Invoice PDF binary
         "404":
           description: Invoice not found
       security:
         - api-key: []
-      summary: Get invoice PDF URL
+      summary: Get or generate invoice PDF
       tags:
         - Invoices
   /api/payments:
@@ -1125,11 +1411,41 @@ paths:
       responses:
         "200":
           description: Paginated list of payments with invoice and customer details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedPaymentResponse"
         "401":
           description: Unauthorized
       security:
         - api-key: []
       summary: List payments
+      tags:
+        - Payments
+    post:
+      description: Create a payment record manually. Useful for importing historical
+        data. If status is SUCCEEDED, the associated invoice will also be marked
+        as paid.
+      operationId: PaymentsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentDto"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "404":
+          description: Invoice not found
+      security:
+        - api-key: []
+      summary: Create a payment record
       tags:
         - Payments
   /api/payments/{id}:
@@ -1147,6 +1463,10 @@ paths:
       responses:
         "200":
           description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
         "404":
           description: Payment not found
       security:
@@ -1175,6 +1495,10 @@ paths:
       responses:
         "200":
           description: Payment refunded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
         "400":
           description: Payment not eligible for refund or refund amount exceeds payment
         "404":
@@ -1193,6 +1517,12 @@ paths:
       responses:
         "200":
           description: List of configured providers (without credentials)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentProviderResponse"
       security:
         - api-key: []
       summary: List payment providers
@@ -1213,6 +1543,10 @@ paths:
       responses:
         "201":
           description: Provider configured successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentProviderResponse"
         "409":
           description: Provider already configured
       security:
@@ -1235,6 +1569,10 @@ paths:
       responses:
         "200":
           description: Provider details (without credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentProviderResponse"
         "404":
           description: Provider not found
       security:
@@ -1261,6 +1599,10 @@ paths:
       responses:
         "200":
           description: Provider updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentProviderResponse"
         "404":
           description: Provider not found
       security:
@@ -1282,6 +1624,10 @@ paths:
       responses:
         "200":
           description: Provider deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentProviderResponse"
         "404":
           description: Provider not found
       security:
@@ -1307,12 +1653,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
+                $ref: "#/components/schemas/ProviderTestResponse"
         "404":
           description: Provider not found
       security:
@@ -1358,16 +1699,42 @@ paths:
       summary: Flutterwave webhook endpoint
       tags:
         - Webhooks
-  /webhooks/mpesa:
+  /webhooks/dpo:
     post:
-      description: Receives payment callback notifications from M-Pesa (Safaricom).
-        Processes STK push results and updates payment status accordingly.
-      operationId: WebhooksController_mpesa
+      description: Receives payment callback notifications from DPO Group (DirectPay
+        Online). Verifies the transaction token status and updates payment
+        accordingly.
+      operationId: WebhooksController_dpo
       parameters: []
       responses:
         "200":
           description: Webhook processed successfully
-      summary: M-Pesa webhook endpoint
+      summary: DPO Group webhook endpoint
+      tags:
+        - Webhooks
+  /webhooks/payu:
+    post:
+      description: Receives Instant Payment Notifications (IPN) from PayU South
+        Africa. Updates payment status based on the transaction state.
+      operationId: WebhooksController_payu
+      parameters: []
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: PayU webhook endpoint
+      tags:
+        - Webhooks
+  /webhooks/pesapal:
+    post:
+      description: Receives IPN (Instant Payment Notification) callbacks from Pesapal.
+        Fetches transaction status using the OrderTrackingId and updates
+        payment.
+      operationId: WebhooksController_pesapal
+      parameters: []
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Pesapal webhook endpoint
       tags:
         - Webhooks
   /webhooks/stripe:
@@ -1426,6 +1793,10 @@ paths:
       responses:
         "200":
           description: Revenue metrics and breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueAnalyticsResponse"
       security:
         - api-key: []
       summary: Get revenue analytics
@@ -1467,6 +1838,10 @@ paths:
       responses:
         "200":
           description: Subscription metrics and trends
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionAnalyticsResponse"
       security:
         - api-key: []
       summary: Get subscription analytics
@@ -1508,6 +1883,10 @@ paths:
       responses:
         "200":
           description: Customer metrics and distribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAnalyticsResponse"
       security:
         - api-key: []
       summary: Get customer analytics
@@ -1555,11 +1934,2071 @@ paths:
       responses:
         "200":
           description: Payment metrics and provider breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentAnalyticsResponse"
       security:
         - api-key: []
       summary: Get payment analytics
       tags:
         - Analytics
+  /api/analytics/mrr-breakdown:
+    get:
+      description: MRR breakdown by movement type (new, expansion, contraction, churn)
+        and by plan.
+      operationId: AnalyticsController_mrrBreakdown
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            example: 2025-01-01
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            example: 2025-12-31
+            type: string
+        - name: currency
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: groupBy
+          required: false
+          in: query
+          schema:
+            default: month
+            type: string
+            enum:
+              - day
+              - week
+              - month
+      responses:
+        "200":
+          description: MRR breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MrrBreakdownResponse"
+      security:
+        - api-key: []
+      summary: Get MRR breakdown
+      tags:
+        - Analytics
+  /api/analytics/net-revenue:
+    get:
+      description: Gross revenue minus refunds and credit notes.
+      operationId: AnalyticsController_netRevenue
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          schema:
+            example: 2025-01-01
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          schema:
+            example: 2025-12-31
+            type: string
+        - name: currency
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: groupBy
+          required: false
+          in: query
+          schema:
+            default: month
+            type: string
+            enum:
+              - day
+              - week
+              - month
+      responses:
+        "200":
+          description: Net revenue breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetRevenueResponse"
+      security:
+        - api-key: []
+      summary: Get net revenue
+      tags:
+        - Analytics
+  /api/analytics/churn-cohorts:
+    get:
+      description: Monthly cohort retention matrix showing what percentage of each
+        cohort is retained over time.
+      operationId: AnalyticsController_churnCohorts
+      parameters:
+        - name: months
+          required: false
+          in: query
+          description: Number of months to analyze (default 12)
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Cohort retention matrix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChurnCohortsResponse"
+      security:
+        - api-key: []
+      summary: Get churn cohort analysis
+      tags:
+        - Analytics
+  /api/analytics/ltv:
+    get:
+      description: Average customer LTV and lifespan, broken down by plan.
+      operationId: AnalyticsController_ltv
+      parameters: []
+      responses:
+        "200":
+          description: LTV metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LtvResponse"
+      security:
+        - api-key: []
+      summary: Get customer lifetime value
+      tags:
+        - Analytics
+  /api/coupons:
+    get:
+      description: Retrieve a paginated list of coupons.
+      operationId: CouponsController_findAll
+      parameters:
+        - name: isActive
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of coupons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCouponResponse"
+      security:
+        - api-key: []
+      summary: List coupons
+      tags:
+        - Coupons
+    post:
+      description: Create a new discount coupon.
+      operationId: CouponsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCouponDto"
+      responses:
+        "201":
+          description: Coupon created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CouponResponse"
+        "400":
+          description: Invalid coupon data or duplicate code
+      security:
+        - api-key: []
+      summary: Create a coupon
+      tags:
+        - Coupons
+  /api/coupons/{id}:
+    get:
+      operationId: CouponsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Coupon ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Coupon details with applied coupons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CouponResponse"
+        "404":
+          description: Coupon not found
+      security:
+        - api-key: []
+      summary: Get coupon by ID
+      tags:
+        - Coupons
+    patch:
+      operationId: CouponsController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Coupon ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCouponDto"
+      responses:
+        "200":
+          description: Coupon updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CouponResponse"
+        "404":
+          description: Coupon not found
+      security:
+        - api-key: []
+      summary: Update a coupon
+      tags:
+        - Coupons
+    delete:
+      description: Delete or deactivate a coupon.
+      operationId: CouponsController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Coupon ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Coupon deleted or deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CouponResponse"
+        "404":
+          description: Coupon not found
+      security:
+        - api-key: []
+      summary: Delete a coupon
+      tags:
+        - Coupons
+  /api/coupons/apply:
+    post:
+      description: Apply a coupon to a specific customer, optionally linked to a
+        subscription.
+      operationId: CouponsController_apply
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyCouponDto"
+      responses:
+        "201":
+          description: Coupon applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppliedCouponResponse"
+        "400":
+          description: Coupon expired, inactive, or already applied
+        "404":
+          description: Coupon or customer not found
+      security:
+        - api-key: []
+      summary: Apply coupon to customer
+      tags:
+        - Coupons
+  /api/coupons/applied/{id}:
+    delete:
+      operationId: CouponsController_removeApplied
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Applied coupon ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Applied coupon removed
+        "404":
+          description: Applied coupon not found
+      security:
+        - api-key: []
+      summary: Remove applied coupon
+      tags:
+        - Coupons
+  /api/add-ons:
+    get:
+      description: Retrieve a paginated list of add-ons with prices.
+      operationId: AddOnsController_findAll
+      parameters:
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of add-ons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedAddOnResponse"
+      security:
+        - api-key: []
+      summary: List add-ons
+      tags:
+        - Add-Ons
+    post:
+      description: Create a one-time charge add-on with multi-currency pricing.
+      operationId: AddOnsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAddOnDto"
+      responses:
+        "201":
+          description: Add-on created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddOnResponse"
+        "400":
+          description: Invalid data or duplicate code
+      security:
+        - api-key: []
+      summary: Create an add-on
+      tags:
+        - Add-Ons
+  /api/add-ons/{id}:
+    get:
+      operationId: AddOnsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Add-on ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Add-on details with prices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddOnResponse"
+        "404":
+          description: Add-on not found
+      security:
+        - api-key: []
+      summary: Get add-on by ID
+      tags:
+        - Add-Ons
+    patch:
+      operationId: AddOnsController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Add-on ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAddOnDto"
+      responses:
+        "200":
+          description: Add-on updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddOnResponse"
+        "404":
+          description: Add-on not found
+      security:
+        - api-key: []
+      summary: Update an add-on
+      tags:
+        - Add-Ons
+    delete:
+      operationId: AddOnsController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Add-on ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Add-on deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddOnResponse"
+        "404":
+          description: Add-on not found
+      security:
+        - api-key: []
+      summary: Delete an add-on
+      tags:
+        - Add-Ons
+  /api/add-ons/apply:
+    post:
+      description: Create a one-time charge for a customer. Will be included in the
+        next invoice.
+      operationId: AddOnsController_apply
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyAddOnDto"
+      responses:
+        "201":
+          description: Add-on applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppliedAddOnResponse"
+        "404":
+          description: Add-on, customer, or subscription not found
+      security:
+        - api-key: []
+      summary: Apply add-on to customer
+      tags:
+        - Add-Ons
+  /api/add-ons/applied/list:
+    get:
+      description: View one-time charges applied to customers.
+      operationId: AddOnsController_findApplied
+      parameters:
+        - name: customerId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: invoiced
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of applied add-ons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppliedAddOnResponse"
+      security:
+        - api-key: []
+      summary: List applied add-ons
+      tags:
+        - Add-Ons
+  /api/add-ons/applied/{id}:
+    delete:
+      description: Remove a one-time charge that has not yet been invoiced.
+      operationId: AddOnsController_removeApplied
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Applied add-on ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Applied add-on removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppliedAddOnResponse"
+        "400":
+          description: Cannot remove an already-invoiced add-on
+        "404":
+          description: Applied add-on not found
+      security:
+        - api-key: []
+      summary: Remove applied add-on
+      tags:
+        - Add-Ons
+  /api/credit-notes:
+    get:
+      description: Retrieve a paginated list of credit notes.
+      operationId: CreditNotesController_findAll
+      parameters:
+        - name: customerId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: invoiceId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - DRAFT
+              - FINALIZED
+              - VOIDED
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of credit notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCreditNoteResponse"
+      security:
+        - api-key: []
+      summary: List credit notes
+      tags:
+        - Credit Notes
+    post:
+      description: Create a credit note against an invoice. Starts in DRAFT status.
+      operationId: CreditNotesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditNoteDto"
+      responses:
+        "201":
+          description: Credit note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteResponse"
+        "400":
+          description: Amount exceeds invoice total or invalid data
+        "404":
+          description: Invoice or customer not found
+      security:
+        - api-key: []
+      summary: Create a credit note
+      tags:
+        - Credit Notes
+  /api/credit-notes/{id}:
+    get:
+      operationId: CreditNotesController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Credit note ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credit note details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteResponse"
+        "404":
+          description: Credit note not found
+      security:
+        - api-key: []
+      summary: Get credit note by ID
+      tags:
+        - Credit Notes
+    patch:
+      operationId: CreditNotesController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Credit note ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditNoteDto"
+      responses:
+        "200":
+          description: Credit note updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteResponse"
+        "400":
+          description: Only draft credit notes can be updated
+        "404":
+          description: Credit note not found
+      security:
+        - api-key: []
+      summary: Update a draft credit note
+      tags:
+        - Credit Notes
+  /api/credit-notes/{id}/finalize:
+    post:
+      description: Move a credit note from DRAFT to FINALIZED status.
+      operationId: CreditNotesController_finalize
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Credit note ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credit note finalized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteResponse"
+        "400":
+          description: Only draft credit notes can be finalized
+        "404":
+          description: Credit note not found
+      security:
+        - api-key: []
+      summary: Finalize a credit note
+      tags:
+        - Credit Notes
+  /api/credit-notes/{id}/void:
+    post:
+      description: Cancel a credit note.
+      operationId: CreditNotesController_voidCreditNote
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Credit note ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credit note voided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteResponse"
+        "400":
+          description: Credit note is already voided
+        "404":
+          description: Credit note not found
+      security:
+        - api-key: []
+      summary: Void a credit note
+      tags:
+        - Credit Notes
+  /api/portal/customers/{externalId}/billing:
+    get:
+      description: Returns subscriptions, recent invoices, payments, and summary stats
+        for a customer. Use this to render a billing dashboard for your
+        end-users.
+      operationId: PortalController_getBillingOverview
+      parameters:
+        - name: externalId
+          required: true
+          in: path
+          description: Customer external ID (your app user ID)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Billing overview with subscriptions, invoices, payments
+        "404":
+          description: Customer not found
+      security:
+        - api-key: []
+      summary: Get customer billing overview
+      tags:
+        - Customer Portal
+  /api/portal/customers/{externalId}/subscriptions:
+    get:
+      description: Returns all subscriptions for the customer with plan details.
+      operationId: PortalController_getSubscriptions
+      parameters:
+        - name: externalId
+          required: true
+          in: path
+          description: Customer external ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of subscriptions with plan info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionResponse"
+      security:
+        - api-key: []
+      summary: List customer subscriptions
+      tags:
+        - Customer Portal
+  /api/portal/customers/{externalId}/invoices:
+    get:
+      description: Returns a paginated list of invoices. Filter by status to show only
+        pending invoices.
+      operationId: PortalController_getInvoices
+      parameters:
+        - name: externalId
+          required: true
+          in: path
+          description: Customer external ID
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - PENDING
+              - PAID
+              - FAILED
+              - CANCELED
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated invoices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedInvoiceResponse"
+      security:
+        - api-key: []
+      summary: List customer invoices
+      tags:
+        - Customer Portal
+  /api/portal/customers/{externalId}/invoices/{invoiceId}/checkout:
+    post:
+      description: Initiates a payment session with the configured payment provider.
+        Returns a checkout URL to redirect the customer to.
+      operationId: PortalController_createCheckout
+      parameters:
+        - name: externalId
+          required: true
+          in: path
+          description: Customer external ID
+          schema:
+            type: string
+        - name: invoiceId
+          required: true
+          in: path
+          description: Invoice ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Checkout URL and payment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "400":
+          description: Invoice already paid or no provider configured
+      security:
+        - api-key: []
+      summary: Create checkout for an invoice
+      tags:
+        - Customer Portal
+  /api/portal/customers/{externalId}/payments:
+    get:
+      description: Returns a paginated list of all payments made by the customer.
+      operationId: PortalController_getPayments
+      parameters:
+        - name: externalId
+          required: true
+          in: path
+          description: Customer external ID
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated payments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedPaymentResponse"
+      security:
+        - api-key: []
+      summary: List customer payments
+      tags:
+        - Customer Portal
+  /api/billable-metrics:
+    get:
+      description: Retrieve all billable metrics with their filters and charge counts.
+      operationId: BillableMetricsController_findAll
+      parameters: []
+      responses:
+        "200":
+          description: List of billable metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BillableMetricResponse"
+      security:
+        - api-key: []
+      summary: List all billable metrics
+      tags:
+        - Billable Metrics
+    post:
+      description: "Create a new billable metric for usage-based billing. Supported
+        aggregation types: COUNT, SUM, MAX, UNIQUE_COUNT, LATEST, WEIGHTED_SUM."
+      operationId: BillableMetricsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBillableMetricDto"
+      responses:
+        "201":
+          description: Billable metric created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillableMetricResponse"
+        "409":
+          description: Metric with this code already exists
+      security:
+        - api-key: []
+      summary: Create a billable metric
+      tags:
+        - Billable Metrics
+  /api/billable-metrics/{id}:
+    get:
+      description: Retrieve a billable metric with its filters and associated charges.
+      operationId: BillableMetricsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Billable Metric ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Billable metric details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillableMetricResponse"
+        "404":
+          description: Billable metric not found
+      security:
+        - api-key: []
+      summary: Get billable metric by ID
+      tags:
+        - Billable Metrics
+    patch:
+      description: Update billable metric details. Code and aggregation type cannot be
+        changed.
+      operationId: BillableMetricsController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Billable Metric ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBillableMetricDto"
+      responses:
+        "200":
+          description: Billable metric updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillableMetricResponse"
+        "404":
+          description: Billable metric not found
+      security:
+        - api-key: []
+      summary: Update a billable metric
+      tags:
+        - Billable Metrics
+    delete:
+      description: Delete a billable metric. Metrics used in charges cannot be deleted.
+      operationId: BillableMetricsController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Billable Metric ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Billable metric deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillableMetricResponse"
+        "404":
+          description: Billable metric not found
+      security:
+        - api-key: []
+      summary: Delete a billable metric
+      tags:
+        - Billable Metrics
+  /api/events:
+    post:
+      description: Send a single usage event. Uses transactionId for idempotency -
+        sending the same transactionId twice will return the existing event.
+      operationId: EventsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventDto"
+      responses:
+        "201":
+          description: Event ingested successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageEventResponse"
+        "404":
+          description: Subscription or metric not found
+      security:
+        - api-key: []
+      summary: Ingest a usage event
+      tags:
+        - Events
+  /api/events/batch:
+    post:
+      description: Send up to 100 usage events in a single request. Each event is
+        processed independently - failures do not affect other events.
+      operationId: EventsController_createBatch
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchEventsDto"
+      responses:
+        "201":
+          description: Batch processing results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchEventResponse"
+      security:
+        - api-key: []
+      summary: Ingest a batch of usage events
+      tags:
+        - Events
+  /api/events/{id}:
+    get:
+      description: Retrieve a single usage event by its ID.
+      operationId: EventsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Event ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageEventResponse"
+        "404":
+          description: Event not found
+      security:
+        - api-key: []
+      summary: Get event by ID
+      tags:
+        - Events
+  /api/events/subscription/{subscriptionId}:
+    get:
+      description: Retrieve usage events for a specific subscription with optional
+        filtering.
+      operationId: EventsController_findBySubscription
+      parameters:
+        - name: subscriptionId
+          required: true
+          in: path
+          description: Subscription ID
+          schema:
+            type: string
+        - name: code
+          required: false
+          in: query
+          description: Filter by metric code
+          schema:
+            type: string
+        - name: from
+          required: false
+          in: query
+          description: Start date (ISO 8601)
+          schema:
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: End date (ISO 8601)
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: perPage
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: List of events for the subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedUsageEventResponse"
+      security:
+        - api-key: []
+      summary: List events for a subscription
+      tags:
+        - Events
+  /api/charges:
+    get:
+      description: Retrieve all charges, optionally filtered by plan ID.
+      operationId: ChargesController_findAll
+      parameters:
+        - name: planId
+          required: false
+          in: query
+          description: Filter by plan ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of charges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChargeResponse"
+      security:
+        - api-key: []
+      summary: List all charges
+      tags:
+        - Charges
+    post:
+      description: "Create a usage-based charge linking a plan to a billable metric.
+        Supported models: STANDARD, GRADUATED, VOLUME, PACKAGE, PERCENTAGE."
+      operationId: ChargesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChargeDto"
+      responses:
+        "201":
+          description: Charge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeResponse"
+        "404":
+          description: Plan or metric not found
+        "409":
+          description: Charge for this metric already exists on plan
+      security:
+        - api-key: []
+      summary: Create a charge
+      tags:
+        - Charges
+  /api/charges/{id}:
+    get:
+      description: Retrieve a charge with its billable metric, graduated ranges, and
+        filters.
+      operationId: ChargesController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Charge ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Charge details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeResponse"
+        "404":
+          description: Charge not found
+      security:
+        - api-key: []
+      summary: Get charge by ID
+      tags:
+        - Charges
+    patch:
+      description: Update charge configuration including pricing, ranges, and filters.
+      operationId: ChargesController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Charge ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChargeDto"
+      responses:
+        "200":
+          description: Charge updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeResponse"
+        "404":
+          description: Charge not found
+      security:
+        - api-key: []
+      summary: Update a charge
+      tags:
+        - Charges
+    delete:
+      description: Remove a charge from a plan.
+      operationId: ChargesController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Charge ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Charge deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeResponse"
+        "404":
+          description: Charge not found
+      security:
+        - api-key: []
+      summary: Delete a charge
+      tags:
+        - Charges
+  /api/charges/plan/{planId}:
+    get:
+      description: Retrieve all charges attached to a specific plan.
+      operationId: ChargesController_findByPlan
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of charges for the plan
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChargeResponse"
+      security:
+        - api-key: []
+      summary: List charges for a plan
+      tags:
+        - Charges
+  /api/wallets:
+    post:
+      description: Create a prepaid credit wallet for a customer. Optionally seed it
+        with paid or granted credits.
+      operationId: WalletsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWalletDto"
+      responses:
+        "201":
+          description: Wallet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+      security:
+        - api-key: []
+      summary: Create a wallet
+      tags:
+        - Wallets
+    get:
+      description: List wallets, optionally filtered by customer or status.
+      operationId: WalletsController_findAll
+      parameters:
+        - name: customerId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - ACTIVE
+              - TERMINATED
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of wallets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedWalletResponse"
+      security:
+        - api-key: []
+      summary: List wallets
+      tags:
+        - Wallets
+  /api/wallets/{id}:
+    get:
+      operationId: WalletsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Wallet ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+        "404":
+          description: Wallet not found
+      security:
+        - api-key: []
+      summary: Get wallet by ID
+      tags:
+        - Wallets
+    patch:
+      description: Update wallet name, expiration, or metadata.
+      operationId: WalletsController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Wallet ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWalletDto"
+      responses:
+        "200":
+          description: Wallet updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+      security:
+        - api-key: []
+      summary: Update a wallet
+      tags:
+        - Wallets
+    delete:
+      description: Terminate a wallet. Remaining credits are voided.
+      operationId: WalletsController_terminate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Wallet ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet terminated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletResponse"
+      security:
+        - api-key: []
+      summary: Terminate a wallet
+      tags:
+        - Wallets
+  /api/wallets/transactions:
+    post:
+      description: Add paid/granted credits or void existing credits from a wallet.
+      operationId: WalletsController_topUp
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TopUpWalletDto"
+      responses:
+        "201":
+          description: Transaction(s) created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopUpResponse"
+      security:
+        - api-key: []
+      summary: Top up or void credits
+      tags:
+        - Wallets
+  /api/wallets/{id}/transactions:
+    get:
+      operationId: WalletsController_listTransactions
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Wallet ID
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            enum:
+              - PENDING
+              - SETTLED
+              - FAILED
+            type: string
+        - name: transactionStatus
+          required: false
+          in: query
+          schema:
+            enum:
+              - PURCHASED
+              - GRANTED
+              - VOIDED
+              - INVOICED
+            type: string
+        - name: transactionType
+          required: false
+          in: query
+          schema:
+            enum:
+              - INBOUND
+              - OUTBOUND
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedWalletTransactionResponse"
+      security:
+        - api-key: []
+      summary: List wallet transactions
+      tags:
+        - Wallets
+  /api/payment-methods:
+    post:
+      operationId: PaymentMethodsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentMethodDto"
+      responses:
+        "201":
+          description: Payment method saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodResponse"
+      security:
+        - bearer: []
+      summary: Save a payment method
+      tags:
+        - Payment Methods
+  /api/payment-methods/customer/{customerId}:
+    get:
+      operationId: PaymentMethodsController_findAllByCustomer
+      parameters:
+        - name: customerId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment methods retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentMethodResponse"
+      security:
+        - bearer: []
+      summary: Get all payment methods for a customer
+      tags:
+        - Payment Methods
+  /api/payment-methods/{id}:
+    get:
+      operationId: PaymentMethodsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment method retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodResponse"
+      security:
+        - bearer: []
+      summary: Get a payment method by ID
+      tags:
+        - Payment Methods
+    delete:
+      operationId: PaymentMethodsController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment method deleted successfully
+      security:
+        - bearer: []
+      summary: Delete a payment method
+      tags:
+        - Payment Methods
+  /api/payment-methods/{id}/set-default:
+    patch:
+      operationId: PaymentMethodsController_setDefault
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment method set as default
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodResponse"
+      security:
+        - bearer: []
+      summary: Set a payment method as default
+      tags:
+        - Payment Methods
+  /api/taxes:
+    get:
+      operationId: TaxesController_findAll
+      parameters:
+        - name: appliedByDefault
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of taxes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedTaxResponse"
+      security:
+        - api-key: []
+      summary: List all taxes
+      tags:
+        - Taxes
+    post:
+      description: Create a new tax rate. Set appliedByDefault to automatically apply
+        to all invoices.
+      operationId: TaxesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaxDto"
+      responses:
+        "201":
+          description: Tax created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxResponse"
+        "409":
+          description: Tax with this code already exists
+      security:
+        - api-key: []
+      summary: Create a tax
+      tags:
+        - Taxes
+  /api/taxes/{id}:
+    get:
+      operationId: TaxesController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Tax ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tax details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxResponse"
+        "404":
+          description: Tax not found
+      security:
+        - api-key: []
+      summary: Get a tax by ID
+      tags:
+        - Taxes
+    patch:
+      operationId: TaxesController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Tax ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaxDto"
+      responses:
+        "200":
+          description: Tax updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxResponse"
+        "404":
+          description: Tax not found
+      security:
+        - api-key: []
+      summary: Update a tax
+      tags:
+        - Taxes
+    delete:
+      operationId: TaxesController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Tax ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tax deleted
+        "404":
+          description: Tax not found
+      security:
+        - api-key: []
+      summary: Delete a tax
+      tags:
+        - Taxes
+  /api/taxes/customer/{customerId}:
+    get:
+      operationId: TaxesController_getCustomerTaxes
+      parameters:
+        - name: customerId
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of taxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaxResponse"
+      security:
+        - api-key: []
+      summary: Get taxes assigned to a customer
+      tags:
+        - Taxes
+    post:
+      operationId: TaxesController_assignToCustomer
+      parameters:
+        - name: customerId
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignTaxDto"
+      responses:
+        "201":
+          description: Tax assigned to customer
+        "404":
+          description: Customer or tax not found
+      security:
+        - api-key: []
+      summary: Assign a tax to a customer
+      tags:
+        - Taxes
+  /api/taxes/customer/{customerId}/{taxId}:
+    delete:
+      operationId: TaxesController_unassignFromCustomer
+      parameters:
+        - name: customerId
+          required: true
+          in: path
+          description: Customer ID
+          schema:
+            type: string
+        - name: taxId
+          required: true
+          in: path
+          description: Tax ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tax unassigned
+      security:
+        - api-key: []
+      summary: Unassign a tax from a customer
+      tags:
+        - Taxes
+  /api/taxes/plan/{planId}:
+    get:
+      operationId: TaxesController_getPlanTaxes
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of taxes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaxResponse"
+      security:
+        - api-key: []
+      summary: Get taxes assigned to a plan
+      tags:
+        - Taxes
+    post:
+      operationId: TaxesController_assignToPlan
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignTaxDto"
+      responses:
+        "201":
+          description: Tax assigned to plan
+        "404":
+          description: Plan or tax not found
+      security:
+        - api-key: []
+      summary: Assign a tax to a plan
+      tags:
+        - Taxes
+  /api/taxes/plan/{planId}/{taxId}:
+    delete:
+      operationId: TaxesController_unassignFromPlan
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          description: Plan ID
+          schema:
+            type: string
+        - name: taxId
+          required: true
+          in: path
+          description: Tax ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tax unassigned
+      security:
+        - api-key: []
+      summary: Unassign a tax from a plan
+      tags:
+        - Taxes
+  /api/taxes/charge/{chargeId}:
+    post:
+      operationId: TaxesController_assignToCharge
+      parameters:
+        - name: chargeId
+          required: true
+          in: path
+          description: Charge ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignTaxDto"
+      responses:
+        "201":
+          description: Tax assigned to charge
+      security:
+        - api-key: []
+      summary: Assign a tax to a charge
+      tags:
+        - Taxes
+  /api/taxes/charge/{chargeId}/{taxId}:
+    delete:
+      operationId: TaxesController_unassignFromCharge
+      parameters:
+        - name: chargeId
+          required: true
+          in: path
+          description: Charge ID
+          schema:
+            type: string
+        - name: taxId
+          required: true
+          in: path
+          description: Tax ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tax unassigned
+      security:
+        - api-key: []
+      summary: Unassign a tax from a charge
+      tags:
+        - Taxes
+  /api/plan-overrides:
+    get:
+      description: List all plan overrides, optionally filtered by customerId or planId
+      operationId: PlanOverridesController_findAll
+      parameters:
+        - name: customerId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: planId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Paginated list of plan overrides
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedPlanOverrideResponse"
+      security:
+        - api-key: []
+      summary: List plan overrides
+      tags:
+        - Plan Overrides
+    post:
+      description: Create a customer-specific override for a plan (custom pricing,
+        minimum commitment, or charge properties)
+      operationId: PlanOverridesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanOverrideDto"
+      responses:
+        "201":
+          description: Plan override created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanOverrideResponse"
+        "404":
+          description: Customer or plan not found
+        "409":
+          description: Override already exists for this customer + plan
+      security:
+        - api-key: []
+      summary: Create a plan override
+      tags:
+        - Plan Overrides
+  /api/plan-overrides/{id}:
+    get:
+      operationId: PlanOverridesController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan override ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Plan override details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanOverrideResponse"
+        "404":
+          description: Plan override not found
+      security:
+        - api-key: []
+      summary: Get a plan override by ID
+      tags:
+        - Plan Overrides
+    patch:
+      operationId: PlanOverridesController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan override ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanOverrideDto"
+      responses:
+        "200":
+          description: Plan override updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanOverrideResponse"
+        "404":
+          description: Plan override not found
+      security:
+        - api-key: []
+      summary: Update a plan override
+      tags:
+        - Plan Overrides
+    delete:
+      operationId: PlanOverridesController_delete
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Plan override ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Plan override deleted
+        "404":
+          description: Plan override not found
+      security:
+        - api-key: []
+      summary: Delete a plan override
+      tags:
+        - Plan Overrides
 info:
   title: NovaBilling API
   description: >-
@@ -1609,7 +4048,7 @@ tags:
   - name: Analytics
     description: Analytics and reporting
 servers:
-  - url: http://localhost:3000
+  - url: https://api.novabilling.one
     description: API Server
 components:
   securitySchemes:
@@ -1646,6 +4085,69 @@ components:
         - email
         - password
         - companyName
+    TenantInfoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: Acme Corp
+        slug:
+          type: string
+          example: acme-corp
+        email:
+          type: string
+          example: john@company.com
+        apiKey:
+          type: string
+          example: sk_live_abc123...
+        webhookUrl:
+          type: string
+          example: https://example.com/webhooks
+        webhookSecret:
+          type: string
+        isActive:
+          type: boolean
+          example: true
+        settings:
+          type: object
+          additionalProperties: true
+        lastLoginAt:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+        - email
+        - apiKey
+        - isActive
+        - createdAt
+        - updatedAt
+    RegisterResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+        tenant:
+          $ref: "#/components/schemas/TenantInfoResponse"
+        apiKey:
+          type: string
+          example: sk_live_abc123...
+      required:
+        - accessToken
+        - refreshToken
+        - tenant
+        - apiKey
     LoginDto:
       type: object
       properties:
@@ -1658,6 +4160,21 @@ components:
       required:
         - email
         - password
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+        tenant:
+          $ref: "#/components/schemas/TenantInfoResponse"
+      required:
+        - accessToken
+        - refreshToken
+        - tenant
     RefreshTokenDto:
       type: object
       properties:
@@ -1665,6 +4182,18 @@ components:
           type: string
           description: Refresh token
       required:
+        - refreshToken
+    TokenPairResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+      required:
+        - accessToken
         - refreshToken
     ForgotPasswordDto:
       type: object
@@ -1674,6 +4203,14 @@ components:
           example: john@company.com
       required:
         - email
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Operation completed successfully
+      required:
+        - message
     ResetPasswordDto:
       type: object
       properties:
@@ -1687,18 +4224,86 @@ components:
       required:
         - token
         - newPassword
+    TenantResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: Acme Corp
+        slug:
+          type: string
+          example: acme-corp
+        email:
+          type: string
+          example: john@company.com
+        apiKey:
+          type: string
+          example: sk_live_abc123...
+        webhookUrl:
+          type: string
+          example: https://example.com/webhooks
+        webhookSecret:
+          type: string
+          example: whsec_abc123...
+        isActive:
+          type: boolean
+          example: true
+        settings:
+          type: object
+          additionalProperties: true
+        lastLoginAt:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+        - email
+        - apiKey
+        - isActive
+        - createdAt
+        - updatedAt
     UpdateTenantDto:
       type: object
       properties:
         name:
           type: string
           example: Updated Company Name
+        email:
+          type: string
+          example: billing@company.com
         webhookUrl:
           type: string
           example: https://example.com/webhooks
         settings:
           type: object
-          description: Custom tenant settings
+          description: Custom tenant settings (merged with existing)
+    TenantUsageResponse:
+      type: object
+      properties:
+        customers:
+          type: number
+          example: 42
+        activeSubscriptions:
+          type: number
+          example: 15
+        totalInvoices:
+          type: number
+          example: 120
+        totalRevenue:
+          type: string
+          example: "125000.00"
+      required:
+        - customers
+        - activeSubscriptions
+        - totalInvoices
+        - totalRevenue
     CreateApiKeyBodyDto:
       type: object
       properties:
@@ -1717,6 +4322,107 @@ components:
       required:
         - name
         - scopes
+    ApiKeyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        key:
+          type: string
+          example: sk_live_abc123...
+        name:
+          type: string
+          example: Production API Key
+        scopes:
+          example:
+            - read
+            - write
+          type: array
+          items:
+            type: string
+        lastUsed:
+          type: string
+        expiresAt:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - key
+        - name
+        - scopes
+        - createdAt
+    CurrencyResponse:
+      type: object
+      properties: {}
+    CustomerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        externalId:
+          type: string
+          example: user_12345
+        email:
+          type: string
+          example: customer@example.com
+        name:
+          type: string
+          example: Jane Doe
+        country:
+          type: string
+          example: US
+        currency:
+          type: string
+          example: USD
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - externalId
+        - email
+        - currency
+        - createdAt
+        - updatedAt
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: number
+          example: 150
+        page:
+          type: number
+          example: 1
+        limit:
+          type: number
+          example: 20
+        totalPages:
+          type: number
+          example: 8
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+    PaginatedCustomerResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
     CreateCustomerDto:
       type: object
       properties:
@@ -1740,6 +4446,13 @@ components:
         metadata:
           type: object
           description: Custom metadata
+        netPaymentTerms:
+          type: number
+          example: 30
+          description: Net payment terms in days (overrides org and plan defaults)
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
       required:
         - externalId
         - email
@@ -1767,6 +4480,341 @@ components:
         metadata:
           type: object
           description: Custom metadata
+        netPaymentTerms:
+          type: number
+          example: 30
+          description: Net payment terms in days (overrides org and plan defaults)
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
+    SubscriptionCustomerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: Jane Doe
+        email:
+          type: string
+          example: jane@example.com
+      required:
+        - id
+        - name
+        - email
+    SubscriptionPlanResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clxplan123
+        name:
+          type: string
+          example: Premium Monthly
+        billingInterval:
+          type: string
+          example: MONTHLY
+          enum:
+            - HOURLY
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+            - QUARTERLY
+            - YEARLY
+      required:
+        - id
+        - name
+        - billingInterval
+    SubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        externalId:
+          type: string
+          example: ext_sub_123
+        customerId:
+          type: string
+          example: clxcust123
+        planId:
+          type: string
+          example: clxplan123
+        previousPlanId:
+          type: string
+        status:
+          type: string
+          example: ACTIVE
+          enum:
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+            - TRIALING
+            - PAUSED
+        currency:
+          type: string
+          example: USD
+        billingTiming:
+          type: string
+          example: IN_ARREARS
+          enum:
+            - IN_ADVANCE
+            - IN_ARREARS
+        currentPeriodStart:
+          type: string
+        currentPeriodEnd:
+          type: string
+        cancelAt:
+          type: string
+        canceledAt:
+          type: string
+        trialStart:
+          type: string
+        trialEnd:
+          type: string
+        startedAt:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        customer:
+          $ref: "#/components/schemas/SubscriptionCustomerResponse"
+        plan:
+          $ref: "#/components/schemas/SubscriptionPlanResponse"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - customerId
+        - planId
+        - status
+        - currency
+        - billingTiming
+        - currentPeriodStart
+        - currentPeriodEnd
+        - startedAt
+        - createdAt
+        - updatedAt
+    InvoiceCustomerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: Jane Doe
+        email:
+          type: string
+          example: jane@example.com
+      required:
+        - id
+        - name
+        - email
+    InvoiceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        invoiceNumber:
+          type: string
+          example: INV-2026-0001
+        subscriptionId:
+          type: string
+        customerId:
+          type: string
+          example: clxcust123
+        amount:
+          type: string
+          example: "99.9900"
+          description: Decimal amount as string
+        currency:
+          type: string
+          example: USD
+        status:
+          type: string
+          example: DRAFT
+          enum:
+            - DRAFT
+            - PENDING
+            - PAID
+            - FAILED
+            - CANCELED
+        dueDate:
+          type: string
+        paidAt:
+          type: string
+        pdfUrl:
+          type: string
+          example: /uploads/invoices/inv-123.pdf
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Line items, plan info, discounts
+        customer:
+          $ref: "#/components/schemas/InvoiceCustomerResponse"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - invoiceNumber
+        - customerId
+        - amount
+        - currency
+        - status
+        - dueDate
+        - createdAt
+        - updatedAt
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        invoiceId:
+          type: string
+          example: clxinv123
+        provider:
+          type: string
+          example: paystack
+        providerTransactionId:
+          type: string
+          example: PAY_txn_abc123
+        amount:
+          type: string
+          example: "99.9900"
+          description: Decimal amount as string
+        currency:
+          type: string
+          example: USD
+        status:
+          type: string
+          example: SUCCEEDED
+          enum:
+            - PENDING
+            - PROCESSING
+            - SUCCEEDED
+            - FAILED
+            - REFUNDED
+        failureReason:
+          type: string
+          example: Insufficient funds
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - invoiceId
+        - provider
+        - amount
+        - currency
+        - status
+        - createdAt
+        - updatedAt
+    PlanPriceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        planId:
+          type: string
+          example: clxplan123
+        currency:
+          type: string
+          example: USD
+        amount:
+          type: string
+          example: "49.9900"
+          description: Decimal amount as string
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - planId
+        - currency
+        - amount
+        - isActive
+        - createdAt
+        - updatedAt
+    PlanResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: Premium Monthly
+        code:
+          type: string
+          example: premium_monthly
+        description:
+          type: string
+          example: Premium plan with all features
+        billingInterval:
+          type: string
+          example: MONTHLY
+          enum:
+            - HOURLY
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+            - QUARTERLY
+            - YEARLY
+        features:
+          example:
+            - Unlimited users
+            - Priority support
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+          example: true
+        billingTiming:
+          type: string
+          example: IN_ARREARS
+          enum:
+            - IN_ADVANCE
+            - IN_ARREARS
+        minimumCommitment:
+          type: string
+          example: "100.0000"
+          description: Minimum commitment amount
+        prices:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanPriceResponse"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - code
+        - billingInterval
+        - isActive
+        - billingTiming
+        - prices
+        - createdAt
+        - updatedAt
     CreatePlanPriceDto:
       type: object
       properties:
@@ -1797,10 +4845,21 @@ components:
         billingInterval:
           type: string
           enum:
+            - HOURLY
+            - DAILY
+            - WEEKLY
             - MONTHLY
             - QUARTERLY
             - YEARLY
           example: MONTHLY
+        billingTiming:
+          type: string
+          enum:
+            - IN_ADVANCE
+            - IN_ARREARS
+          example: IN_ARREARS
+          description: "When to charge: IN_ADVANCE (at period start) or IN_ARREARS (at
+            period end). Defaults to IN_ARREARS."
         features:
           example:
             - Unlimited users
@@ -1812,6 +4871,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CreatePlanPriceDto"
+        netPaymentTerms:
+          type: number
+          example: 30
+          description: Net payment terms in days (overrides org default)
+        invoiceGracePeriodDays:
+          type: number
+          example: 3
+          description: Grace period in days before draft invoices are finalized
+        progressiveBillingThreshold:
+          type: number
+          example: 1000
+          description: Usage cost threshold for mid-cycle progressive billing invoices
       required:
         - name
         - code
@@ -1826,15 +4897,48 @@ components:
         billingInterval:
           type: string
           enum:
+            - HOURLY
+            - DAILY
+            - WEEKLY
             - MONTHLY
             - QUARTERLY
             - YEARLY
+        billingTiming:
+          type: string
+          enum:
+            - IN_ADVANCE
+            - IN_ARREARS
+          description: "When to charge: IN_ADVANCE or IN_ARREARS"
         features:
           type: array
           items:
             type: string
         isActive:
           type: boolean
+        netPaymentTerms:
+          type: number
+          example: 30
+          description: Net payment terms in days
+        invoiceGracePeriodDays:
+          type: number
+          example: 3
+          description: Grace period in days before draft invoices are finalized
+        progressiveBillingThreshold:
+          type: number
+          example: 1000
+          description: Usage cost threshold for progressive billing
+    PaginatedSubscriptionResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubscriptionResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
     CreateSubscriptionDto:
       type: object
       properties:
@@ -1854,6 +4958,31 @@ components:
           description: Number of trial days
         metadata:
           type: object
+        startDate:
+          type: string
+          description: Override subscription start date (ISO 8601). Defaults to now.
+        currentPeriodEnd:
+          type: string
+          description: Override current period end (ISO 8601). Defaults to calculated from
+            startDate + billing interval.
+        status:
+          type: string
+          description: Override subscription status for imports
+          enum:
+            - ACTIVE
+            - TRIALING
+            - PAUSED
+            - PAST_DUE
+            - CANCELED
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
+        externalId:
+          type: string
+          description: External ID for linking to external systems
+        canceledAt:
+          type: string
+          description: Canceled at date (ISO 8601). For importing canceled subscriptions.
       required:
         - customerId
         - planId
@@ -1886,6 +5015,18 @@ components:
           description: Whether to prorate charges
       required:
         - newPlanId
+    PaginatedInvoiceResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
     InvoiceItemDto:
       type: object
       properties:
@@ -1919,10 +5060,103 @@ components:
           type: string
           example: 2025-02-15
           description: Due date
+        status:
+          type: string
+          description: Override invoice status for imports
+          enum:
+            - DRAFT
+            - PENDING
+            - PAID
+            - FAILED
+            - CANCELED
+        invoiceNumber:
+          type: string
+          description: Override invoice number (e.g. INV-00042). Auto-generated if omitted.
+        currency:
+          type: string
+          description: Currency override (defaults to customer currency)
+        paidAt:
+          type: string
+          description: Paid at date (ISO 8601). For importing paid invoices.
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
       required:
         - customerId
         - items
         - dueDate
+    CheckoutResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+          example: https://paystack.com/pay/abc123
+        paymentId:
+          type: string
+          example: clxpay123
+        provider:
+          type: string
+          example: paystack
+        expiresAt:
+          type: string
+      required:
+        - checkoutUrl
+        - paymentId
+        - provider
+        - expiresAt
+    PaginatedPaymentResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    CreatePaymentDto:
+      type: object
+      properties:
+        invoiceId:
+          type: string
+          description: Invoice ID this payment is for
+        provider:
+          type: string
+          description: Payment provider name (e.g. stripe, paystack, manual)
+          example: manual
+        amount:
+          type: number
+          description: Payment amount
+          example: 49.99
+        currency:
+          type: string
+          description: Currency
+          example: USD
+        status:
+          type: string
+          description: Payment status
+          enum:
+            - PROCESSING
+            - SUCCEEDED
+            - FAILED
+            - REFUNDED
+        providerTransactionId:
+          type: string
+          description: Provider transaction ID
+        failureReason:
+          type: string
+          description: Failure reason (for FAILED payments)
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
+      required:
+        - invoiceId
+        - provider
+        - amount
+        - currency
+        - status
     RefundPaymentDto:
       type: object
       properties:
@@ -1932,6 +5166,32 @@ components:
         reason:
           type: string
           description: Reason for refund
+    PaymentProviderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        providerName:
+          type: string
+          example: paystack
+        isActive:
+          type: boolean
+          example: true
+        priority:
+          type: number
+          example: 1
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - providerName
+        - isActive
+        - priority
+        - createdAt
+        - updatedAt
     CreateProviderDto:
       type: object
       properties:
@@ -1969,3 +5229,1735 @@ components:
           type: number
           default: 1
           description: Priority (lower = higher)
+    ProviderTestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Connection successful
+      required:
+        - success
+        - message
+    RevenueAnalyticsResponse:
+      type: object
+      properties:
+        totalRevenue:
+          type: string
+          example: "12500.0000"
+          description: Total revenue as decimal string
+        invoiceCount:
+          type: number
+          example: 45
+        mrr:
+          type: string
+          example: "4200.0000"
+          description: Monthly recurring revenue
+        arr:
+          type: string
+          example: "50400.0000"
+          description: Annual recurring revenue
+      required:
+        - totalRevenue
+        - invoiceCount
+        - mrr
+        - arr
+    SubscriptionAnalyticsResponse:
+      type: object
+      properties:
+        total:
+          type: number
+          example: 100
+        active:
+          type: number
+          example: 85
+        canceled:
+          type: number
+          example: 5
+        trialing:
+          type: number
+          example: 8
+        paused:
+          type: number
+          example: 2
+        newSubscriptions:
+          type: number
+          example: 12
+        churnRate:
+          type: string
+          example: "5.00"
+          description: Churn rate percentage
+        retentionRate:
+          type: string
+          example: "95.00"
+          description: Retention rate percentage
+      required:
+        - total
+        - active
+        - canceled
+        - trialing
+        - paused
+        - newSubscriptions
+        - churnRate
+        - retentionRate
+    CustomerAnalyticsResponse:
+      type: object
+      properties:
+        totalCustomers:
+          type: number
+          example: 150
+        newCustomers:
+          type: number
+          example: 12
+        arpu:
+          type: string
+          example: "83.33"
+          description: Average revenue per user
+        totalRevenue:
+          type: string
+          example: "12500.0000"
+      required:
+        - totalCustomers
+        - newCustomers
+        - arpu
+        - totalRevenue
+    PaymentAnalyticsResponse:
+      type: object
+      properties:
+        totalPayments:
+          type: number
+          example: 200
+        succeeded:
+          type: number
+          example: 180
+        failed:
+          type: number
+          example: 15
+        pending:
+          type: number
+          example: 5
+        successRate:
+          type: string
+          example: "90.00"
+          description: Success rate percentage
+      required:
+        - totalPayments
+        - succeeded
+        - failed
+        - pending
+        - successRate
+    MrrPlanBreakdown:
+      type: object
+      properties:
+        planId:
+          type: string
+        planName:
+          type: string
+        mrr:
+          type: number
+        subscriptionCount:
+          type: number
+      required:
+        - planId
+        - planName
+        - mrr
+        - subscriptionCount
+    MrrBreakdownResponse:
+      type: object
+      properties:
+        totalMrr:
+          type: number
+        newMrr:
+          type: number
+        expansionMrr:
+          type: number
+        contractionMrr:
+          type: number
+        churnMrr:
+          type: number
+        netNewMrr:
+          type: number
+        byPlan:
+          type: array
+          items:
+            $ref: "#/components/schemas/MrrPlanBreakdown"
+      required:
+        - totalMrr
+        - newMrr
+        - expansionMrr
+        - contractionMrr
+        - churnMrr
+        - netNewMrr
+        - byPlan
+    NetRevenueResponse:
+      type: object
+      properties:
+        grossRevenue:
+          type: number
+        refunds:
+          type: number
+        creditNotes:
+          type: number
+        netRevenue:
+          type: number
+      required:
+        - grossRevenue
+        - refunds
+        - creditNotes
+        - netRevenue
+    CohortRow:
+      type: object
+      properties:
+        month:
+          type: string
+          example: 2026-01
+        totalCustomers:
+          type: number
+        retentionPercentages:
+          type: array
+          items:
+            type: number
+      required:
+        - month
+        - totalCustomers
+        - retentionPercentages
+    ChurnCohortsResponse:
+      type: object
+      properties:
+        months:
+          type: array
+          items:
+            type: string
+        cohorts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CohortRow"
+      required:
+        - months
+        - cohorts
+    LtvPlanBreakdown:
+      type: object
+      properties:
+        planId:
+          type: string
+        planName:
+          type: string
+        avgLtv:
+          type: number
+        avgLifespanDays:
+          type: number
+      required:
+        - planId
+        - planName
+        - avgLtv
+        - avgLifespanDays
+    LtvResponse:
+      type: object
+      properties:
+        avgLtv:
+          type: number
+        avgLifespanDays:
+          type: number
+        byPlan:
+          type: array
+          items:
+            $ref: "#/components/schemas/LtvPlanBreakdown"
+      required:
+        - avgLtv
+        - avgLifespanDays
+        - byPlan
+    CouponResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        code:
+          type: string
+          example: SUMMER2026
+        name:
+          type: string
+          example: Summer Sale
+        description:
+          type: string
+          example: 20% off all plans
+        discountType:
+          type: string
+          example: PERCENTAGE
+          enum:
+            - PERCENTAGE
+            - FIXED_AMOUNT
+        discountValue:
+          type: string
+          example: "20.0000"
+          description: Discount value as decimal string
+        currency:
+          type: string
+          example: USD
+        maxRedemptions:
+          type: number
+          example: 100
+        redemptionCount:
+          type: number
+          example: 5
+        appliesToPlanIds:
+          example:
+            - clxplan123
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+          example: true
+        expiresAt:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - code
+        - name
+        - discountType
+        - discountValue
+        - redemptionCount
+        - appliesToPlanIds
+        - isActive
+        - createdAt
+        - updatedAt
+    PaginatedCouponResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CouponResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    CreateCouponDto:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Unique coupon code
+          example: WELCOME20
+        name:
+          type: string
+          description: Display name
+          example: 20% Welcome Discount
+        description:
+          type: string
+        discountType:
+          type: string
+          enum:
+            - PERCENTAGE
+            - FIXED_AMOUNT
+        discountValue:
+          type: number
+          description: Discount value (percentage 0-100 or fixed amount)
+          example: 20
+        currency:
+          type: string
+          description: Currency for FIXED_AMOUNT discounts
+        maxRedemptions:
+          type: number
+          description: Max number of redemptions (null = unlimited)
+        appliesToPlanIds:
+          description: Plan IDs this coupon applies to (empty = all)
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
+      required:
+        - code
+        - name
+        - discountType
+        - discountValue
+    UpdateCouponDto:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+        expiresAt:
+          type: string
+    ApplyCouponDto:
+      type: object
+      properties:
+        couponId:
+          type: string
+        customerId:
+          type: string
+        subscriptionId:
+          type: string
+        usesRemaining:
+          type: number
+          description: Number of billing cycles to apply (null = forever)
+      required:
+        - couponId
+        - customerId
+    AppliedCouponResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        couponId:
+          type: string
+        customerId:
+          type: string
+        subscriptionId:
+          type: string
+        amountOff:
+          type: string
+          example: "20.0000"
+        usesRemaining:
+          type: number
+          example: 3
+        createdAt:
+          type: string
+      required:
+        - id
+        - couponId
+        - customerId
+        - createdAt
+    AddOnPriceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        addOnId:
+          type: string
+        currency:
+          type: string
+          example: USD
+        amount:
+          type: string
+          example: "29.9900"
+          description: Decimal amount as string
+      required:
+        - id
+        - addOnId
+        - currency
+        - amount
+    AddOnResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: Extra Storage
+        code:
+          type: string
+          example: extra_storage
+        description:
+          type: string
+          example: 50GB additional storage
+        invoiceDisplayName:
+          type: string
+          example: Storage Add-On
+        prices:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddOnPriceResponse"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - code
+        - prices
+        - createdAt
+        - updatedAt
+    PaginatedAddOnResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddOnResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    AddOnPriceDto:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          example: UGX
+        amount:
+          type: number
+          description: Price amount
+          example: 50000
+      required:
+        - currency
+        - amount
+    CreateAddOnDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Display name
+          example: Premium Support
+        code:
+          type: string
+          description: Unique code for the add-on
+          example: premium_support
+        description:
+          type: string
+        invoiceDisplayName:
+          type: string
+          description: Custom name shown on invoices
+        prices:
+          description: Prices in different currencies
+          type: array
+          items:
+            $ref: "#/components/schemas/AddOnPriceDto"
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
+      required:
+        - name
+        - code
+        - prices
+    UpdateAddOnDto:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        invoiceDisplayName:
+          type: string
+        prices:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddOnPriceDto"
+    ApplyAddOnDto:
+      type: object
+      properties:
+        addOnId:
+          type: string
+          description: Add-on ID
+        customerId:
+          type: string
+          description: Customer ID
+        subscriptionId:
+          type: string
+          description: Subscription to attach the charge to
+        amount:
+          type: number
+          description: Charge amount
+          example: 50000
+        currency:
+          type: string
+          description: Currency
+          example: UGX
+      required:
+        - addOnId
+        - customerId
+        - amount
+        - currency
+    AppliedAddOnResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        addOnId:
+          type: string
+        customerId:
+          type: string
+        subscriptionId:
+          type: string
+        amount:
+          type: string
+          example: "29.9900"
+        currency:
+          type: string
+          example: USD
+        invoiceId:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - addOnId
+        - customerId
+        - amount
+        - currency
+        - createdAt
+    CreditNoteResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        invoiceId:
+          type: string
+          example: clxinv123
+        customerId:
+          type: string
+          example: clxcust123
+        amount:
+          type: string
+          example: "50.0000"
+          description: Decimal amount as string
+        currency:
+          type: string
+          example: USD
+        reason:
+          type: string
+          example: ORDER_CHANGE
+          enum:
+            - DUPLICATE
+            - PRODUCT_UNSATISFACTORY
+            - ORDER_CHANGE
+            - OTHER
+        status:
+          type: string
+          example: DRAFT
+          enum:
+            - DRAFT
+            - FINALIZED
+            - VOIDED
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - invoiceId
+        - customerId
+        - amount
+        - currency
+        - reason
+        - status
+        - createdAt
+        - updatedAt
+    PaginatedCreditNoteResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditNoteResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    CreateCreditNoteDto:
+      type: object
+      properties:
+        invoiceId:
+          type: string
+          description: Invoice ID to credit against
+        customerId:
+          type: string
+          description: Customer ID
+        amount:
+          type: number
+          description: Credit amount
+          example: 25000
+        currency:
+          type: string
+          description: Currency
+          example: UGX
+        reason:
+          type: string
+          enum:
+            - DUPLICATE
+            - PRODUCT_UNSATISFACTORY
+            - ORDER_CHANGE
+            - OTHER
+        metadata:
+          type: object
+          description: Additional metadata
+        status:
+          type: string
+          description: Override status for imports
+          enum:
+            - DRAFT
+            - FINALIZED
+            - VOIDED
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
+      required:
+        - invoiceId
+        - customerId
+        - amount
+        - currency
+        - reason
+    UpdateCreditNoteDto:
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Updated amount
+        reason:
+          type: string
+          enum:
+            - DUPLICATE
+            - PRODUCT_UNSATISFACTORY
+            - ORDER_CHANGE
+            - OTHER
+        metadata:
+          type: object
+    BillableMetricFilterResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        billableMetricId:
+          type: string
+        key:
+          type: string
+          example: region
+        values:
+          example:
+            - us-east
+            - us-west
+            - eu
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - billableMetricId
+        - key
+        - values
+    BillableMetricResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: API Calls
+        code:
+          type: string
+          example: api_calls
+        description:
+          type: string
+          example: Number of API calls made
+        aggregationType:
+          type: string
+          example: COUNT
+          enum:
+            - COUNT
+            - SUM
+            - MAX
+            - UNIQUE_COUNT
+            - LATEST
+            - WEIGHTED_SUM
+        fieldName:
+          type: string
+          example: tokens
+        recurring:
+          type: boolean
+          example: false
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/BillableMetricFilterResponse"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - code
+        - aggregationType
+        - recurring
+        - filters
+        - createdAt
+        - updatedAt
+    CreateBillableMetricFilterDto:
+      type: object
+      properties:
+        key:
+          type: string
+          example: region
+          description: Property key to filter on
+        values:
+          example:
+            - us-east
+            - eu-west
+          description: Allowed values
+          type: array
+          items:
+            type: string
+      required:
+        - key
+        - values
+    CreateBillableMetricDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: API Calls
+        code:
+          type: string
+          example: api_calls
+          description: Unique metric code
+        description:
+          type: string
+          example: Number of API calls made
+        aggregationType:
+          type: string
+          enum:
+            - COUNT
+            - SUM
+            - MAX
+            - UNIQUE_COUNT
+            - LATEST
+            - WEIGHTED_SUM
+          example: COUNT
+        fieldName:
+          type: string
+          example: tokens
+          description: Property key to aggregate (required for SUM, MAX, LATEST,
+            WEIGHTED_SUM)
+        recurring:
+          type: boolean
+          default: false
+          description: If true, value carries forward across billing periods
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateBillableMetricFilterDto"
+      required:
+        - name
+        - code
+        - aggregationType
+    UpdateBillableMetricDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: API Requests
+        description:
+          type: string
+          example: Number of API requests
+        fieldName:
+          type: string
+          example: tokens
+        recurring:
+          type: boolean
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateBillableMetricFilterDto"
+    CreateEventDto:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: evt_12345
+          description: Unique transaction ID for idempotency
+        subscriptionId:
+          type: string
+          example: sub_abc123
+          description: Subscription ID or external subscription ID
+        code:
+          type: string
+          example: api_calls
+          description: Billable metric code
+        timestamp:
+          type: string
+          example: 2026-02-10T12:00:00Z
+          description: Event timestamp (defaults to now)
+        properties:
+          type: object
+          example:
+            tokens: 1500
+            region: us-east
+          description: Event properties
+      required:
+        - transactionId
+        - subscriptionId
+        - code
+    UsageEventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        transactionId:
+          type: string
+          example: txn_unique_123
+        subscriptionId:
+          type: string
+          example: clxsub123
+        code:
+          type: string
+          example: api_calls
+        timestamp:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+          example:
+            region: us-east
+            bytes: 1024
+        createdAt:
+          type: string
+      required:
+        - id
+        - transactionId
+        - subscriptionId
+        - code
+        - timestamp
+        - createdAt
+    BatchEventsDto:
+      type: object
+      properties:
+        events:
+          description: Array of events to ingest (max 100)
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateEventDto"
+      required:
+        - events
+    BatchEventResponse:
+      type: object
+      properties:
+        received:
+          type: number
+          example: 5
+        processed:
+          type: number
+          example: 5
+        duplicates:
+          type: number
+          example: 0
+      required:
+        - received
+        - processed
+        - duplicates
+    PaginatedUsageEventResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageEventResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    ChargeGraduatedRangeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        chargeId:
+          type: string
+        fromValue:
+          type: number
+          example: 0
+        toValue:
+          type: number
+          example: 1000
+        perUnitAmount:
+          type: string
+          example: "0.0100"
+          description: Per-unit amount as decimal string
+        flatAmount:
+          type: string
+          example: "0.0000"
+          description: Flat fee for this range
+        order:
+          type: number
+          example: 0
+      required:
+        - id
+        - chargeId
+        - fromValue
+        - perUnitAmount
+        - flatAmount
+        - order
+    ChargeFilterResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        chargeId:
+          type: string
+        key:
+          type: string
+          example: region
+        values:
+          example:
+            - us-east
+          type: array
+          items:
+            type: string
+        properties:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - chargeId
+        - key
+        - values
+    ChargeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        planId:
+          type: string
+          example: clxplan123
+        billableMetricId:
+          type: string
+          example: clxbm123
+        chargeModel:
+          type: string
+          example: GRADUATED
+          enum:
+            - STANDARD
+            - GRADUATED
+            - VOLUME
+            - PACKAGE
+            - PERCENTAGE
+        billingTiming:
+          type: string
+          example: IN_ARREARS
+          enum:
+            - IN_ADVANCE
+            - IN_ARREARS
+        invoiceDisplayName:
+          type: string
+          example: API Usage
+        minAmountCents:
+          type: number
+          example: 100
+        prorated:
+          type: boolean
+          example: false
+        properties:
+          type: object
+          additionalProperties: true
+          description: Model-specific config
+        graduatedRanges:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChargeGraduatedRangeResponse"
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChargeFilterResponse"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - planId
+        - billableMetricId
+        - chargeModel
+        - billingTiming
+        - prorated
+        - graduatedRanges
+        - filters
+        - createdAt
+        - updatedAt
+    GraduatedRangeDto:
+      type: object
+      properties:
+        fromValue:
+          type: number
+          example: 0
+          description: Start of range (inclusive)
+        toValue:
+          type: number
+          example: 100
+          description: End of range (inclusive), null = infinity
+        perUnitAmount:
+          type: number
+          example: 0.1
+          description: Price per unit in this range
+        flatAmount:
+          type: number
+          example: 0
+          description: Flat fee for entering this range
+      required:
+        - fromValue
+        - perUnitAmount
+    ChargeFilterDto:
+      type: object
+      properties:
+        key:
+          type: string
+          example: region
+          description: Filter key (must match metric filter)
+        values:
+          example:
+            - us-east
+          description: Subset of allowed values
+          type: array
+          items:
+            type: string
+        properties:
+          type: object
+          description: Override properties for this filter
+      required:
+        - key
+        - values
+    CreateChargeDto:
+      type: object
+      properties:
+        planId:
+          type: string
+          description: Plan ID to attach this charge to
+        billableMetricId:
+          type: string
+          description: Billable metric ID
+        chargeModel:
+          type: string
+          enum:
+            - STANDARD
+            - GRADUATED
+            - VOLUME
+            - PACKAGE
+            - PERCENTAGE
+          example: STANDARD
+        billingTiming:
+          type: string
+          enum:
+            - IN_ADVANCE
+            - IN_ARREARS
+          default: IN_ARREARS
+        invoiceDisplayName:
+          type: string
+          example: API Calls
+          description: Display name on invoices
+        minAmountCents:
+          type: number
+          example: 100
+          description: Minimum charge in cents
+        prorated:
+          type: boolean
+          default: false
+        properties:
+          type: object
+          description: "Model-specific config. Standard: { amount, currency }. Package: {
+            amount, packageSize, currency }. Percentage: { rate, fixedAmount,
+            freeUnitsPerEvent, freeUnitsPerTotalAggregation }"
+          example:
+            amount: "0.10"
+            currency: USD
+        graduatedRanges:
+          description: Required for GRADUATED and VOLUME charge models
+          type: array
+          items:
+            $ref: "#/components/schemas/GraduatedRangeDto"
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChargeFilterDto"
+      required:
+        - planId
+        - billableMetricId
+        - chargeModel
+    UpdateChargeDto:
+      type: object
+      properties:
+        billingTiming:
+          type: string
+          enum:
+            - IN_ADVANCE
+            - IN_ARREARS
+        invoiceDisplayName:
+          type: string
+        minAmountCents:
+          type: number
+        prorated:
+          type: boolean
+        properties:
+          type: object
+        graduatedRanges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraduatedRangeDto"
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChargeFilterDto"
+    CreateWalletDto:
+      type: object
+      properties:
+        customerId:
+          type: string
+          example: cust_abc123
+        name:
+          type: string
+          example: Main Wallet
+        currency:
+          type: string
+          example: USD
+        rateAmount:
+          type: number
+          example: 1
+          description: 1 credit = rateAmount in currency
+        paidCredits:
+          type: number
+          example: 100
+          description: Paid credits (purchase)
+        grantedCredits:
+          type: number
+          example: 10
+          description: Free credits (grant)
+        expirationAt:
+          type: string
+          description: Expiration date (ISO 8601)
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          description: Backdate createdAt (ISO 8601). For data imports.
+      required:
+        - customerId
+        - currency
+    WalletCustomerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: Jane Doe
+        email:
+          type: string
+          example: jane@example.com
+      required:
+        - id
+        - name
+        - email
+    WalletResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        customerId:
+          type: string
+          example: clxcust123
+        name:
+          type: string
+          example: Main Wallet
+        currency:
+          type: string
+          example: USD
+        rateAmount:
+          type: string
+          example: "1.0000"
+          description: 1 credit = rateAmount in currency
+        creditsBalance:
+          type: string
+          example: "100.0000"
+          description: Available credits
+        balance:
+          type: string
+          example: "100.0000"
+          description: Monetary equivalent of credits
+        consumedCredits:
+          type: string
+          example: "50.0000"
+          description: Lifetime consumed credits
+        consumedAmount:
+          type: string
+          example: "50.0000"
+          description: Lifetime consumed amount
+        status:
+          type: string
+          example: ACTIVE
+          enum:
+            - ACTIVE
+            - TERMINATED
+        expirationAt:
+          type: string
+        terminatedAt:
+          type: string
+        customer:
+          $ref: "#/components/schemas/WalletCustomerResponse"
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - customerId
+        - currency
+        - rateAmount
+        - creditsBalance
+        - balance
+        - consumedCredits
+        - consumedAmount
+        - status
+        - createdAt
+        - updatedAt
+    PaginatedWalletResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    UpdateWalletDto:
+      type: object
+      properties:
+        name:
+          type: string
+        expirationAt:
+          type: string
+        metadata:
+          type: object
+    TopUpWalletDto:
+      type: object
+      properties:
+        walletId:
+          type: string
+          example: wallet_id
+        paidCredits:
+          type: number
+          example: 100
+          description: Paid credits to purchase
+        grantedCredits:
+          type: number
+          example: 10
+          description: Free credits to grant
+        voidedCredits:
+          type: number
+          example: 25
+          description: Credits to void
+        metadata:
+          type: object
+      required:
+        - walletId
+    WalletTransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        walletId:
+          type: string
+          example: clxwallet123
+        transactionType:
+          type: string
+          example: INBOUND
+          enum:
+            - INBOUND
+            - OUTBOUND
+        status:
+          type: string
+          example: SETTLED
+          enum:
+            - PENDING
+            - SETTLED
+            - FAILED
+        transactionStatus:
+          type: string
+          example: PURCHASED
+          enum:
+            - PURCHASED
+            - GRANTED
+            - VOIDED
+            - INVOICED
+        creditAmount:
+          type: string
+          example: "50.0000"
+          description: Credits added or deducted
+        amount:
+          type: string
+          example: "50.0000"
+          description: Monetary equivalent
+        invoiceId:
+          type: string
+        settledAt:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - walletId
+        - transactionType
+        - status
+        - transactionStatus
+        - creditAmount
+        - amount
+        - createdAt
+    TopUpResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletTransactionResponse"
+        wallet:
+          $ref: "#/components/schemas/WalletResponse"
+      required:
+        - transactions
+        - wallet
+    PaginatedWalletTransactionResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletTransactionResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    CreatePaymentMethodDto:
+      type: object
+      properties:
+        customerId:
+          type: string
+          example: cus_abc123
+        provider:
+          type: string
+          example: stripe
+          description: Payment provider (stripe, paystack, flutterwave, dpo, payu, pesapal)
+        type:
+          type: string
+          enum:
+            - CARD
+            - BANK_ACCOUNT
+            - WALLET
+          example: CARD
+        tokenId:
+          type: string
+          example: pm_abc123
+          description: Provider-specific token/payment method ID
+        last4:
+          type: string
+          example: "4242"
+        brand:
+          type: string
+          example: visa
+        expMonth:
+          type: number
+          example: 12
+        expYear:
+          type: number
+          example: 2028
+        cardholderName:
+          type: string
+          example: John Doe
+        country:
+          type: string
+          example: US
+      required:
+        - customerId
+        - provider
+        - tokenId
+    PaymentMethodResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: pm_abc123
+        customerId:
+          type: string
+          example: cus_abc123
+        provider:
+          type: string
+          example: stripe
+        type:
+          type: string
+          example: CARD
+        tokenId:
+          type: string
+          example: pm_1234567890
+        isDefault:
+          type: boolean
+          example: true
+        last4:
+          type: string
+          example: "4242"
+        brand:
+          type: string
+          example: visa
+        expMonth:
+          type: number
+          example: 12
+        expYear:
+          type: number
+          example: 2028
+        cardholderName:
+          type: string
+          example: John Doe
+        country:
+          type: string
+          example: US
+        createdAt:
+          format: date-time
+          type: string
+          example: 2024-01-15T10:30:00Z
+        updatedAt:
+          format: date-time
+          type: string
+          example: 2024-01-15T10:30:00Z
+      required:
+        - id
+        - customerId
+        - provider
+        - type
+        - tokenId
+        - isDefault
+        - createdAt
+        - updatedAt
+    TaxResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        name:
+          type: string
+          example: VAT
+        code:
+          type: string
+          example: vat_18
+        rate:
+          type: string
+          example: "18.0000"
+        description:
+          type: string
+          example: Value Added Tax
+        appliedByDefault:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - code
+        - rate
+        - appliedByDefault
+        - createdAt
+        - updatedAt
+    PaginatedTaxResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaxResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+    CreateTaxDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: VAT
+          description: Tax name
+        code:
+          type: string
+          example: vat_18
+          description: Unique tax code (lowercase, underscores)
+        rate:
+          type: number
+          example: 18
+          description: Tax rate as a percentage (e.g., 18 for 18%)
+        description:
+          type: string
+          example: Value Added Tax
+          description: Tax description
+        appliedByDefault:
+          type: boolean
+          example: true
+          description: Whether this tax is applied by default to all invoices
+      required:
+        - name
+        - code
+        - rate
+    UpdateTaxDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: VAT
+        rate:
+          type: number
+          example: 20
+        description:
+          type: string
+          example: Value Added Tax
+        appliedByDefault:
+          type: boolean
+          example: false
+    AssignTaxDto:
+      type: object
+      properties:
+        taxId:
+          type: string
+          example: clx1234567890
+          description: Tax ID to assign
+      required:
+        - taxId
+    PlanOverrideResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clx1234567890
+        customerId:
+          type: string
+          example: clx_customer_123
+        planId:
+          type: string
+          example: clx_plan_456
+        overriddenPrices:
+          type: object
+          example:
+            - currency: USD
+              amount: 49.99
+        overriddenMinimumCommitment:
+          type: number
+          example: 500
+        overriddenCharges:
+          type: object
+        metadata:
+          type: object
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - customerId
+        - planId
+        - createdAt
+        - updatedAt
+    PaginatedPlanOverrideResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanOverrideResponse"
+        meta:
+          type: object
+      required:
+        - data
+        - meta
+    CreatePlanOverrideDto:
+      type: object
+      properties:
+        customerId:
+          type: string
+          example: clx_customer_123
+          description: Customer ID
+        planId:
+          type: string
+          example: clx_plan_456
+          description: Plan ID
+        overriddenPrices:
+          example:
+            - currency: USD
+              amount: 49.99
+          description: "Override plan prices: array of { currency, amount }"
+          type: array
+          items:
+            type: string
+        overriddenMinimumCommitment:
+          type: number
+          example: 500
+          description: Override minimum commitment amount
+        overriddenCharges:
+          example:
+            - chargeId: clx_charge_789
+              properties:
+                amount: 0.05
+          description: "Override charge properties: array of { chargeId, properties?,
+            graduatedRanges? }"
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          description: Custom metadata
+      required:
+        - customerId
+        - planId
+    UpdatePlanOverrideDto:
+      type: object
+      properties:
+        overriddenPrices:
+          example:
+            - currency: USD
+              amount: 39.99
+          description: Override plan prices
+          type: array
+          items:
+            type: string
+        overriddenMinimumCommitment:
+          type: number
+          example: 300
+          description: Override minimum commitment amount
+        overriddenCharges:
+          description: Override charge properties
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          description: Custom metadata

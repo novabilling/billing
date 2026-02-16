@@ -1,4 +1,5 @@
 paths:
+  # ==================== Auth ====================
   /api/auth/login:
     post:
       x-fern-sdk-group-name: auth
@@ -19,6 +20,8 @@ paths:
     post:
       x-fern-sdk-group-name: auth
       x-fern-sdk-method-name: resetPassword
+
+  # ==================== Tenants ====================
   /api/tenants/me:
     get:
       x-fern-sdk-group-name: tenants
@@ -30,6 +33,12 @@ paths:
     get:
       x-fern-sdk-group-name: tenants
       x-fern-sdk-method-name: getUsage
+  /api/tenants/me/smtp/test:
+    post:
+      x-fern-sdk-group-name: tenants
+      x-fern-sdk-method-name: testSmtp
+
+  # ==================== API Keys ====================
   /api/tenants/me/api-keys:
     get:
       x-fern-sdk-group-name: apiKeys
@@ -41,6 +50,14 @@ paths:
     delete:
       x-fern-sdk-group-name: apiKeys
       x-fern-sdk-method-name: delete
+
+  # ==================== Currencies ====================
+  /api/currencies:
+    get:
+      x-fern-sdk-group-name: currencies
+      x-fern-sdk-method-name: list
+
+  # ==================== Customers ====================
   /api/customers:
     get:
       x-fern-sdk-group-name: customers
@@ -70,6 +87,19 @@ paths:
     get:
       x-fern-sdk-group-name: customers
       x-fern-sdk-method-name: getPayments
+  /api/customers/{id}/payment-methods:
+    get:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: getPaymentMethods
+    post:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: addPaymentMethod
+  /api/customers/{id}/payment-methods/{methodId}:
+    delete:
+      x-fern-sdk-group-name: customers
+      x-fern-sdk-method-name: deletePaymentMethod
+
+  # ==================== Plans ====================
   /api/plans:
     get:
       x-fern-sdk-group-name: plans
@@ -98,6 +128,90 @@ paths:
     delete:
       x-fern-sdk-group-name: plans
       x-fern-sdk-method-name: deletePrice
+
+  # ==================== Plan Overrides ====================
+  /api/plan-overrides:
+    get:
+      x-fern-sdk-group-name: planOverrides
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: planOverrides
+      x-fern-sdk-method-name: create
+  /api/plan-overrides/{id}:
+    get:
+      x-fern-sdk-group-name: planOverrides
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: planOverrides
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: planOverrides
+      x-fern-sdk-method-name: delete
+
+  # ==================== Charges ====================
+  /api/charges:
+    get:
+      x-fern-sdk-group-name: charges
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: charges
+      x-fern-sdk-method-name: create
+  /api/charges/{id}:
+    get:
+      x-fern-sdk-group-name: charges
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: charges
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: charges
+      x-fern-sdk-method-name: delete
+  /api/charges/plan/{planId}:
+    get:
+      x-fern-sdk-group-name: charges
+      x-fern-sdk-method-name: getByPlan
+
+  # ==================== Billable Metrics ====================
+  /api/billable-metrics:
+    get:
+      x-fern-sdk-group-name: billableMetrics
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: billableMetrics
+      x-fern-sdk-method-name: create
+  /api/billable-metrics/{id}:
+    get:
+      x-fern-sdk-group-name: billableMetrics
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: billableMetrics
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: billableMetrics
+      x-fern-sdk-method-name: delete
+
+  # ==================== Events ====================
+  /api/events:
+    get:
+      x-fern-sdk-group-name: events
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: events
+      x-fern-sdk-method-name: create
+  /api/events/{id}:
+    get:
+      x-fern-sdk-group-name: events
+      x-fern-sdk-method-name: get
+  /api/events/batch:
+    post:
+      x-fern-sdk-group-name: events
+      x-fern-sdk-method-name: createBatch
+  /api/events/subscription/{subscriptionId}:
+    get:
+      x-fern-sdk-group-name: events
+      x-fern-sdk-method-name: getBySubscription
+
+  # ==================== Subscriptions ====================
   /api/subscriptions:
     get:
       x-fern-sdk-group-name: subscriptions
@@ -128,6 +242,66 @@ paths:
     post:
       x-fern-sdk-group-name: subscriptions
       x-fern-sdk-method-name: changePlan
+
+  # ==================== Add-ons ====================
+  /api/add-ons:
+    get:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: create
+  /api/add-ons/{id}:
+    get:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: delete
+  /api/add-ons/apply:
+    post:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: apply
+  /api/add-ons/applied/list:
+    get:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: listApplied
+  /api/add-ons/applied/{id}:
+    delete:
+      x-fern-sdk-group-name: addOns
+      x-fern-sdk-method-name: removeApplied
+
+  # ==================== Coupons ====================
+  /api/coupons:
+    get:
+      x-fern-sdk-group-name: coupons
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: coupons
+      x-fern-sdk-method-name: create
+  /api/coupons/{id}:
+    get:
+      x-fern-sdk-group-name: coupons
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: coupons
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: coupons
+      x-fern-sdk-method-name: delete
+  /api/coupons/apply:
+    post:
+      x-fern-sdk-group-name: coupons
+      x-fern-sdk-method-name: apply
+  /api/coupons/applied/{id}:
+    delete:
+      x-fern-sdk-group-name: coupons
+      x-fern-sdk-method-name: removeApplied
+
+  # ==================== Invoices ====================
   /api/invoices:
     get:
       x-fern-sdk-group-name: invoices
@@ -155,6 +329,37 @@ paths:
     get:
       x-fern-sdk-group-name: invoices
       x-fern-sdk-method-name: getPdf
+  /api/invoices/{id}/send-email:
+    post:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: sendEmail
+  /api/invoices/{id}/checkout:
+    post:
+      x-fern-sdk-group-name: invoices
+      x-fern-sdk-method-name: createCheckout
+
+  # ==================== Credit Notes ====================
+  /api/credit-notes:
+    get:
+      x-fern-sdk-group-name: creditNotes
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: creditNotes
+      x-fern-sdk-method-name: create
+  /api/credit-notes/{id}:
+    get:
+      x-fern-sdk-group-name: creditNotes
+      x-fern-sdk-method-name: get
+  /api/credit-notes/{id}/finalize:
+    post:
+      x-fern-sdk-group-name: creditNotes
+      x-fern-sdk-method-name: finalize
+  /api/credit-notes/{id}/void:
+    post:
+      x-fern-sdk-group-name: creditNotes
+      x-fern-sdk-method-name: void
+
+  # ==================== Payments ====================
   /api/payments:
     get:
       x-fern-sdk-group-name: payments
@@ -167,6 +372,32 @@ paths:
     post:
       x-fern-sdk-group-name: payments
       x-fern-sdk-method-name: refund
+
+  # ==================== Payment Methods ====================
+  /api/payment-methods:
+    get:
+      x-fern-sdk-group-name: paymentMethods
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: paymentMethods
+      x-fern-sdk-method-name: create
+  /api/payment-methods/{id}:
+    get:
+      x-fern-sdk-group-name: paymentMethods
+      x-fern-sdk-method-name: get
+    delete:
+      x-fern-sdk-group-name: paymentMethods
+      x-fern-sdk-method-name: delete
+  /api/payment-methods/{id}/set-default:
+    patch:
+      x-fern-sdk-group-name: paymentMethods
+      x-fern-sdk-method-name: setDefault
+  /api/payment-methods/customer/{customerId}:
+    get:
+      x-fern-sdk-group-name: paymentMethods
+      x-fern-sdk-method-name: getByCustomer
+
+  # ==================== Payment Providers ====================
   /api/payment-providers:
     get:
       x-fern-sdk-group-name: paymentProviders
@@ -188,6 +419,78 @@ paths:
     post:
       x-fern-sdk-group-name: paymentProviders
       x-fern-sdk-method-name: testConnection
+
+  # ==================== Taxes ====================
+  /api/taxes:
+    get:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: create
+  /api/taxes/{id}:
+    get:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: delete
+  /api/taxes/plan/{planId}:
+    post:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: assignToPlan
+  /api/taxes/plan/{planId}/{taxId}:
+    delete:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: removeFromPlan
+  /api/taxes/charge/{chargeId}:
+    post:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: assignToCharge
+  /api/taxes/charge/{chargeId}/{taxId}:
+    delete:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: removeFromCharge
+  /api/taxes/customer/{customerId}:
+    post:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: assignToCustomer
+  /api/taxes/customer/{customerId}/{taxId}:
+    delete:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: removeFromCustomer
+
+  # ==================== Wallets ====================
+  /api/wallets:
+    get:
+      x-fern-sdk-group-name: wallets
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: wallets
+      x-fern-sdk-method-name: create
+  /api/wallets/{id}:
+    get:
+      x-fern-sdk-group-name: wallets
+      x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: wallets
+      x-fern-sdk-method-name: update
+    delete:
+      x-fern-sdk-group-name: wallets
+      x-fern-sdk-method-name: delete
+  /api/wallets/{id}/transactions:
+    get:
+      x-fern-sdk-group-name: wallets
+      x-fern-sdk-method-name: getTransactions
+  /api/wallets/transactions:
+    post:
+      x-fern-sdk-group-name: wallets
+      x-fern-sdk-method-name: createTransaction
+
+  # ==================== Analytics ====================
   /api/analytics/revenue:
     get:
       x-fern-sdk-group-name: analytics
@@ -204,3 +507,41 @@ paths:
     get:
       x-fern-sdk-group-name: analytics
       x-fern-sdk-method-name: getPayments
+  /api/analytics/mrr-breakdown:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getMrrBreakdown
+  /api/analytics/net-revenue:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getNetRevenue
+  /api/analytics/ltv:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getLifetimeValue
+  /api/analytics/churn-cohorts:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getChurnCohorts
+
+  # ==================== Customer Portal ====================
+  /api/portal/customers/{externalId}/billing:
+    get:
+      x-fern-sdk-group-name: portal
+      x-fern-sdk-method-name: getBilling
+  /api/portal/customers/{externalId}/subscriptions:
+    get:
+      x-fern-sdk-group-name: portal
+      x-fern-sdk-method-name: getSubscriptions
+  /api/portal/customers/{externalId}/invoices:
+    get:
+      x-fern-sdk-group-name: portal
+      x-fern-sdk-method-name: getInvoices
+  /api/portal/customers/{externalId}/payments:
+    get:
+      x-fern-sdk-group-name: portal
+      x-fern-sdk-method-name: getPayments
+  /api/portal/customers/{externalId}/invoices/{invoiceId}/checkout:
+    post:
+      x-fern-sdk-group-name: portal
+      x-fern-sdk-method-name: createCheckout

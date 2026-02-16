@@ -1,0 +1,9 @@
+{
+  "cliVersion": "3.78.0",
+  "generatorName": "fernapi/fern-swift-sdk",
+  "generatorVersion": "0.26.0",
+  "generatorConfig": {
+    "clientClassName": "NovaBillingClient",
+    "environmentEnumName": "NovaBillingEnvironment"
+  }
+}

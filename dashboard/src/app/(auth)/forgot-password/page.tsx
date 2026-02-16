@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,9 +45,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto h-12 w-12 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center mb-4">
-            <span className="text-white font-bold text-2xl">N</span>
-          </div>
+          <Image src="/logo.png" alt="NovaBilling" width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
           <CardTitle className="text-2xl">Reset your password</CardTitle>
           <CardDescription>
             {submitted
