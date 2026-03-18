@@ -252,7 +252,7 @@ export default function InvoicesPage() {
       const result = await apiClient.invoices.checkout(invoice.id, undefined, providerName);
       if (result.checkoutUrl) {
         toast.success(`Checkout URL generated via ${result.provider}`);
-        window.open(result.checkoutUrl, "_blank");
+        window.open(result.checkoutUrl, "_blank", "noopener,noreferrer");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to generate checkout URL");
