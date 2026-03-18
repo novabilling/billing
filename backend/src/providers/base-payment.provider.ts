@@ -29,7 +29,7 @@ export interface PaymentMethodToken {
 }
 
 export interface WebhookData {
-  status: 'succeeded' | 'failed';
+  status: 'succeeded' | 'failed' | 'pending';
   transactionId: string;
   amount: number;
   currency: string;
@@ -81,6 +81,7 @@ export interface ChargePaymentMethodParams {
   currency: string;
   reference: string;
   customerId?: string;
+  callbackUrl?: string;
   metadata?: Record<string, unknown>;
 }
 

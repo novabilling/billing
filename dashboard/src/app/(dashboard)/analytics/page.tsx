@@ -20,20 +20,40 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/utils/currency";
 import { format } from "date-fns";
-import { Download, TrendingUp, TrendingDown, Users, CreditCard, DollarSign, Activity } from "lucide-react";
+import { Download, Users, CreditCard, DollarSign, Activity, Info } from "lucide-react";
+import {
+  Tooltip as UITooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 const COLORS = ["#3b82f6", "#a855f7", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899"];
+
+/** Small info icon with a tooltip explaining the metric. */
+function MetricTooltip({ text }: { text: string }) {
+  return (
+    <UITooltip>
+      <TooltipTrigger asChild>
+        <Info className="inline-block h-3.5 w-3.5 ml-1 text-muted-foreground cursor-help align-middle" />
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs text-wrap">{text}</TooltipContent>
+    </UITooltip>
+  );
+}
 
 export default function AnalyticsPage() {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<{
     arpu: number;
+    arr: number;
+    mrr: number;
     churnRate: string;
     successRate: string;
     totalRevenue: number;
     totalCustomers: number;
     trialingCount: number;
     totalSubscriptions: number;
+    activePlansCount: number;
   } | null>(null);
   const [planDistribution, setPlanDistribution] = useState<
     { name: string; value: number; color: string }[]
@@ -75,9 +95,7 @@ export default function AnalyticsPage() {
         kpis,
         subs,
         plans,
-        custAnalytics,
         subAnalytics,
-        payAnalytics,
         mrrData,
         netRevData,
         cohortData,
@@ -87,9 +105,7 @@ export default function AnalyticsPage() {
         apiClient.analytics.getKPIs(),
         apiClient.subscriptions.list({ limit: 100 }),
         apiClient.plans.list(),
-        fetch("/api/proxy/analytics/customers", { credentials: "include" }).then((r) => r.json()),
         fetch("/api/proxy/analytics/subscriptions", { credentials: "include" }).then((r) => r.json()),
-        fetch("/api/proxy/analytics/payments", { credentials: "include" }).then((r) => r.json()),
         apiClient.analytics.getMrrBreakdown().catch(() => null),
         apiClient.analytics.getNetRevenue().catch(() => null),
         apiClient.analytics.getChurnCohorts(12).catch(() => null),
@@ -103,26 +119,9 @@ export default function AnalyticsPage() {
         })),
       );
 
-      const custData = custAnalytics.data?.data || custAnalytics.data || custAnalytics;
       const subData = subAnalytics.data?.data || subAnalytics.data || subAnalytics;
-      const payData = payAnalytics.data?.data || payAnalytics.data || payAnalytics;
 
-      setMetrics({
-        arpu: Number(custData.arpu) || 0,
-        churnRate: subData.churnRate || "0.00%",
-        successRate: payData.successRate || "0.00%",
-        totalRevenue: Number(custData.totalRevenue) || 0,
-        totalCustomers: Number(custData.totalCustomers) || 0,
-        trialingCount: Number(subData.trialing) || 0,
-        totalSubscriptions: Number(subData.total) || 0,
-      });
-
-      if (mrrData) setMrrBreakdown(mrrData);
-      if (netRevData) setNetRevenue(netRevData);
-      if (cohortData) setCohorts(cohortData);
-      if (ltvData) setLtv(ltvData);
-
-      // Build plan distribution
+      // Build plan distribution from subscription list
       const planMap = new Map<string, string>();
       plans.forEach((p) => planMap.set(p.id, p.name));
       const planCounts: Record<string, number> = {};
@@ -140,6 +139,32 @@ export default function AnalyticsPage() {
             color: COLORS[idx % COLORS.length],
           })),
       );
+
+      if (mrrData) setMrrBreakdown(mrrData);
+      if (netRevData) setNetRevenue(netRevData);
+      if (cohortData) setCohorts(cohortData);
+      if (ltvData) setLtv(ltvData);
+
+      // Use backend-aggregated KPIs for accuracy – avoids counting only the first
+      // 100 subscriptions for metrics like distinct active plans.
+      const activePlansCount = mrrData
+        ? mrrData.byPlan.length
+        : Number(subData.active) > 0
+          ? Object.keys(planCounts).length
+          : 0;
+
+      setMetrics({
+        arpu: kpis.arpu,
+        arr: kpis.arr,
+        mrr: kpis.mrr,
+        churnRate: kpis.churnRate,
+        successRate: kpis.successRate ? `${kpis.successRate.toFixed(2)}%` : "0.00%",
+        totalRevenue: kpis.mrr * 12, // fallback; net revenue widget is more accurate
+        totalCustomers: kpis.totalCustomers,
+        trialingCount: Number(subData.trialing) || 0,
+        totalSubscriptions: kpis.totalSubscriptions,
+        activePlansCount,
+      });
     } catch (error) {
       console.error("Failed to load analytics data:", error);
     } finally {
@@ -209,7 +234,10 @@ export default function AnalyticsPage() {
             <>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Gross Revenue</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Gross Revenue
+                    <MetricTooltip text="Total amount from all paid invoices before deducting refunds or credit notes." />
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold">{formatCurrency(netRevenue.grossRevenue, "USD")}</p>
@@ -217,7 +245,10 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Refunds</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Refunds
+                    <MetricTooltip text="Total amount returned to customers via payment refunds." />
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold text-red-600">-{formatCurrency(netRevenue.refunds, "USD")}</p>
@@ -225,7 +256,10 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Credit Notes</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Credit Notes
+                    <MetricTooltip text="Total value of issued credit notes, which reduce the amount owed by customers." />
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold text-orange-600">-{formatCurrency(netRevenue.creditNotes, "USD")}</p>
@@ -233,7 +267,10 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Net Revenue</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Net Revenue
+                    <MetricTooltip text="Gross revenue minus refunds and credit notes. This is the actual revenue retained." />
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold text-green-600">{formatCurrency(netRevenue.netRevenue, "USD")}</p>
@@ -243,60 +280,87 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        {/* MRR breakdown row */}
+        {/* MRR & ARR breakdown row */}
         {mrrBreakdown && (
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total MRR</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold">{formatCurrency(mrrBreakdown.totalMrr, "USD")}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">New MRR</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-green-600">+{formatCurrency(mrrBreakdown.newMrr, "USD")}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Expansion</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-blue-600">+{formatCurrency(mrrBreakdown.expansionMrr, "USD")}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Contraction</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-orange-600">-{formatCurrency(mrrBreakdown.contractionMrr, "USD")}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Churn MRR</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-red-600">-{formatCurrency(mrrBreakdown.churnMrr, "USD")}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Net New MRR</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={`text-2xl font-bold ${mrrBreakdown.netNewMrr >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {mrrBreakdown.netNewMrr >= 0 ? "+" : ""}{formatCurrency(mrrBreakdown.netNewMrr, "USD")}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <>
+            {/* ARR highlight */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    MRR
+                    <MetricTooltip text="Monthly Recurring Revenue — the predictable monthly revenue from all active subscriptions, normalised to a monthly amount." />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{formatCurrency(mrrBreakdown.totalMrr, "USD")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Monthly Recurring Revenue</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    ARR
+                    <MetricTooltip text="Annual Recurring Revenue — MRR × 12. Represents the expected recurring revenue over a full year based on current active subscriptions." />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{formatCurrency(mrrBreakdown.totalMrr * 12, "USD")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Annual Recurring Revenue (MRR × 12)</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* MRR movement row */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    New MRR
+                    <MetricTooltip text="MRR added from new subscriptions created this month." />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-green-600">+{formatCurrency(mrrBreakdown.newMrr, "USD")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Expansion
+                    <MetricTooltip text="MRR gained from existing customers upgrading to a higher-priced plan this month." />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-blue-600">+{formatCurrency(mrrBreakdown.expansionMrr, "USD")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Contraction
+                    <MetricTooltip text="MRR lost from existing customers downgrading to a lower-priced plan this month." />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-orange-600">-{formatCurrency(mrrBreakdown.contractionMrr, "USD")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Net New MRR
+                    <MetricTooltip text="Net MRR change this month: New MRR + Expansion − Contraction − Churn MRR." />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className={`text-2xl font-bold ${mrrBreakdown.netNewMrr >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {mrrBreakdown.netNewMrr >= 0 ? "+" : ""}{formatCurrency(mrrBreakdown.netNewMrr, "USD")}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </>
         )}
 
         {/* Revenue chart + MRR by plan */}
@@ -419,7 +483,10 @@ export default function AnalyticsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Subscriptions</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Subscriptions
+                <MetricTooltip text="The total number of subscriptions ever created, across all statuses (active, canceled, trialing, paused)." />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{metrics?.totalSubscriptions ?? 0}</p>
@@ -428,7 +495,10 @@ export default function AnalyticsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Trialing</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Trialing
+                <MetricTooltip text="Customers currently on a free trial period before their first paid billing cycle." />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{metrics?.trialingCount ?? 0}</p>
@@ -437,7 +507,10 @@ export default function AnalyticsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Churn Rate</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Churn Rate
+                <MetricTooltip text="Percentage of subscriptions that have been canceled out of all subscriptions ever created. Lower is better." />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{metrics?.churnRate ?? "0%"}</p>
@@ -446,11 +519,14 @@ export default function AnalyticsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Plan Distribution</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Active Plans
+                <MetricTooltip text="Number of distinct subscription plans that currently have at least one active subscriber." />
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{planDistribution.length}</p>
-              <p className="text-sm text-muted-foreground mt-1">Active plans with subscribers</p>
+              <p className="text-3xl font-bold">{metrics?.activePlansCount ?? 0}</p>
+              <p className="text-sm text-muted-foreground mt-1">Plans with active subscribers</p>
             </CardContent>
           </Card>
         </div>
@@ -520,7 +596,10 @@ export default function AnalyticsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Customers</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Customers
+                <MetricTooltip text="Total number of registered customer accounts, regardless of subscription or activity status." />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{metrics?.totalCustomers ?? 0}</p>
@@ -529,18 +608,24 @@ export default function AnalyticsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Revenue Per User</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                ARPU
+                <MetricTooltip text="Average Revenue Per User — total revenue divided by the number of customers. Reflects how much revenue each customer generates on average." />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{formatCurrency(metrics?.arpu ?? 0, "USD")}</p>
-              <p className="text-sm text-muted-foreground mt-1">Per active customer</p>
+              <p className="text-sm text-muted-foreground mt-1">Per customer (all time)</p>
             </CardContent>
           </Card>
           {ltv && (
             <>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Lifetime Value</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Avg. Lifetime Value
+                    <MetricTooltip text="Average Customer Lifetime Value — the total revenue a customer generates over the entire duration of their subscription(s)." />
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-3xl font-bold">{formatCurrency(ltv.avgLtv, "USD")}</p>
@@ -549,7 +634,10 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Lifespan</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Avg. Lifespan
+                    <MetricTooltip text="Average number of days a customer remains subscribed, from their first subscription creation to cancellation (or today for active subscribers)." />
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-3xl font-bold">{ltv.avgLifespanDays}<span className="text-base font-normal text-muted-foreground ml-1">days</span></p>

@@ -452,7 +452,7 @@ export class InvoicesService {
     return { message: `Invoice email queued for ${email}` };
   }
 
-  async createCheckout(db: PrismaClient, id: string, callbackUrl?: string) {
+  async createCheckout(db: PrismaClient, id: string, callbackUrl?: string, providerName?: string) {
     const invoice = await db.invoice.findUnique({
       where: { id },
       include: { customer: true },
@@ -470,14 +470,23 @@ export class InvoicesService {
       throw new BadRequestException('Invoice has been voided');
     }
 
-    // Get the highest-priority active payment provider
-    const providerConfig = await db.paymentProvider.findFirst({
-      where: { isActive: true },
-      orderBy: { priority: 'asc' },
-    });
+    // Find the requested provider or fall back to the highest-priority active one
+    const providerConfig = providerName
+      ? await db.paymentProvider.findFirst({
+          where: { isActive: true, providerName },
+          orderBy: { priority: 'asc' },
+        })
+      : await db.paymentProvider.findFirst({
+          where: { isActive: true },
+          orderBy: { priority: 'asc' },
+        });
 
     if (!providerConfig) {
-      throw new BadRequestException('No active payment provider configured');
+      throw new BadRequestException(
+        providerName
+          ? `Payment provider "${providerName}" is not configured or not active`
+          : 'No active payment provider configured',
+      );
     }
 
     const credentials = JSON.parse(this.encryptionService.decrypt(providerConfig.credentials));

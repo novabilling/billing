@@ -118,3 +118,44 @@ export class LtvResponse {
   @ApiProperty() avgLifespanDays: number;
   @ApiProperty({ type: [LtvPlanBreakdown] }) byPlan: LtvPlanBreakdown[];
 }
+
+export class KpisResponse {
+  @ApiProperty({ example: 4200, description: 'Monthly Recurring Revenue in USD' })
+  mrr: number;
+
+  @ApiProperty({ example: 50400, description: 'Annual Recurring Revenue (MRR × 12) in USD' })
+  arr: number;
+
+  @ApiProperty({ example: 12500, description: 'Total all-time revenue from paid invoices in USD' })
+  totalRevenue: number;
+
+  @ApiProperty({ example: 85, description: 'Number of currently active subscriptions' })
+  activeSubscriptions: number;
+
+  @ApiProperty({ example: 100, description: 'Total number of subscriptions ever created' })
+  totalSubscriptions: number;
+
+  @ApiProperty({ example: 150, description: 'Total registered customers' })
+  totalCustomers: number;
+
+  @ApiProperty({ example: 12, description: 'New customers created within the selected period' })
+  newCustomers: number;
+
+  @ApiProperty({ example: '5.00%', description: 'Churn rate: canceled / total subscriptions' })
+  churnRate: string;
+
+  @ApiProperty({ example: '95.00%', description: 'Retention rate: 100 - churn rate' })
+  retentionRate: string;
+
+  @ApiProperty({ example: '90.00%', description: 'Payment success rate' })
+  successRate: string;
+
+  @ApiProperty({ example: 83.33, description: 'Average Revenue Per User in USD' })
+  arpu: number;
+
+  @ApiProperty({ example: 500, description: 'Average customer Lifetime Value in USD' })
+  avgLtv: number;
+
+  @ApiProperty({ example: 180, description: 'Average customer lifespan in days' })
+  avgLifespanDays: number;
+}

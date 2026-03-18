@@ -635,6 +635,7 @@ export const apiClient = {
     async checkout(
       id: string,
       callbackUrl?: string,
+      providerName?: string,
     ): Promise<{
       checkoutUrl: string;
       paymentId: string;
@@ -650,6 +651,7 @@ export const apiClient = {
         method: "POST",
         body: JSON.stringify({
           callbackUrl: callbackUrl || window.location.href,
+          ...(providerName ? { providerName } : {}),
         }),
       });
     },
@@ -784,8 +786,14 @@ export const apiClient = {
         configured.map((p) => [p.code, p]),
       );
 
-      // Merge: replace default entries with configured data, preserve order
-      return ALL_PROVIDERS.map((def) => configuredByCode.get(def.code) ?? def);
+      // Merge: replace default entries with configured data, then sort so
+      // configured (isConfigured=true) providers appear first, ordered by priority.
+      const merged = ALL_PROVIDERS.map((def) => configuredByCode.get(def.code) ?? def);
+      return merged.sort((a, b) => {
+        if (a.isConfigured && !b.isConfigured) return -1;
+        if (!a.isConfigured && b.isConfigured) return 1;
+        return (a.priority || 99) - (b.priority || 99);
+      });
     },
 
     async update(
@@ -933,16 +941,22 @@ export const apiClient = {
 
     async getKPIs(): Promise<{
       mrr: number;
+      arr: number;
       mrrChange: number;
       activeSubscriptions: number;
+      totalSubscriptions: number;
       subscriptionChange: number;
       totalCustomers: number;
       customerChange: number;
       successRate: number;
       successRateChange: number;
+      arpu: number;
+      avgLtv: number;
+      avgLifespanDays: number;
+      churnRate: string;
+      retentionRate: string;
     }> {
       const now = new Date();
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastMonthEnd = new Date(
         now.getFullYear(),
@@ -953,45 +967,33 @@ export const apiClient = {
         59,
       );
 
-      const [
-        revenue,
-        customers,
-        subscriptions,
-        payments,
-        lastMonthRevenue,
-        lastMonthCustomers,
-        lastMonthPayments,
-      ] = await Promise.all([
-        apiFetch<any>(`/analytics/revenue`),
-        apiFetch<any>(`/analytics/customers`),
-        apiFetch<any>(`/analytics/subscriptions`),
-        apiFetch<any>(`/analytics/payments`),
-        apiFetch<any>(
-          `/analytics/revenue?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
-        ).catch(() => ({ mrr: "0" })),
-        apiFetch<any>(
-          `/analytics/customers?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
-        ).catch(() => ({ totalCustomers: 0 })),
-        apiFetch<any>(
-          `/analytics/payments?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
-        ).catch(() => ({ totalPayments: 0, succeeded: 0 })),
-      ]);
+      const [kpis, lastMonthRevenue, lastMonthCustomers, lastMonthPayments] =
+        await Promise.all([
+          apiFetch<any>(`/analytics/kpis`),
+          apiFetch<any>(
+            `/analytics/revenue?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
+          ).catch(() => ({ mrr: "0" })),
+          apiFetch<any>(
+            `/analytics/customers?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
+          ).catch(() => ({ totalCustomers: 0 })),
+          apiFetch<any>(
+            `/analytics/payments?dateFrom=${lastMonthStart.toISOString()}&dateTo=${lastMonthEnd.toISOString()}`,
+          ).catch(() => ({ totalPayments: 0, succeeded: 0 })),
+        ]);
 
-      const currentMrr = Number(revenue.mrr) || 0;
+      const currentMrr = Number(kpis.mrr) || 0;
       const previousMrr = Number(lastMonthRevenue.mrr) || 0;
       const mrrChange =
         previousMrr > 0 ? ((currentMrr - previousMrr) / previousMrr) * 100 : 0;
 
-      const currentCustomers = Number(customers.totalCustomers) || 0;
+      const currentCustomers = Number(kpis.totalCustomers) || 0;
       const previousCustomers = Number(lastMonthCustomers.totalCustomers) || 0;
       const customerChange =
         previousCustomers > 0
           ? ((currentCustomers - previousCustomers) / previousCustomers) * 100
           : 0;
 
-      const totalPayments = Number(payments.totalPayments) || 1;
-      const successfulPayments = Number(payments.succeeded) || 0;
-      const currentSuccessRate = (successfulPayments / totalPayments) * 100;
+      const currentSuccessRate = parseFloat(kpis.successRate) || 0;
 
       const lastTotalPayments = Number(lastMonthPayments.totalPayments) || 1;
       const lastSuccessfulPayments = Number(lastMonthPayments.succeeded) || 0;
@@ -1000,13 +1002,20 @@ export const apiClient = {
 
       return {
         mrr: currentMrr,
+        arr: Number(kpis.arr) || currentMrr * 12,
         mrrChange: Math.round(mrrChange * 10) / 10,
-        activeSubscriptions: Number(subscriptions.active) || 0,
+        activeSubscriptions: Number(kpis.activeSubscriptions) || 0,
+        totalSubscriptions: Number(kpis.totalSubscriptions) || 0,
         subscriptionChange: 0,
         totalCustomers: currentCustomers,
         customerChange: Math.round(customerChange * 10) / 10,
         successRate: currentSuccessRate,
         successRateChange: Math.round(successRateChange * 10) / 10,
+        arpu: Number(kpis.arpu) || 0,
+        avgLtv: Number(kpis.avgLtv) || 0,
+        avgLifespanDays: Number(kpis.avgLifespanDays) || 0,
+        churnRate: kpis.churnRate || "0.00%",
+        retentionRate: kpis.retentionRate || "100.00%",
       };
     },
   },

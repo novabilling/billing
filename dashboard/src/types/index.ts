@@ -111,7 +111,7 @@ export interface Payment {
   customerName: string;
   amount: number;
   currency: string;
-  provider: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal";
+  provider: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal" | "paypal";
   status: "succeeded" | "failed" | "pending" | "refunded";
   createdAt: string;
   updatedAt: string;

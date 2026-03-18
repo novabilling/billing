@@ -41,7 +41,7 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatDate, isOverdue } from "@/lib/utils/date";
-import type { Invoice, Customer } from "@/types";
+import type { Invoice, Customer, PaymentProvider } from "@/types";
 import { toast } from "sonner";
 
 const statusColors = {
@@ -88,6 +88,13 @@ export default function InvoicesPage() {
   const [markPaidInvoice, setMarkPaidInvoice] = useState<Invoice | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+
+  // Checkout provider selection dialog state
+  const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
+  const [checkoutInvoice, setCheckoutInvoice] = useState<Invoice | null>(null);
+  const [configuredProviders, setConfiguredProviders] = useState<PaymentProvider[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string>("");
+  const [isGeneratingCheckout, setIsGeneratingCheckout] = useState(false);
 
   useEffect(() => {
     loadInvoices();
@@ -227,13 +234,31 @@ export default function InvoicesPage() {
 
   async function handleCheckout(invoice: Invoice) {
     try {
-      const result = await apiClient.invoices.checkout(invoice.id);
+      const providers = await apiClient.providers.list();
+      const active = providers.filter((p) => p.isConfigured && p.isActive);
+      setCheckoutInvoice(invoice);
+      setConfiguredProviders(active);
+      setSelectedProvider(active[0]?.code ?? "");
+      setCheckoutDialogOpen(true);
+    } catch {
+      // If loading providers fails, fall back to default provider
+      await runCheckout(invoice, undefined);
+    }
+  }
+
+  async function runCheckout(invoice: Invoice, providerName: string | undefined) {
+    setIsGeneratingCheckout(true);
+    try {
+      const result = await apiClient.invoices.checkout(invoice.id, undefined, providerName);
       if (result.checkoutUrl) {
         toast.success(`Checkout URL generated via ${result.provider}`);
         window.open(result.checkoutUrl, "_blank");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to generate checkout URL");
+    } finally {
+      setIsGeneratingCheckout(false);
+      setCheckoutDialogOpen(false);
     }
   }
 
@@ -698,6 +723,64 @@ export default function InvoicesPage() {
               <CheckCircle className="mr-2 h-4 w-4" />
               Confirm Payment
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Checkout Provider Selection Dialog */}
+      <Dialog open={checkoutDialogOpen} onOpenChange={setCheckoutDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Generate Checkout URL</DialogTitle>
+            <DialogDescription>
+              {configuredProviders.length > 1
+                ? "Select a payment provider to use for this invoice."
+                : configuredProviders.length === 1
+                  ? `Will use ${configuredProviders[0].name} as the payment provider.`
+                  : "No active payment providers configured. Please configure one first."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {configuredProviders.length > 0 && (
+            <div className="py-2">
+              <Label htmlFor="checkout-provider">Payment Provider</Label>
+              <Select
+                value={selectedProvider}
+                onValueChange={setSelectedProvider}
+              >
+                <SelectTrigger id="checkout-provider" className="mt-1">
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {configuredProviders.map((p) => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {checkoutInvoice && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Invoice {checkoutInvoice.invoiceNumber} —{" "}
+                  {formatCurrency(checkoutInvoice.amount, checkoutInvoice.currency)}
+                </p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckoutDialogOpen(false)}>
+              Cancel
+            </Button>
+            {configuredProviders.length > 0 && (
+              <Button
+                onClick={() => checkoutInvoice && runCheckout(checkoutInvoice, selectedProvider || undefined)}
+                disabled={isGeneratingCheckout || !selectedProvider}
+              >
+                {isGeneratingCheckout && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Generate URL
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

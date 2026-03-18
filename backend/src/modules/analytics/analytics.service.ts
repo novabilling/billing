@@ -497,4 +497,33 @@ export class AnalyticsService {
       successRate: `${successRate}%`,
     };
   }
+
+  /**
+   * Aggregated KPIs endpoint – returns all headline metrics in a single call.
+   */
+  async getKpis(db: PrismaClient) {
+    const [revenueData, subData, custData, payData, ltvData] = await Promise.all([
+      this.getRevenueAnalytics(db, {}),
+      this.getSubscriptionAnalytics(db, {}),
+      this.getCustomerAnalytics(db, {}),
+      this.getPaymentAnalytics(db, {}),
+      this.getLtv(db),
+    ]);
+
+    return {
+      mrr: Number(revenueData.mrr),
+      arr: Number(revenueData.arr),
+      totalRevenue: Number(revenueData.totalRevenue),
+      activeSubscriptions: subData.active,
+      totalSubscriptions: subData.total,
+      totalCustomers: custData.totalCustomers,
+      newCustomers: custData.newCustomers,
+      churnRate: subData.churnRate,
+      retentionRate: subData.retentionRate,
+      successRate: payData.successRate,
+      arpu: Number(custData.arpu),
+      avgLtv: ltvData.avgLtv,
+      avgLifespanDays: ltvData.avgLifespanDays,
+    };
+  }
 }

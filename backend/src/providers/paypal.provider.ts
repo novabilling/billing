@@ -250,23 +250,20 @@ export class PayPalProvider extends BasePaymentProvider {
       const certUrl = parts['PAYPAL-CERT-URL'] || '';
       const authAlgo = parts['PAYPAL-AUTH-ALGO'] || '';
 
-      if (authAlgo.includes('SHA256')) {
-        // The expected signature is an HMAC-SHA256 digest of the concatenated
-        // transmissionId, timestamp, webhookId, and raw body.
-        const signaturePayload = `${transmissionId}|${timestamp}|${this.credentials.webhookId}|${rawBody}`;
-        const expectedSig = createHmac('sha256', this.credentials.clientSecret)
-          .update(signaturePayload)
-          .digest('base64');
-        const providedSig = parts['PAYPAL-TRANSMISSION-SIG'] || '';
-        try {
-          const expected = Buffer.from(expectedSig);
-          const provided = Buffer.from(providedSig);
-          if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
-            throw new Error('PayPal webhook signature mismatch');
-          }
-        } catch {
-          throw new Error('PayPal webhook signature verification failed');
-        }
+      if (!authAlgo || !authAlgo.includes('SHA256')) {
+        throw new Error('PayPal webhook: unsupported or missing auth algorithm');
+      }
+      // The expected signature is an HMAC-SHA256 digest of the concatenated
+      // transmissionId, timestamp, webhookId, and raw body.
+      const signaturePayload = `${transmissionId}|${timestamp}|${this.credentials.webhookId}|${rawBody}`;
+      const expectedSig = createHmac('sha256', this.credentials.clientSecret)
+        .update(signaturePayload)
+        .digest('base64');
+      const providedSig = parts['PAYPAL-TRANSMISSION-SIG'] || '';
+      const expected = Buffer.from(expectedSig);
+      const provided = Buffer.from(providedSig);
+      if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+        throw new Error('PayPal webhook signature mismatch');
       }
     }
 
@@ -282,7 +279,9 @@ export class PayPalProvider extends BasePaymentProvider {
 
     const status: WebhookData['status'] = succeededEvents.includes(eventType)
       ? 'succeeded'
-      : 'failed'; // Default unknown events to 'failed' for safe handling
+      : failedEvents.includes(eventType)
+        ? 'failed'
+        : 'pending'; // Unknown events treated as pending until confirmed
 
     const transactionId = resource?.id || resource?.order_id || '';
 
@@ -304,14 +303,24 @@ export class PayPalProvider extends BasePaymentProvider {
   }
 
   async chargePaymentMethod(params: ChargePaymentMethodParams): Promise<PaymentResult> {
-    // PayPal does not natively support charging a stored vault token without
-    // the Vault v3 API, which requires additional onboarding. We redirect
-    // the customer to a fresh checkout order instead.
+    // PayPal requires a browser redirect for payment authorisation; merchant-initiated
+    // charges without a customer redirect are only supported via the Vault v3 API, which
+    // requires additional PayPal onboarding. Without a callbackUrl the payment cannot
+    // complete, so we fail fast with a descriptive error.
+    if (!params.callbackUrl) {
+      return {
+        success: false,
+        error:
+          'PayPal requires a callbackUrl for customer redirect. ' +
+          'Pass a callbackUrl in the charge parameters to initiate a PayPal checkout session.',
+      };
+    }
     return this.charge({
       amount: params.amount,
       currency: params.currency,
       email: '',
       reference: params.reference,
+      callbackUrl: params.callbackUrl,
       metadata: params.metadata,
     });
   }
