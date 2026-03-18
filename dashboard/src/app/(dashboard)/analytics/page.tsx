@@ -34,7 +34,16 @@ function MetricTooltip({ text }: { text: string }) {
   return (
     <UITooltip>
       <TooltipTrigger asChild>
-        <Info className="inline-block h-3.5 w-3.5 ml-1 text-muted-foreground cursor-help align-middle" />
+        <button
+          type="button"
+          aria-label="More information about this metric"
+          className="inline-flex items-center justify-center h-3.5 w-3.5 ml-1 text-muted-foreground cursor-help align-middle focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-full"
+        >
+          <Info
+            className="h-3.5 w-3.5"
+            aria-hidden="true"
+          />
+        </button>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs text-wrap">{text}</TooltipContent>
     </UITooltip>
