@@ -33,6 +33,7 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   dpo: { logo: "🏦", color: "bg-teal-500" },
   payu: { logo: "💰", color: "bg-emerald-500" },
   pesapal: { logo: "📱", color: "bg-green-500" },
+  paypal: { logo: "🅿️", color: "bg-blue-700" },
 };
 
 const credentialFields: Record<
@@ -66,6 +67,12 @@ const credentialFields: Record<
     { key: "consumerSecret", label: "Consumer Secret", placeholder: "" },
     { key: "environment", label: "Environment", placeholder: "sandbox or live" },
   ],
+  paypal: [
+    { key: "clientId", label: "Client ID", placeholder: "AXxx..." },
+    { key: "clientSecret", label: "Client Secret", placeholder: "" },
+    { key: "webhookId", label: "Webhook ID", placeholder: "From PayPal Developer Dashboard" },
+    { key: "environment", label: "Environment", placeholder: "sandbox or live" },
+  ],
 };
 
 const webhookDocs: Record<string, { label: string; url: string }> = {
@@ -75,6 +82,7 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   dpo: { label: "DPO Settings", url: "https://dpogroup.com" },
   payu: { label: "PayU Settings", url: "https://developers.payu.co.za" },
   pesapal: { label: "Pesapal Settings", url: "https://dashboard.pesapal.com" },
+  paypal: { label: "PayPal Webhooks", url: "https://developer.paypal.com/dashboard/webhooks" },
 };
 
 const signatureVerification: Record<string, { method: string; detail: string }> = {
@@ -101,6 +109,10 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
   pesapal: {
     method: "API Callback",
     detail: "IPN verified via server-to-server status fetch (no signature header)",
+  },
+  paypal: {
+    method: "HMAC-SHA256",
+    detail: "Verified using your Client Secret and Webhook ID (PAYPAL-TRANSMISSION-SIG header)",
   },
 };
 
@@ -463,6 +475,17 @@ export default function ProvidersPage() {
               <h4 className="font-medium mb-2">Pesapal</h4>
               <a
                 href="https://developer.pesapal.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                View Documentation &rarr;
+              </a>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">PayPal</h4>
+              <a
+                href="https://developer.paypal.com/docs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:underline"

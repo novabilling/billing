@@ -2,6 +2,7 @@ import { ProviderFactory } from '../../../src/providers/provider.factory';
 import { FlutterwaveProvider } from '../../../src/providers/flutterwave.provider';
 import { PaystackProvider } from '../../../src/providers/paystack.provider';
 import { StripeProvider } from '../../../src/providers/stripe.provider';
+import { PayPalProvider } from '../../../src/providers/paypal.provider';
 
 describe('ProviderFactory', () => {
   it('should create a FlutterwaveProvider', () => {
@@ -33,6 +34,30 @@ describe('ProviderFactory', () => {
 
     expect(provider).toBeInstanceOf(StripeProvider);
     expect(provider.name).toBe('stripe');
+  });
+
+  it('should create a PayPalProvider', () => {
+    const provider = ProviderFactory.create('paypal', {
+      clientId: 'client_id_test',
+      clientSecret: 'client_secret_test',
+      webhookId: 'webhook_id_test',
+      environment: 'sandbox',
+    });
+
+    expect(provider).toBeInstanceOf(PayPalProvider);
+    expect(provider.name).toBe('paypal');
+  });
+
+  it('should create a PayPalProvider with case-insensitive name', () => {
+    const provider = ProviderFactory.create('PayPal', {
+      clientId: 'client_id_test',
+      clientSecret: 'client_secret_test',
+      webhookId: 'webhook_id_test',
+      environment: 'live',
+    });
+
+    expect(provider).toBeInstanceOf(PayPalProvider);
+    expect(provider.name).toBe('paypal');
   });
 
   it('should throw for unsupported provider', () => {
