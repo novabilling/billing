@@ -792,7 +792,7 @@ export const apiClient = {
       return merged.sort((a, b) => {
         if (a.isConfigured && !b.isConfigured) return -1;
         if (!a.isConfigured && b.isConfigured) return 1;
-        return (a.priority || 99) - (b.priority || 99);
+        return (a.priority ?? 99) - (b.priority ?? 99);
       });
     },
 

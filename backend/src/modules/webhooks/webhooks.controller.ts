@@ -211,6 +211,36 @@ export class WebhooksController {
         }
 
         // Update payment status
+        // 'pending' means the provider has acknowledged the payment but final
+        // confirmation hasn't arrived yet (e.g. PayPal CHECKOUT.ORDER.APPROVED).
+        // In this case we keep the payment in PROCESSING and only record the
+        // transaction ID — no invoice update or customer notification yet.
+        if (webhookData.status === 'pending') {
+          if (webhookData.transactionId) {
+            await db.payment.update({
+              where: { id: payment.id },
+              data: { providerTransactionId: webhookData.transactionId },
+            });
+          }
+          // Forward the pending event so tenants can observe it
+          await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
+            tenantId: tenant.id,
+            event: 'payment.pending',
+            payload: {
+              paymentId: payment.id,
+              invoiceId: payment.invoiceId,
+              amount: Number(payment.amount),
+              currency: payment.currency,
+              provider: providerName,
+              transactionId: webhookData.transactionId,
+            },
+          });
+          this.logger.log(
+            `Processed ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} → PROCESSING (pending)`,
+          );
+          return;
+        }
+
         const newStatus = webhookData.status === 'succeeded' ? 'SUCCEEDED' : 'FAILED';
         await db.payment.update({
           where: { id: payment.id },
