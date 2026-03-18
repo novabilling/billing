@@ -18,6 +18,22 @@ interface PayPalCredentials {
   environment: 'sandbox' | 'live';
 }
 
+interface PayPalPurchaseUnit {
+  invoice_id?: string;
+  amount?: { currency_code: string; value: string };
+  payments?: {
+    captures?: Array<{ id: string; amount?: { value: string; currency_code: string } }>;
+  };
+}
+
+interface PayPalWebhookResource {
+  id?: string;
+  order_id?: string;
+  invoice_id?: string;
+  amount?: { value: string; currency_code: string };
+  purchase_units?: PayPalPurchaseUnit[];
+}
+
 export class PayPalProvider extends BasePaymentProvider {
   readonly name = 'paypal';
   private readonly logger = new Logger(PayPalProvider.name);
@@ -235,7 +251,8 @@ export class PayPalProvider extends BasePaymentProvider {
       const authAlgo = parts['PAYPAL-AUTH-ALGO'] || '';
 
       if (authAlgo.includes('SHA256')) {
-        // The expected signature is a CRC32 of the raw body embedded in the signature string
+        // The expected signature is an HMAC-SHA256 digest of the concatenated
+        // transmissionId, timestamp, webhookId, and raw body.
         const signaturePayload = `${transmissionId}|${timestamp}|${this.credentials.webhookId}|${rawBody}`;
         const expectedSig = createHmac('sha256', this.credentials.clientSecret)
           .update(signaturePayload)
@@ -254,7 +271,7 @@ export class PayPalProvider extends BasePaymentProvider {
     }
 
     const eventType = payload.event_type as string;
-    const resource = payload.resource as Record<string, unknown>;
+    const resource = payload.resource as PayPalWebhookResource;
 
     const succeededEvents = [
       'PAYMENT.CAPTURE.COMPLETED',
@@ -265,20 +282,14 @@ export class PayPalProvider extends BasePaymentProvider {
 
     const status: WebhookData['status'] = succeededEvents.includes(eventType)
       ? 'succeeded'
-      : failedEvents.includes(eventType)
-        ? 'failed'
-        : 'failed';
+      : 'failed'; // Default unknown events to 'failed' for safe handling
 
-    const transactionId =
-      (resource?.id as string) ||
-      (resource?.order_id as string) ||
-      '';
+    const transactionId = resource?.id || resource?.order_id || '';
 
-    const captureAmount = resource?.amount as Record<string, string> | undefined;
+    const captureAmount = resource?.amount;
     const amount = captureAmount ? Number(captureAmount.value) : 0;
     const currency = captureAmount?.currency_code || 'USD';
-    const invoiceId = (resource as any)?.invoice_id ||
-      ((resource as any)?.purchase_units?.[0] as any)?.invoice_id;
+    const invoiceId = resource?.invoice_id || resource?.purchase_units?.[0]?.invoice_id;
 
     return { status, transactionId, amount, currency, invoiceId };
   }

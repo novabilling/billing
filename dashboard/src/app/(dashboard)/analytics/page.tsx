@@ -356,13 +356,13 @@ export default function AnalyticsPage() {
                     <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
-                          const d = payload[0].payload;
+                          const planData = payload[0].payload;
                           return (
                             <div className="rounded-lg border bg-card p-2 shadow-md">
-                              <p className="text-sm font-medium">{d.planName}</p>
-                              <p className="text-sm text-blue-600">MRR: {formatCurrency(d.mrr, "USD")}</p>
+                              <p className="text-sm font-medium">{planData.planName}</p>
+                              <p className="text-sm text-blue-600">MRR: {formatCurrency(planData.mrr, "USD")}</p>
                               <p className="text-sm text-muted-foreground">
-                                {d.subscriptionCount} subscription{d.subscriptionCount !== 1 ? "s" : ""}
+                                {planData.subscriptionCount} subscription{planData.subscriptionCount !== 1 ? "s" : ""}
                               </p>
                             </div>
                           );
