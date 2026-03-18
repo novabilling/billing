@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   BarChart,
@@ -15,14 +15,12 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { apiClient } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/utils/currency";
 import { format } from "date-fns";
-import { Download, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Download, TrendingUp, TrendingDown, Users, CreditCard, DollarSign, Activity } from "lucide-react";
 
 const COLORS = ["#3b82f6", "#a855f7", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899"];
 
@@ -165,8 +163,8 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
+    <div className="space-y-10">
+      {/* ── Page Header ── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
@@ -196,214 +194,123 @@ export default function AnalyticsPage() {
         </Button>
       </div>
 
-      {/* MRR Breakdown Cards */}
-      {mrrBreakdown && (
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total MRR</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(mrrBreakdown.totalMrr, "USD")}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">New MRR</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-green-600">
-                +{formatCurrency(mrrBreakdown.newMrr, "USD")}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Expansion</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-blue-600">
-                +{formatCurrency(mrrBreakdown.expansionMrr, "USD")}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Contraction</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-orange-600">
-                -{formatCurrency(mrrBreakdown.contractionMrr, "USD")}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Churn MRR</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-red-600">
-                -{formatCurrency(mrrBreakdown.churnMrr, "USD")}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Net New MRR</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold ${mrrBreakdown.netNewMrr >= 0 ? "text-green-600" : "text-red-600"}`}>
-                {mrrBreakdown.netNewMrr >= 0 ? "+" : ""}{formatCurrency(mrrBreakdown.netNewMrr, "USD")}
-              </p>
-            </CardContent>
-          </Card>
+      {/* ══════════════════════════════════════════
+          SECTION 1 — REVENUE
+      ══════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 border-b pb-2">
+          <DollarSign className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Revenue</h2>
         </div>
-      )}
 
-      {/* Net Revenue Cards */}
-      {netRevenue && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Gross Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(netRevenue.grossRevenue, "USD")}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Refunds</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-red-600">-{formatCurrency(netRevenue.refunds, "USD")}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Credit Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-orange-600">-{formatCurrency(netRevenue.creditNotes, "USD")}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Net Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(netRevenue.netRevenue, "USD")}</p>
-            </CardContent>
-          </Card>
+        {/* Revenue KPI row */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {netRevenue && (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Gross Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{formatCurrency(netRevenue.grossRevenue, "USD")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Refunds</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-red-600">-{formatCurrency(netRevenue.refunds, "USD")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Credit Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-orange-600">-{formatCurrency(netRevenue.creditNotes, "USD")}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Net Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(netRevenue.netRevenue, "USD")}</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
-      )}
 
-      {/* Charts Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Revenue Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                <YAxis
-                  stroke="#6b7280"
-                  fontSize={12}
-                  tickFormatter={(value) => formatCurrency(value, "USD", { abbreviated: true })}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="rounded-lg border bg-card p-2 shadow-md">
-                          <p className="text-sm font-medium">{payload[0].payload.month}</p>
-                          <p className="text-sm text-blue-600">
-                            {formatCurrency(payload[0].value as number, "USD")}
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* MRR breakdown row */}
+        {mrrBreakdown && (
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total MRR</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{formatCurrency(mrrBreakdown.totalMrr, "USD")}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">New MRR</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-green-600">+{formatCurrency(mrrBreakdown.newMrr, "USD")}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Expansion</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-blue-600">+{formatCurrency(mrrBreakdown.expansionMrr, "USD")}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Contraction</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-orange-600">-{formatCurrency(mrrBreakdown.contractionMrr, "USD")}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Churn MRR</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-red-600">-{formatCurrency(mrrBreakdown.churnMrr, "USD")}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Net New MRR</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-2xl font-bold ${mrrBreakdown.netNewMrr >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {mrrBreakdown.netNewMrr >= 0 ? "+" : ""}{formatCurrency(mrrBreakdown.netNewMrr, "USD")}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-        {/* Plan Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Plan Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={planDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {planDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Payment Success Rate */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment Success Rate</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center h-[300px]">
-            <div className="relative flex items-center justify-center">
-              <svg className="w-48 h-48" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" strokeWidth="8" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="none"
-                  stroke={successRate >= 90 ? "#22c55e" : successRate >= 70 ? "#f59e0b" : "#ef4444"}
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={`${successRate * 2.64} 264`}
-                  transform="rotate(-90 50 50)"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-4xl font-bold">{successRate.toFixed(1)}%</span>
-                <span className="text-sm text-muted-foreground">success</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* MRR by Plan */}
-        {mrrBreakdown && mrrBreakdown.byPlan.length > 0 && (
+        {/* Revenue chart + MRR by plan */}
+        <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>MRR by Plan</CardTitle>
+              <CardTitle>Revenue Trend</CardTitle>
+              <CardDescription>Monthly recurring and one-time revenue</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={mrrBreakdown.byPlan}>
+                <LineChart data={revenueData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="planName" stroke="#6b7280" fontSize={12} />
+                  <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
                   <YAxis
                     stroke="#6b7280"
                     fontSize={12}
@@ -412,15 +319,11 @@ export default function AnalyticsPage() {
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
-                        const d = payload[0].payload;
                         return (
                           <div className="rounded-lg border bg-card p-2 shadow-md">
-                            <p className="text-sm font-medium">{d.planName}</p>
+                            <p className="text-sm font-medium">{payload[0].payload.month}</p>
                             <p className="text-sm text-blue-600">
-                              MRR: {formatCurrency(d.mrr, "USD")}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {d.subscriptionCount} subscription{d.subscriptionCount !== 1 ? "s" : ""}
+                              {formatCurrency(payload[0].value as number, "USD")}
                             </p>
                           </div>
                         );
@@ -428,152 +331,374 @@ export default function AnalyticsPage() {
                       return null;
                     }}
                   />
-                  <Bar dataKey="mrr" fill="#3b82f6" name="MRR" />
+                  <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {mrrBreakdown && mrrBreakdown.byPlan.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>MRR by Plan</CardTitle>
+                <CardDescription>Monthly recurring revenue broken down by subscription plan</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={mrrBreakdown.byPlan}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="planName" stroke="#6b7280" fontSize={12} />
+                    <YAxis
+                      stroke="#6b7280"
+                      fontSize={12}
+                      tickFormatter={(value) => formatCurrency(value, "USD", { abbreviated: true })}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const planData = payload[0].payload;
+                          return (
+                            <div className="rounded-lg border bg-card p-2 shadow-md">
+                              <p className="text-sm font-medium">{planData.planName}</p>
+                              <p className="text-sm text-blue-600">MRR: {formatCurrency(planData.mrr, "USD")}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {planData.subscriptionCount} subscription{planData.subscriptionCount !== 1 ? "s" : ""}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="mrr" fill="#3b82f6" name="MRR" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Plan Distribution</CardTitle>
+                <CardDescription>Share of active subscriptions per plan</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={planDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {planDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          SECTION 2 — SUBSCRIPTIONS
+      ══════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 border-b pb-2">
+          <Activity className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Subscriptions</h2>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Subscriptions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{metrics?.totalSubscriptions ?? 0}</p>
+              <p className="text-sm text-muted-foreground mt-1">All-time subscriptions</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Trialing</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{metrics?.trialingCount ?? 0}</p>
+              <p className="text-sm text-muted-foreground mt-1">Currently on free trial</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Churn Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{metrics?.churnRate ?? "0%"}</p>
+              <p className="text-sm text-muted-foreground mt-1">Canceled / total subscriptions</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Plan Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{planDistribution.length}</p>
+              <p className="text-sm text-muted-foreground mt-1">Active plans with subscribers</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Retention cohort table */}
+        {cohorts && cohorts.cohorts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Retention Cohort Analysis</CardTitle>
+              <CardDescription>Monthly cohort retention rates</CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1 text-left font-medium text-muted-foreground">Cohort</th>
+                    <th className="px-2 py-1 text-left font-medium text-muted-foreground">Users</th>
+                    {cohorts.months.map((m, i) => (
+                      <th key={m} className="px-2 py-1 text-center font-medium text-muted-foreground">
+                        M{i}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cohorts.cohorts
+                    .filter((c) => c.totalCustomers > 0)
+                    .map((cohort) => (
+                      <tr key={cohort.month} className="border-t border-border">
+                        <td className="px-2 py-1 font-medium">{cohort.month}</td>
+                        <td className="px-2 py-1 text-muted-foreground">{cohort.totalCustomers}</td>
+                        {cohort.retentionPercentages.map((pct, i) => {
+                          const bg =
+                            pct >= 80
+                              ? `rgba(34, 197, 94, ${pct / 100})`
+                              : pct >= 50
+                                ? `rgba(245, 158, 11, ${pct / 100})`
+                                : `rgba(239, 68, 68, ${Math.max(0.15, pct / 100)})`;
+                          return (
+                            <td
+                              key={i}
+                              className="px-2 py-1 text-center font-medium"
+                              style={{ backgroundColor: bg, color: pct > 50 ? "#fff" : undefined }}
+                            >
+                              {pct.toFixed(0)}%
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
+      {/* ══════════════════════════════════════════
+          SECTION 3 — CUSTOMERS
+      ══════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 border-b pb-2">
+          <Users className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Customers</h2>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Customers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{metrics?.totalCustomers ?? 0}</p>
+              <p className="text-sm text-muted-foreground mt-1">Registered customers</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Revenue Per User</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{formatCurrency(metrics?.arpu ?? 0, "USD")}</p>
+              <p className="text-sm text-muted-foreground mt-1">Per active customer</p>
+            </CardContent>
+          </Card>
+          {ltv && (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Lifetime Value</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{formatCurrency(ltv.avgLtv, "USD")}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Average LTV across all customers</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Lifespan</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{ltv.avgLifespanDays}<span className="text-base font-normal text-muted-foreground ml-1">days</span></p>
+                  <p className="text-sm text-muted-foreground mt-1">Average customer lifespan</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+
+        {/* LTV by plan + plan distribution */}
+        {(ltv || planDistribution.length > 0) && (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {ltv && ltv.byPlan.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>LTV by Plan</CardTitle>
+                  <CardDescription>Average customer lifetime value per plan</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {ltv.byPlan.map((p) => (
+                      <div key={p.planId} className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{p.planName}</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold">{formatCurrency(p.avgLtv, "USD")}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            ({p.avgLifespanDays}d)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {planDistribution.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Plan Distribution</CardTitle>
+                  <CardDescription>Share of active subscriptions per plan</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={planDistribution}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value }) => `${name}: ${value}%`}
+                        outerRadius={90}
+                        dataKey="value"
+                      >
+                        {planDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ══════════════════════════════════════════
+          SECTION 4 — PAYMENTS
+      ══════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 border-b pb-2">
+          <CreditCard className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Payments</h2>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Success Rate gauge */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Success Rate</CardTitle>
+              <CardDescription>Ratio of successful to total payment attempts</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center justify-center h-[260px]">
+              <div className="relative flex items-center justify-center">
+                <svg className="w-48 h-48" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" strokeWidth="8" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="42"
+                    fill="none"
+                    stroke={successRate >= 90 ? "#22c55e" : successRate >= 70 ? "#f59e0b" : "#ef4444"}
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    strokeDasharray={`${successRate * 2.64} 264`}
+                    transform="rotate(-90 50 50)"
+                  />
+                </svg>
+                <div className="absolute flex flex-col items-center">
+                  <span className="text-4xl font-bold">{successRate.toFixed(1)}%</span>
+                  <span className="text-sm text-muted-foreground">success</span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-4">
+                {successRate >= 90 ? "Excellent" : successRate >= 70 ? "Good" : "Needs Attention"} — target is ≥ 90%
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Revenue trend (duplicate here for payment context) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly Payment Volume</CardTitle>
+              <CardDescription>Total payment revenue collected per month</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
+                  <YAxis
+                    stroke="#6b7280"
+                    fontSize={12}
+                    tickFormatter={(value) => formatCurrency(value, "USD", { abbreviated: true })}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="rounded-lg border bg-card p-2 shadow-md">
+                            <p className="text-sm font-medium">{payload[0].payload.month}</p>
+                            <p className="text-sm text-blue-600">
+                              {formatCurrency(payload[0].value as number, "USD")}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        )}
-      </div>
-
-      {/* LTV Section */}
-      {ltv && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Lifetime Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-4">
-                <div>
-                  <p className="text-4xl font-bold">{formatCurrency(ltv.avgLtv, "USD")}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Average LTV</p>
-                </div>
-                <div className="ml-auto text-right">
-                  <p className="text-2xl font-bold">{ltv.avgLifespanDays}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Avg. lifespan (days)</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>LTV by Plan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {ltv.byPlan.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No data available</p>
-              ) : (
-                <div className="space-y-3">
-                  {ltv.byPlan.map((p) => (
-                    <div key={p.planId} className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{p.planName}</span>
-                      <div className="text-right">
-                        <span className="text-sm font-bold">{formatCurrency(p.avgLtv, "USD")}</span>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ({p.avgLifespanDays}d)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
-      )}
-
-      {/* Churn Cohort Matrix */}
-      {cohorts && cohorts.cohorts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Retention Cohort Analysis</CardTitle>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr>
-                  <th className="px-2 py-1 text-left font-medium text-muted-foreground">Cohort</th>
-                  <th className="px-2 py-1 text-left font-medium text-muted-foreground">Users</th>
-                  {cohorts.months.map((m, i) => (
-                    <th key={m} className="px-2 py-1 text-center font-medium text-muted-foreground">
-                      M{i}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {cohorts.cohorts
-                  .filter((c) => c.totalCustomers > 0)
-                  .map((cohort) => (
-                    <tr key={cohort.month} className="border-t border-border">
-                      <td className="px-2 py-1 font-medium">{cohort.month}</td>
-                      <td className="px-2 py-1 text-muted-foreground">{cohort.totalCustomers}</td>
-                      {cohort.retentionPercentages.map((pct, i) => {
-                        const intensity = Math.round((pct / 100) * 255);
-                        const bg =
-                          pct >= 80
-                            ? `rgba(34, 197, 94, ${pct / 100})`
-                            : pct >= 50
-                              ? `rgba(245, 158, 11, ${pct / 100})`
-                              : `rgba(239, 68, 68, ${Math.max(0.15, pct / 100)})`;
-                        return (
-                          <td
-                            key={i}
-                            className="px-2 py-1 text-center font-medium"
-                            style={{ backgroundColor: bg, color: pct > 50 ? "#fff" : undefined }}
-                          >
-                            {pct.toFixed(0)}%
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Bottom Metrics */}
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Average Revenue Per User</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{formatCurrency(metrics?.arpu || 0, "USD")}</p>
-            <p className="text-sm text-muted-foreground mt-1">Per active customer</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Total Customers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{metrics?.totalCustomers || 0}</p>
-            <p className="text-sm text-muted-foreground mt-1">Registered customers</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Churn Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{metrics?.churnRate || "0%"}</p>
-            <p className="text-sm text-muted-foreground mt-1">Canceled / total subscriptions</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Payment Success Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{metrics?.successRate || "0%"}</p>
-            <p className="text-sm text-muted-foreground mt-1">Succeeded / total payments</p>
-          </CardContent>
-        </Card>
-      </div>
+      </section>
     </div>
   );
 }

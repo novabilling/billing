@@ -210,6 +210,7 @@ const providerDescriptions: Record<string, string> = {
   dpo: "Pan-African payment gateway for cards, mobile wallets, and bank transfers across 40+ countries",
   payu: "Payment gateway for South Africa supporting credit cards, EFT, and instant payments",
   pesapal: "East African payment platform for mobile money, cards, and bank transfers",
+  paypal: "Global digital payments platform supporting cards, PayPal balance, and Buy Now Pay Later",
 };
 
 const providerDisplayNames: Record<string, string> = {
@@ -219,6 +220,7 @@ const providerDisplayNames: Record<string, string> = {
   dpo: "DPO Group",
   payu: "PayU",
   pesapal: "Pesapal",
+  paypal: "PayPal",
 };
 
 function mapProvider(p: any): PaymentProvider {
@@ -707,73 +709,83 @@ export const apiClient = {
   // Payment Providers
   providers: {
     async list(): Promise<PaymentProvider[]> {
+      // All known providers shown at all times; configured ones override the defaults
+      const ALL_PROVIDERS: PaymentProvider[] = [
+        {
+          id: "default_stripe",
+          name: "Stripe",
+          code: "stripe" as const,
+          description: providerDescriptions.stripe,
+          isConfigured: false,
+          isActive: false,
+          priority: 1,
+        },
+        {
+          id: "default_paypal",
+          name: "PayPal",
+          code: "paypal" as const,
+          description: providerDescriptions.paypal,
+          isConfigured: false,
+          isActive: false,
+          priority: 2,
+        },
+        {
+          id: "default_paystack",
+          name: "Paystack",
+          code: "paystack" as const,
+          description: providerDescriptions.paystack,
+          isConfigured: false,
+          isActive: false,
+          priority: 3,
+        },
+        {
+          id: "default_flutterwave",
+          name: "Flutterwave",
+          code: "flutterwave" as const,
+          description: providerDescriptions.flutterwave,
+          isConfigured: false,
+          isActive: false,
+          priority: 4,
+        },
+        {
+          id: "default_dpo",
+          name: "DPO Group",
+          code: "dpo" as const,
+          description: providerDescriptions.dpo,
+          isConfigured: false,
+          isActive: false,
+          priority: 5,
+        },
+        {
+          id: "default_payu",
+          name: "PayU",
+          code: "payu" as const,
+          description: providerDescriptions.payu,
+          isConfigured: false,
+          isActive: false,
+          priority: 6,
+        },
+        {
+          id: "default_pesapal",
+          name: "Pesapal",
+          code: "pesapal" as const,
+          description: providerDescriptions.pesapal,
+          isConfigured: false,
+          isActive: false,
+          priority: 7,
+        },
+      ];
+
       const result = await apiFetch<any>(`/payment-providers?limit=50`);
-      const providers = (result.data || result || []).map(mapProvider);
-      if (providers.length === 0) {
-        return [
-          {
-            id: "default_stripe",
-            name: "Stripe",
-            code: "stripe" as const,
-            description:
-              "Global payment processing for cards, wallets, and bank debits across 46+ countries",
-            isConfigured: false,
-            isActive: false,
-            priority: 1,
-          },
-          {
-            id: "default_paystack",
-            name: "Paystack",
-            code: "paystack" as const,
-            description:
-              "Accept payments from customers in Africa via cards, bank transfers, and mobile money",
-            isConfigured: false,
-            isActive: false,
-            priority: 2,
-          },
-          {
-            id: "default_flutterwave",
-            name: "Flutterwave",
-            code: "flutterwave" as const,
-            description:
-              "Pan-African payment gateway supporting cards, mobile money, bank transfers, and USSD",
-            isConfigured: false,
-            isActive: false,
-            priority: 3,
-          },
-          {
-            id: "default_dpo",
-            name: "DPO Group",
-            code: "dpo" as const,
-            description:
-              "Pan-African payment gateway for cards, mobile wallets, and bank transfers across 40+ countries",
-            isConfigured: false,
-            isActive: false,
-            priority: 4,
-          },
-          {
-            id: "default_payu",
-            name: "PayU",
-            code: "payu" as const,
-            description:
-              "Payment gateway for South Africa supporting credit cards, EFT, and instant payments",
-            isConfigured: false,
-            isActive: false,
-            priority: 5,
-          },
-          {
-            id: "default_pesapal",
-            name: "Pesapal",
-            code: "pesapal" as const,
-            description:
-              "East African payment platform for mobile money, cards, and bank transfers",
-            isConfigured: false,
-            isActive: false,
-            priority: 6,
-          },
-        ];
-      }
-      return providers;
+      const configured = (result.data || result || []).map(mapProvider) as PaymentProvider[];
+
+      // Build a map of configured providers by code for quick lookup
+      const configuredByCode = new Map<string, PaymentProvider>(
+        configured.map((p) => [p.code, p]),
+      );
+
+      // Merge: replace default entries with configured data, preserve order
+      return ALL_PROVIDERS.map((def) => configuredByCode.get(def.code) ?? def);
     },
 
     async update(

@@ -5,6 +5,7 @@ import { StripeProvider } from './stripe.provider';
 import { DpoProvider } from './dpo.provider';
 import { PayUProvider } from './payu.provider';
 import { PesapalProvider } from './pesapal.provider';
+import { PayPalProvider } from './paypal.provider';
 
 export class ProviderFactory {
   static create(providerName: string, credentials: Record<string, unknown>): BasePaymentProvider {
@@ -31,6 +32,10 @@ export class ProviderFactory {
       case 'pesapal':
         return new PesapalProvider(
           credentials as { consumerKey: string; consumerSecret: string; environment: 'sandbox' | 'live' },
+        );
+      case 'paypal':
+        return new PayPalProvider(
+          credentials as { clientId: string; clientSecret: string; webhookId: string; environment: 'sandbox' | 'live' },
         );
       default:
         throw new Error(`Unsupported payment provider: ${providerName}`);
