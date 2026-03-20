@@ -48,6 +48,7 @@ const providerLogos: Record<string, string> = {
   dpo: "🏦",
   payu: "💰",
   pesapal: "📱",
+  paypal: "🅿️",
 };
 
 export default function PaymentsPage() {
@@ -147,6 +148,7 @@ export default function PaymentsPage() {
             <SelectItem value="dpo">DPO Group</SelectItem>
             <SelectItem value="payu">PayU</SelectItem>
             <SelectItem value="pesapal">Pesapal</SelectItem>
+            <SelectItem value="paypal">PayPal</SelectItem>
           </SelectContent>
         </Select>
       </div>

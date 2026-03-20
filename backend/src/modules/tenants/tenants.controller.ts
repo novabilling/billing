@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Body, Param, Req, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantsService } from './tenants.service';
@@ -96,6 +96,26 @@ export class TenantsController {
   @ApiResponse({ status: 400, description: 'SMTP test failed - check settings' })
   async testSmtp(@Req() req: TenantRequest, @Body() body: { to: string }) {
     return this.tenantsService.testSmtp(req.tenant.id, body.to);
+  }
+
+  @Get('me/webhook-logs')
+  @ApiOperation({
+    summary: 'List webhook logs',
+    description:
+      'Retrieve inbound (received from payment providers) and outbound (sent to your webhook URL) event logs. Filter by direction to see each type.',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated list of webhook log entries' })
+  async getWebhookLogs(
+    @Req() req: TenantRequest,
+    @Query('direction') direction?: 'inbound' | 'outbound',
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.tenantsService.getWebhookLogs(req.tenant.id, {
+      direction,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   @Delete('me/api-keys/:id')

@@ -8,6 +8,7 @@ import {
   PaymentStatusResult,
   WebhookData,
 } from './base-payment.provider';
+import { toSmallestUnit, fromSmallestUnit } from '../common/utils/currency.utils';
 
 interface PayUCredentials {
   apiKey: string;
@@ -41,7 +42,7 @@ export class PayUProvider extends BasePaymentProvider {
     try {
       // Create payment redirect
       const reference = params.reference;
-      const amount = Math.round(params.amount * 100); // PayU uses cents
+      const amount = toSmallestUnit(params.amount, params.currency); // PayU uses smallest currency unit
 
       const [firstName, ...rest] = (params.customerName || '').split(' ');
       const lastName = rest.join(' ') || '';
@@ -93,7 +94,7 @@ export class PayUProvider extends BasePaymentProvider {
           Api: this.credentials.apiKey,
           Safekey: this.credentials.safeKey,
           MerchantReference: params.transactionId,
-          Amount: params.amount ? Math.round(params.amount * 100) : undefined,
+          Amount: params.amount ? toSmallestUnit(params.amount, params.currency || 'ZAR') : undefined,
         }),
       });
 
@@ -145,7 +146,7 @@ export class PayUProvider extends BasePaymentProvider {
       return {
         status,
         transactionId: txData?.payUReference || transactionId,
-        amount: (txData?.basket?.amountInCents || 0) / 100,
+        amount: fromSmallestUnit(txData?.basket?.amountInCents || 0, txData?.basket?.currencyCode || 'USD'),
         currency: txData?.basket?.currencyCode || '',
       };
     } catch {
@@ -169,7 +170,7 @@ export class PayUProvider extends BasePaymentProvider {
     const result: WebhookData = {
       status: transactionState === 'SUCCESSFUL' ? 'succeeded' : 'failed',
       transactionId: payUReference,
-      amount: amountInCents / 100,
+      amount: fromSmallestUnit(amountInCents, currencyCode || 'USD'),
       currency: currencyCode,
       invoiceId: merchantReference,
     };

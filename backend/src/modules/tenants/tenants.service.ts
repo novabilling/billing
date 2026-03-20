@@ -157,6 +157,51 @@ export class TenantsService {
     return { message: 'API key deleted successfully' };
   }
 
+  async getWebhookLogs(
+    tenantId: string,
+    params: { direction?: 'inbound' | 'outbound'; limit?: number; page?: number },
+  ) {
+    const limit = params.limit || 50;
+    const page = params.page || 1;
+
+    const where: Record<string, unknown> = { tenantId };
+
+    if (params.direction === 'inbound') {
+      // Inbound logs use url starting with "inbound:"
+      where.url = { startsWith: 'inbound:' } as any;
+    } else if (params.direction === 'outbound') {
+      // Outbound logs have real HTTP URLs
+      where.url = { startsWith: 'http' } as any;
+    }
+
+    const [logs, total] = await Promise.all([
+      this.centralPrisma.client.webhookLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: (page - 1) * limit,
+      }),
+      this.centralPrisma.client.webhookLog.count({ where }),
+    ]);
+
+    return {
+      data: logs.map((log: any) => ({
+        id: log.id,
+        event: log.event,
+        url: log.url,
+        payload: log.payload,
+        response: log.response,
+        statusCode: log.statusCode,
+        success: log.success,
+        attemptCount: log.attemptCount,
+        direction: String(log.url).startsWith('inbound:') ? 'inbound' : 'outbound',
+        provider: String(log.url).startsWith('inbound:') ? log.url.replace('inbound:', '') : null,
+        createdAt: log.createdAt,
+      })),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async testSmtp(tenantId: string, to: string) {
     try {
       await this.emailService.sendMail(

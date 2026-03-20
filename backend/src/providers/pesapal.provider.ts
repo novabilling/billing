@@ -8,6 +8,7 @@ import {
   PaymentStatusResult,
   WebhookData,
 } from './base-payment.provider';
+import { formatAmountForApi } from '../common/utils/currency.utils';
 
 interface PesapalCredentials {
   consumerKey: string;
@@ -40,17 +41,6 @@ export class PesapalProvider extends BasePaymentProvider {
   private accessToken: string | null = null;
   private tokenExpiry: Date | null = null;
 
-  // Currencies that use no decimal places (ISO 4217 exponent = 0)
-  private static readonly ZERO_DECIMAL_CURRENCIES = new Set([
-    'JPY', 'KRW', 'UGX', 'RWF', 'XOF', 'XAF', 'TZS',
-    'VND', 'CLP', 'GNF', 'BIF', 'DJF', 'KMF', 'PYG',
-  ]);
-
-  // Currencies that use 3 decimal places (ISO 4217 exponent = 3)
-  private static readonly THREE_DECIMAL_CURRENCIES = new Set([
-    'KWD', 'BHD', 'OMR', 'JOD', 'TND', 'LYD',
-  ]);
-
   constructor(credentials: PesapalCredentials) {
     super();
     this.credentials = credentials;
@@ -60,23 +50,6 @@ export class PesapalProvider extends BasePaymentProvider {
     return this.credentials.environment === 'live'
       ? 'https://pay.pesapal.com/v3'
       : 'https://cybqa.pesapal.com/pesapalv3';
-  }
-
-  /**
-   * Returns the number of decimal places Pesapal expects for the given currency,
-   * then rounds the amount to that precision as a plain number.
-   */
-  private formatAmountForApi(amount: number, currency: string): number {
-    const upper = currency.toUpperCase();
-    let decimals: number;
-    if (PesapalProvider.ZERO_DECIMAL_CURRENCIES.has(upper)) {
-      decimals = 0;
-    } else if (PesapalProvider.THREE_DECIMAL_CURRENCIES.has(upper)) {
-      decimals = 3;
-    } else {
-      decimals = 2;
-    }
-    return parseFloat(amount.toFixed(decimals));
   }
 
   private get environmentLabel(): string {
@@ -136,7 +109,7 @@ export class PesapalProvider extends BasePaymentProvider {
         body: JSON.stringify({
           id: params.reference,
           currency: params.currency,
-          amount: this.formatAmountForApi(params.amount, params.currency),
+          amount: parseFloat(formatAmountForApi(params.amount, params.currency)),
           description: `Payment for ${params.reference}`,
           callback_url: params.callbackUrl || '',
           notification_id: this.credentials.ipnId || '',

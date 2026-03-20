@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import PDFDocument from 'pdfkit';
+import { ZERO_DECIMAL_CURRENCIES } from '../common/utils/currency.utils';
 
 interface InvoiceData {
   id: string;
@@ -381,10 +382,7 @@ export class PdfService {
     });
   }
 
-  private static readonly ZERO_DECIMAL_CURRENCIES = new Set([
-    'JPY', 'KRW', 'UGX', 'RWF', 'XOF', 'XAF', 'TZS',
-    'VND', 'CLP', 'GNF', 'BIF', 'DJF', 'KMF', 'PYG',
-  ]);
+  private static readonly ZERO_DECIMAL_CURRENCIES = ZERO_DECIMAL_CURRENCIES;
 
   private formatMoney(amount: number, currency: string): string {
     const decimals = PdfService.ZERO_DECIMAL_CURRENCIES.has(currency?.toUpperCase()) ? 0 : 2;

@@ -53,6 +53,7 @@ export interface ChargeParams {
 export interface RefundParams {
   transactionId: string;
   amount?: number;
+  currency?: string;
 }
 
 export interface SavedPaymentMethodParams {
