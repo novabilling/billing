@@ -31,7 +31,7 @@ export class ProviderFactory {
         );
       case 'pesapal':
         return new PesapalProvider(
-          credentials as { consumerKey: string; consumerSecret: string; environment: 'sandbox' | 'live' },
+          credentials as { consumerKey: string; consumerSecret: string; environment: 'sandbox' | 'live'; ipnId?: string },
         );
       case 'paypal':
         return new PayPalProvider(
