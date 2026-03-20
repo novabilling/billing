@@ -360,6 +360,22 @@ export interface Wallet {
   updatedAt: string;
 }
 
+// --- Webhook Logs ---
+
+export interface WebhookLog {
+  id: string;
+  event: string;
+  url: string;
+  payload: Record<string, any>;
+  response?: Record<string, any> | null;
+  statusCode?: number | null;
+  success: boolean;
+  attemptCount: number;
+  direction: "inbound" | "outbound";
+  provider?: string | null;
+  createdAt: string;
+}
+
 export interface WalletTransaction {
   id: string;
   walletId: string;

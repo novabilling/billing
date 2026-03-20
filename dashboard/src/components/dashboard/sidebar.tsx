@@ -23,6 +23,7 @@ import {
   Wallet,
   Calculator,
   SlidersHorizontal,
+  Webhook,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useUIStore } from "@/lib/stores/ui";
@@ -37,23 +38,65 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const navigation = [
-  { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Customers", href: "/customers", icon: Users },
-  { name: "Plans", href: "/plans", icon: Package },
-  { name: "Billable Metrics", href: "/billable-metrics", icon: Activity },
-  { name: "Add-ons", href: "/add-ons", icon: PuzzleIcon },
-  { name: "Coupons", href: "/coupons", icon: Tag },
-  { name: "Subscriptions", href: "/subscriptions", icon: Receipt },
-  { name: "Invoices", href: "/invoices", icon: CreditCard },
-  { name: "Wallets", href: "/wallets", icon: Wallet },
-  { name: "Credit Notes", href: "/credit-notes", icon: FileText },
-  { name: "Taxes", href: "/taxes", icon: Calculator },
-  { name: "Plan Overrides", href: "/plan-overrides", icon: SlidersHorizontal },
-  { name: "Payments", href: "/payments", icon: DollarSign },
-  { name: "Providers", href: "/providers", icon: Plug },
-  { name: "Settings", href: "/settings", icon: Settings },
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navigation: NavGroup[] = [
+  {
+    label: "Core",
+    items: [
+      { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Analytics", href: "/analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Customers",
+    items: [
+      { name: "Customers", href: "/customers", icon: Users },
+      { name: "Subscriptions", href: "/subscriptions", icon: Receipt },
+      { name: "Wallets", href: "/wallets", icon: Wallet },
+    ],
+  },
+  {
+    label: "Billing",
+    items: [
+      { name: "Invoices", href: "/invoices", icon: CreditCard },
+      { name: "Payments", href: "/payments", icon: DollarSign },
+      { name: "Credit Notes", href: "/credit-notes", icon: FileText },
+    ],
+  },
+  {
+    label: "Products",
+    items: [
+      { name: "Plans", href: "/plans", icon: Package },
+      { name: "Billable Metrics", href: "/billable-metrics", icon: Activity },
+      { name: "Add-ons", href: "/add-ons", icon: PuzzleIcon },
+      { name: "Coupons", href: "/coupons", icon: Tag },
+    ],
+  },
+  {
+    label: "Configuration",
+    items: [
+      { name: "Taxes", href: "/taxes", icon: Calculator },
+      { name: "Plan Overrides", href: "/plan-overrides", icon: SlidersHorizontal },
+      { name: "Providers", href: "/providers", icon: Plug },
+      { name: "Webhooks", href: "/webhooks", icon: Webhook },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { name: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
 ];
 
 const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
@@ -81,32 +124,43 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-foreground hover:bg-accent",
-              )}
-              title={sidebarCollapsed ? item.name : undefined}
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!sidebarCollapsed && <span>{item.name}</span>}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-4">
+        {navigation.map((group) => (
+          <div key={group.label}>
+            {!sidebarCollapsed && (
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                {group.label}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/" && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-foreground hover:bg-accent",
+                    )}
+                    title={sidebarCollapsed ? item.name : undefined}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    {!sidebarCollapsed && <span>{item.name}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* External Links */}
-      <div className="px-2 pb-2">
+      <div className="px-2 pb-2 border-t border-border pt-2">
         <a
           href={DOCS_URL}
           target="_blank"
@@ -114,7 +168,7 @@ export function Sidebar() {
           className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-accent transition-colors"
           title={sidebarCollapsed ? "Documentation" : undefined}
         >
-          <BookOpen className="h-5 w-5 flex-shrink-0" />
+          <BookOpen className="h-4 w-4 flex-shrink-0" />
           {!sidebarCollapsed && <span>Documentation</span>}
         </a>
       </div>
@@ -164,3 +218,4 @@ export function Sidebar() {
     </div>
   );
 }
+

@@ -228,6 +228,7 @@ export class PaymentProcessor extends WorkerHost {
       const result = await providerInstance.refund({
         transactionId: payment.providerTransactionId || '',
         amount,
+        currency: payment.currency,
       });
 
       if (result.success) {

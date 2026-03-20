@@ -10,6 +10,7 @@ import {
   WebhookData,
   ChargePaymentMethodParams,
 } from './base-payment.provider';
+import { formatAmountForApi } from '../common/utils/currency.utils';
 
 interface PayPalCredentials {
   clientId: string;
@@ -87,7 +88,7 @@ export class PayPalProvider extends BasePaymentProvider {
             reference_id: params.reference,
             amount: {
               currency_code: params.currency.toUpperCase(),
-              value: params.amount.toFixed(2),
+              value: formatAmountForApi(params.amount, params.currency),
             },
             description: `Invoice ${params.reference}`,
           },
@@ -167,7 +168,7 @@ export class PayPalProvider extends BasePaymentProvider {
         const currencyCode: string =
           orderData.purchase_units?.[0]?.amount?.currency_code || 'USD';
         body.amount = {
-          value: params.amount.toFixed(2),
+          value: formatAmountForApi(params.amount, currencyCode),
           currency_code: currencyCode,
         };
       }

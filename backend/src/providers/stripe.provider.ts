@@ -12,6 +12,7 @@ import {
   SavedPaymentMethodResult,
   ChargePaymentMethodParams,
 } from './base-payment.provider';
+import { toSmallestUnit, fromSmallestUnit } from '../common/utils/currency.utils';
 
 interface StripeCredentials {
   secretKey: string;
@@ -53,7 +54,7 @@ export class StripeProvider extends BasePaymentProvider {
       const sessionParams: Record<string, string | number | undefined> = {
         'line_items[0][price_data][currency]': params.currency.toLowerCase(),
         'line_items[0][price_data][product_data][name]': `Invoice ${params.reference}`,
-        'line_items[0][price_data][unit_amount]': Math.round(params.amount * 100),
+        'line_items[0][price_data][unit_amount]': toSmallestUnit(params.amount, params.currency),
         'line_items[0][quantity]': 1,
         mode: 'payment',
         'metadata[reference]': params.reference,
@@ -114,7 +115,7 @@ export class StripeProvider extends BasePaymentProvider {
 
       const body = this.encodeParams({
         payment_intent: paymentIntent,
-        ...(params.amount ? { amount: Math.round(params.amount * 100) } : {}),
+        ...(params.amount ? { amount: toSmallestUnit(params.amount, params.currency || 'USD') } : {}),
       });
 
       const response = await fetch(`${this.baseUrl}/refunds`, {
@@ -152,7 +153,7 @@ export class StripeProvider extends BasePaymentProvider {
     return {
       status,
       transactionId: data.id || transactionId,
-      amount: (data.amount_total || 0) / 100,
+      amount: fromSmallestUnit(data.amount_total || 0, (data.currency || 'USD').toUpperCase()),
       currency: (data.currency || '').toUpperCase(),
     };
   }
@@ -175,7 +176,7 @@ export class StripeProvider extends BasePaymentProvider {
     const result: WebhookData = {
       status: isSuccess ? 'succeeded' : 'failed',
       transactionId: String(obj.id || ''),
-      amount: Number(obj.amount_total || obj.amount || 0) / 100,
+      amount: fromSmallestUnit(Number(obj.amount_total || obj.amount || 0), String(obj.currency || 'USD').toUpperCase()),
       currency: String(obj.currency || '').toUpperCase(),
       invoiceId: String((obj.metadata as Record<string, string>)?.reference || ''),
     };
@@ -323,7 +324,7 @@ export class StripeProvider extends BasePaymentProvider {
     try {
       // Create a PaymentIntent with saved payment method
       const body = this.encodeParams({
-        amount: Math.round(params.amount * 100), // Convert to cents
+        amount: toSmallestUnit(params.amount, params.currency), // Convert to smallest currency unit
         currency: params.currency.toLowerCase(),
         payment_method: params.paymentMethodId,
         customer: params.customerId,

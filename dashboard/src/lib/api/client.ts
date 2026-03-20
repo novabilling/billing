@@ -18,6 +18,7 @@ import type {
   WalletTransaction,
   Tax,
   PlanOverride,
+  WebhookLog,
 } from "@/types";
 
 // All calls go to the dashboard's own API routes (same origin).
@@ -1662,6 +1663,22 @@ export const apiClient = {
 
     async delete(id: string): Promise<void> {
       await apiFetch(`/plan-overrides/${id}`, { method: "DELETE" });
+    },
+  },
+
+  // Webhook Logs
+  webhookLogs: {
+    async list(params?: {
+      direction?: "inbound" | "outbound";
+      page?: number;
+      limit?: number;
+    }): Promise<{ data: WebhookLog[]; meta: any }> {
+      const query = new URLSearchParams();
+      if (params?.direction) query.set("direction", params.direction);
+      if (params?.page) query.set("page", String(params.page));
+      if (params?.limit) query.set("limit", String(params.limit));
+      const qs = query.toString();
+      return apiFetch<any>(`/tenants/me/webhook-logs${qs ? `?${qs}` : ""}`);
     },
   },
 };

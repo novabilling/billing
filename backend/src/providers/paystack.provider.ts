@@ -10,6 +10,7 @@ import {
   WebhookData,
   ChargePaymentMethodParams,
 } from './base-payment.provider';
+import { toSmallestUnit, fromSmallestUnit } from '../common/utils/currency.utils';
 
 interface PaystackCredentials {
   publicKey: string;
@@ -31,7 +32,7 @@ export class PaystackProvider extends BasePaymentProvider {
     try {
       const payload: Record<string, unknown> = {
         reference: params.reference,
-        amount: Math.round(params.amount * 100), // Paystack uses kobo
+        amount: toSmallestUnit(params.amount, params.currency), // Paystack uses smallest currency unit
         currency: params.currency,
         email: params.email,
         callback_url: params.callbackUrl,
@@ -86,7 +87,7 @@ export class PaystackProvider extends BasePaymentProvider {
         },
         body: JSON.stringify({
           transaction: params.transactionId,
-          amount: params.amount ? Math.round(params.amount * 100) : undefined,
+          amount: params.amount ? toSmallestUnit(params.amount, params.currency || 'NGN') : undefined,
         }),
       });
 
@@ -122,7 +123,7 @@ export class PaystackProvider extends BasePaymentProvider {
     return {
       status,
       transactionId: txData?.reference || transactionId,
-      amount: (txData?.amount || 0) / 100,
+      amount: fromSmallestUnit(txData?.amount || 0, txData?.currency || 'USD'),
       currency: txData?.currency || '',
     };
   }
@@ -143,7 +144,7 @@ export class PaystackProvider extends BasePaymentProvider {
     const result: WebhookData = {
       status: data.status === 'success' ? 'succeeded' : 'failed',
       transactionId: String(data.reference || ''),
-      amount: Number(data.amount || 0) / 100,
+      amount: fromSmallestUnit(Number(data.amount || 0), String(data.currency || 'USD')),
       currency: String(data.currency || ''),
       invoiceId: String(data.reference || ''),
     };
@@ -197,7 +198,7 @@ export class PaystackProvider extends BasePaymentProvider {
         body: JSON.stringify({
           authorization_code: params.paymentMethodId, // This is the authorization code
           email: String(params.metadata?.email || ''),
-          amount: Math.round(params.amount * 100), // Convert to kobo
+          amount: toSmallestUnit(params.amount, params.currency), // Convert to smallest currency unit
           currency: params.currency,
           reference: params.reference,
           metadata: params.metadata,

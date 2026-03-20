@@ -178,11 +178,28 @@ export class WebhooksController {
         const credentials = JSON.parse(this.encryptionService.decrypt(providerConfig.credentials));
         const provider = ProviderFactory.create(providerName, credentials);
 
-        // Verify signature and parse webhook data
+        // Log the inbound webhook event for this tenant
+        // Convention: url = "inbound:{providerName}" to distinguish from outbound logs
         let webhookData;
         try {
           webhookData = await provider.handleWebhook(payload, signature, rawBody);
+
+          // Record successful inbound delivery
+          await this.centralPrisma.client.webhookLog.create({
+            data: {
+              tenantId: tenant.id,
+              event: `inbound.${providerName}.${String(payload.event || payload.type || 'webhook')}`,
+              url: `inbound:${providerName}`,
+              payload: payload as any,
+              success: true,
+              statusCode: 200,
+              attemptCount: 1,
+            },
+          });
         } catch (error) {
+          // Signature verification or parse error for this tenant; do not persist
+          // a per-tenant failed inbound log entry to avoid polluting logs when the
+          // webhook belongs to a different tenant.
           this.logger.warn(
             `Webhook signature verification failed for tenant ${tenant.id}: ${
               error instanceof Error ? error.message : 'Unknown'
