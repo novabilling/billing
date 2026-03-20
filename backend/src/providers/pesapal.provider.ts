@@ -19,6 +19,8 @@ interface PesapalCredentials {
 interface PesapalAuthResponse {
   token: string;
   expiryDate: string;
+  error?: { code?: string; message?: string };
+  message?: string;
 }
 
 interface PesapalRegisterIpnResponse {
@@ -67,7 +69,20 @@ export class PesapalProvider extends BasePaymentProvider {
       }),
     });
 
+    if (!response.ok) {
+      throw new Error(
+        `Pesapal authentication failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
     const data = (await response.json()) as PesapalAuthResponse;
+
+    if (!data.token) {
+      throw new Error(
+        data.error?.message || data.message || 'Pesapal authentication failed: no token returned',
+      );
+    }
+
     this.accessToken = data.token;
     this.tokenExpiry = new Date(data.expiryDate);
 
