@@ -212,6 +212,7 @@ describe('PesapalProvider', () => {
 
   describe('charge — success and error responses', () => {
     const credsWithIpn = { ...credentials, ipnId: 'test-ipn-uuid' };
+    const liveCredsWithIpn = { ...credsWithIpn, environment: 'live' as const };
 
     const authMock = {
       ok: true,
@@ -270,7 +271,7 @@ describe('PesapalProvider', () => {
       expect(result.transactionId).toBe('track-002');
     });
 
-    it('should return failure with error.message when Pesapal returns "Transaction amount exceeds limit" via error object', async () => {
+    it('should append (sandbox) to error when Pesapal returns "Transaction amount exceeds limit" via error object', async () => {
       mockFetch
         .mockResolvedValueOnce(authMock)
         .mockResolvedValueOnce({
@@ -297,11 +298,36 @@ describe('PesapalProvider', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe(
-        'Transaction amount exceeds limit.Contact support for assistance',
+        'Transaction amount exceeds limit.Contact support for assistance (sandbox)',
       );
     });
 
-    it('should return failure with top-level message when Pesapal returns error via message field', async () => {
+    it('should append (live) to error when running in live environment', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '400',
+            message: 'Transaction amount exceeds limit.Contact support for assistance',
+            error: null,
+          }),
+        });
+
+      const provider = new PesapalProvider(liveCredsWithIpn);
+      const result = await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-live-err',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        'Transaction amount exceeds limit.Contact support for assistance (live)',
+      );
+    });
+
+    it('should append (sandbox) to error when Pesapal returns error via top-level message field', async () => {
       mockFetch
         .mockResolvedValueOnce(authMock)
         .mockResolvedValueOnce({
@@ -322,11 +348,13 @@ describe('PesapalProvider', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe(
-        'Transaction amount exceeds limit.Contact support for assistance',
+        'Transaction amount exceeds limit.Contact support for assistance (sandbox)',
       );
     });
 
-    it('should send amount rounded to 2 decimal places in the request body', async () => {
+    // --- Amount formatting by currency type ---
+
+    it('should send amount rounded to 2 decimal places for a 2-decimal currency (USD)', async () => {
       mockFetch
         .mockResolvedValueOnce(authMock)
         .mockResolvedValueOnce({
@@ -339,7 +367,7 @@ describe('PesapalProvider', () => {
 
       const provider = new PesapalProvider(credsWithIpn);
       await provider.charge({
-        amount: 10.999,
+        amount: 10.507,
         currency: 'USD',
         email: 'customer@example.com',
         reference: 'inv-decimal',
@@ -347,7 +375,81 @@ describe('PesapalProvider', () => {
 
       const [, orderOptions] = mockFetch.mock.calls[1];
       const body = JSON.parse(orderOptions.body);
-      expect(body.amount).toBe(11.0);
+      expect(body.amount).toBe(10.51); // 10.507 rounded to 2 decimal places
+    });
+
+    it('should send amount as integer for a zero-decimal currency (UGX)', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '200',
+            order_tracking_id: 'track-ugx',
+            redirect_url: 'https://pesapal.com/pay/track-ugx',
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      await provider.charge({
+        amount: 36000.75,
+        currency: 'UGX',
+        email: 'customer@example.com',
+        reference: 'inv-ugx',
+      });
+
+      const [, orderOptions] = mockFetch.mock.calls[1];
+      const body = JSON.parse(orderOptions.body);
+      expect(body.amount).toBe(36001); // rounded to 0 decimal places
+      expect(Number.isInteger(body.amount)).toBe(true);
+    });
+
+    it('should send amount as integer for a zero-decimal currency (RWF)', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '200',
+            order_tracking_id: 'track-rwf',
+            redirect_url: 'https://pesapal.com/pay/track-rwf',
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      await provider.charge({
+        amount: 10000.4,
+        currency: 'RWF',
+        email: 'customer@example.com',
+        reference: 'inv-rwf',
+      });
+
+      const [, orderOptions] = mockFetch.mock.calls[1];
+      const body = JSON.parse(orderOptions.body);
+      expect(body.amount).toBe(10000);
+      expect(Number.isInteger(body.amount)).toBe(true);
+    });
+
+    it('should send amount rounded to 3 decimal places for a 3-decimal currency (TND)', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '200',
+            order_tracking_id: 'track-tnd',
+            redirect_url: 'https://pesapal.com/pay/track-tnd',
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      await provider.charge({
+        amount: 29.9994,
+        currency: 'TND',
+        email: 'customer@example.com',
+        reference: 'inv-tnd',
+      });
+
+      const [, orderOptions] = mockFetch.mock.calls[1];
+      const body = JSON.parse(orderOptions.body);
+      expect(body.amount).toBe(29.999); // 29.9994 rounded to 3 decimal places
     });
 
     it('should include Accept header in the SubmitOrderRequest call', async () => {
@@ -373,7 +475,7 @@ describe('PesapalProvider', () => {
       expect(orderOptions.headers['Accept']).toBe('application/json');
     });
 
-    it('should return fallback error message when both error.message and message are absent', async () => {
+    it('should append (sandbox) to fallback error when both error.message and message are absent', async () => {
       mockFetch
         .mockResolvedValueOnce(authMock)
         .mockResolvedValueOnce({
@@ -393,7 +495,25 @@ describe('PesapalProvider', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Order submission failed');
+      expect(result.error).toBe('Order submission failed (sandbox)');
+    });
+
+    it('should append (sandbox) to error when charge throws internally', async () => {
+      // Auth succeeds, but the order request throws a network error
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockRejectedValueOnce(new Error('fetch failed: connection refused'));
+
+      const provider = new PesapalProvider(credsWithIpn);
+      const result = await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-throw',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('fetch failed: connection refused (sandbox)');
     });
   });
 });
