@@ -3,6 +3,7 @@ import { FlutterwaveProvider } from '../../../src/providers/flutterwave.provider
 import { PaystackProvider } from '../../../src/providers/paystack.provider';
 import { StripeProvider } from '../../../src/providers/stripe.provider';
 import { PayPalProvider } from '../../../src/providers/paypal.provider';
+import { PesapalProvider } from '../../../src/providers/pesapal.provider';
 
 describe('ProviderFactory', () => {
   it('should create a FlutterwaveProvider', () => {
@@ -58,6 +59,29 @@ describe('ProviderFactory', () => {
 
     expect(provider).toBeInstanceOf(PayPalProvider);
     expect(provider.name).toBe('paypal');
+  });
+
+  it('should create a PesapalProvider', () => {
+    const provider = ProviderFactory.create('pesapal', {
+      consumerKey: 'ck_test',
+      consumerSecret: 'cs_test',
+      environment: 'sandbox',
+      ipnId: 'test-ipn-uuid',
+    });
+
+    expect(provider).toBeInstanceOf(PesapalProvider);
+    expect(provider.name).toBe('pesapal');
+  });
+
+  it('should create a PesapalProvider without ipnId', () => {
+    const provider = ProviderFactory.create('pesapal', {
+      consumerKey: 'ck_test',
+      consumerSecret: 'cs_test',
+      environment: 'live',
+    });
+
+    expect(provider).toBeInstanceOf(PesapalProvider);
+    expect(provider.name).toBe('pesapal');
   });
 
   it('should throw for unsupported provider', () => {

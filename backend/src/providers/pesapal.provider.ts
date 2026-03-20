@@ -13,6 +13,7 @@ interface PesapalCredentials {
   consumerKey: string;
   consumerSecret: string;
   environment: 'sandbox' | 'live';
+  ipnId?: string;
 }
 
 interface PesapalAuthResponse {
@@ -80,7 +81,7 @@ export class PesapalProvider extends BasePaymentProvider {
           amount: params.amount,
           description: `Payment for ${params.reference}`,
           callback_url: params.callbackUrl || '',
-          notification_id: '',
+          notification_id: this.credentials.ipnId || '',
           billing_address: {
             email_address: params.email,
             ...(params.customerName && {
