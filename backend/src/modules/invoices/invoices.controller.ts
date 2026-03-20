@@ -137,8 +137,10 @@ export class InvoicesController {
   @ApiOperation({
     summary: 'Generate a checkout URL',
     description:
-      'Initiate a payment session with the configured payment provider (Stripe, Paystack, Flutterwave, or M-Pesa). ' +
-      "Returns a checkout URL that redirects the customer to the provider's hosted payment page.",
+      'Initiate a payment session with a configured payment provider. ' +
+      "Returns a checkout URL that redirects the customer to the provider's hosted payment page. " +
+      'If multiple providers are configured, pass `providerName` to select a specific one; ' +
+      'otherwise the highest-priority active provider is used.',
   })
   @ApiParam({ name: 'id', description: 'Invoice ID' })
   @ApiBody({
@@ -149,6 +151,11 @@ export class InvoicesController {
           type: 'string',
           description: 'URL to redirect customer after payment',
           example: 'https://myapp.com/payment/complete',
+        },
+        providerName: {
+          type: 'string',
+          description: 'Optional: name of a specific active payment provider to use (e.g. "stripe", "paypal")',
+          example: 'stripe',
         },
       },
     },
@@ -166,9 +173,9 @@ export class InvoicesController {
   async checkout(
     @TenantDb() db: PrismaClient,
     @Param('id') id: string,
-    @Body() body: { callbackUrl?: string },
+    @Body() body: { callbackUrl?: string; providerName?: string },
   ) {
-    return this.invoicesService.createCheckout(db, id, body.callbackUrl);
+    return this.invoicesService.createCheckout(db, id, body.callbackUrl, body.providerName);
   }
 
   @Post(':id/send-email')

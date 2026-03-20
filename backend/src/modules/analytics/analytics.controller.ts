@@ -15,6 +15,7 @@ import {
   NetRevenueResponse,
   ChurnCohortsResponse,
   LtvResponse,
+  KpisResponse,
 } from './dto/analytics-response.dto';
 
 @ApiTags('Analytics')
@@ -142,5 +143,17 @@ export class AnalyticsController {
   @ApiResponse({ status: 200, description: 'LTV metrics', type: LtvResponse })
   async ltv(@TenantDb() db: PrismaClient) {
     return this.analyticsService.getLtv(db);
+  }
+
+  @Get('kpis')
+  @ApiOperation({
+    summary: 'Get aggregated KPIs',
+    description:
+      'Returns all headline KPIs in a single call: MRR, ARR, total revenue, active subscriptions, ' +
+      'total customers, churn rate, success rate, ARPU, average LTV, and average customer lifespan.',
+  })
+  @ApiResponse({ status: 200, description: 'Aggregated KPI metrics', type: KpisResponse })
+  async kpis(@TenantDb() db: PrismaClient) {
+    return this.analyticsService.getKpis(db);
   }
 }
