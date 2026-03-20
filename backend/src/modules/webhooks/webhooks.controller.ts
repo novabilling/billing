@@ -197,19 +197,9 @@ export class WebhooksController {
             },
           });
         } catch (error) {
-          // Record failed inbound delivery (signature verification or parse error)
-          await this.centralPrisma.client.webhookLog.create({
-            data: {
-              tenantId: tenant.id,
-              event: `inbound.${providerName}.${String(payload.event || payload.type || 'webhook')}`,
-              url: `inbound:${providerName}`,
-              payload: payload as any,
-              response: { error: error instanceof Error ? error.message : 'Unknown' } as any,
-              success: false,
-              statusCode: 400,
-              attemptCount: 1,
-            },
-          });
+          // Signature verification or parse error for this tenant; do not persist
+          // a per-tenant failed inbound log entry to avoid polluting logs when the
+          // webhook belongs to a different tenant.
           this.logger.warn(
             `Webhook signature verification failed for tenant ${tenant.id}: ${
               error instanceof Error ? error.message : 'Unknown'
