@@ -209,4 +209,191 @@ describe('PesapalProvider', () => {
       expect(JSON.parse(orderOptions.body)).toMatchObject({ notification_id: '' });
     });
   });
+
+  describe('charge — success and error responses', () => {
+    const credsWithIpn = { ...credentials, ipnId: 'test-ipn-uuid' };
+
+    const authMock = {
+      ok: true,
+      json: async () => ({
+        token: 'test_token',
+        expiryDate: new Date(Date.now() + 3600_000).toISOString(),
+      }),
+    };
+
+    it('should return success when Pesapal responds with string status "200" and order_tracking_id', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '200',
+            order_tracking_id: 'track-001',
+            redirect_url: 'https://pesapal.com/pay/track-001',
+            error: null,
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      const result = await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-usd-10',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.paymentUrl).toBe('https://pesapal.com/pay/track-001');
+      expect(result.transactionId).toBe('track-001');
+    });
+
+    it('should return success when Pesapal responds with numeric status 200 and order_tracking_id', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: 200,
+            order_tracking_id: 'track-002',
+            redirect_url: 'https://pesapal.com/pay/track-002',
+            error: null,
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      const result = await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-usd-10b',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.transactionId).toBe('track-002');
+    });
+
+    it('should return failure with error.message when Pesapal returns "Transaction amount exceeds limit" via error object', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '200',
+            order_tracking_id: null,
+            redirect_url: null,
+            error: {
+              error_type: 'transaction_limit',
+              code: 'E500',
+              message: 'Transaction amount exceeds limit.Contact support for assistance',
+            },
+            message: null,
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      const result = await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-usd-10c',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        'Transaction amount exceeds limit.Contact support for assistance',
+      );
+    });
+
+    it('should return failure with top-level message when Pesapal returns error via message field', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '400',
+            message: 'Transaction amount exceeds limit.Contact support for assistance',
+            error: null,
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      const result = await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-usd-10d',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        'Transaction amount exceeds limit.Contact support for assistance',
+      );
+    });
+
+    it('should send amount rounded to 2 decimal places in the request body', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '200',
+            order_tracking_id: 'track-003',
+            redirect_url: 'https://pesapal.com/pay/track-003',
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      await provider.charge({
+        amount: 10.999,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-decimal',
+      });
+
+      const [, orderOptions] = mockFetch.mock.calls[1];
+      const body = JSON.parse(orderOptions.body);
+      expect(body.amount).toBe(11.0);
+    });
+
+    it('should include Accept header in the SubmitOrderRequest call', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '200',
+            order_tracking_id: 'track-004',
+            redirect_url: 'https://pesapal.com/pay/track-004',
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-headers',
+      });
+
+      const [, orderOptions] = mockFetch.mock.calls[1];
+      expect(orderOptions.headers['Accept']).toBe('application/json');
+    });
+
+    it('should return fallback error message when both error.message and message are absent', async () => {
+      mockFetch
+        .mockResolvedValueOnce(authMock)
+        .mockResolvedValueOnce({
+          json: async () => ({
+            status: '400',
+            error: null,
+            message: null,
+          }),
+        });
+
+      const provider = new PesapalProvider(credsWithIpn);
+      const result = await provider.charge({
+        amount: 10,
+        currency: 'USD',
+        email: 'customer@example.com',
+        reference: 'inv-fallback',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Order submission failed');
+    });
+  });
 });

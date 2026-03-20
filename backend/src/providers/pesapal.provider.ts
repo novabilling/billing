@@ -98,12 +98,13 @@ export class PesapalProvider extends BasePaymentProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           id: params.reference,
           currency: params.currency,
-          amount: params.amount,
+          amount: parseFloat(params.amount.toFixed(2)),
           description: `Payment for ${params.reference}`,
           callback_url: params.callbackUrl || '',
           notification_id: this.credentials.ipnId || '',
@@ -119,7 +120,7 @@ export class PesapalProvider extends BasePaymentProvider {
 
       const data = await orderResponse.json();
 
-      if (data.status === '200' && data.order_tracking_id) {
+      if (String(data.status) === '200' && data.order_tracking_id) {
         return {
           success: true,
           paymentUrl: data.redirect_url,
@@ -129,7 +130,7 @@ export class PesapalProvider extends BasePaymentProvider {
 
       return {
         success: false,
-        error: data.message || data.error?.message || 'Order submission failed',
+        error: data.error?.message || data.message || 'Order submission failed',
       };
     } catch (error) {
       this.logger.error('Pesapal charge failed', error);
@@ -148,6 +149,7 @@ export class PesapalProvider extends BasePaymentProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -160,7 +162,7 @@ export class PesapalProvider extends BasePaymentProvider {
 
       const data = await response.json();
 
-      if (data.status === '200') {
+      if (String(data.status) === '200') {
         return { success: true, refundId: data.refund_request_id };
       }
 
@@ -184,6 +186,7 @@ export class PesapalProvider extends BasePaymentProvider {
         `${this.baseUrl}/api/Transactions/GetTransactionStatus?orderTrackingId=${transactionId}`,
         {
           headers: {
+            Accept: 'application/json',
             Authorization: `Bearer ${token}`,
           },
         },
