@@ -164,14 +164,14 @@ export class TenantsService {
     const limit = params.limit || 50;
     const page = params.page || 1;
 
-    const where: Record<string, unknown> = { tenantId };
+    const where: Prisma.WebhookLogWhereInput = { tenantId };
 
     if (params.direction === 'inbound') {
       // Inbound logs use url starting with "inbound:"
-      where.url = { startsWith: 'inbound:' } as any;
+      where.url = { startsWith: 'inbound:' };
     } else if (params.direction === 'outbound') {
       // Outbound logs have real HTTP URLs
-      where.url = { startsWith: 'http' } as any;
+      where.url = { startsWith: 'http' };
     }
 
     const [logs, total] = await Promise.all([
