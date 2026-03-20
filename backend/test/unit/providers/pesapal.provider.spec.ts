@@ -14,11 +14,66 @@ describe('PesapalProvider', () => {
     mockFetch.mockReset();
   });
 
+  describe('getAccessToken (via registerIpn)', () => {
+    it('should throw when auth request returns a non-2xx status', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: async () => ({}),
+      });
+
+      const provider = new PesapalProvider(credentials);
+      await expect(provider.registerIpn('https://example.com/webhooks/pesapal')).rejects.toThrow(
+        'Pesapal authentication failed: 401 Unauthorized',
+      );
+    });
+
+    it('should throw with API error message when token is missing from auth response', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          error: { message: 'Invalid consumer key' },
+        }),
+      });
+
+      const provider = new PesapalProvider(credentials);
+      await expect(provider.registerIpn('https://example.com/webhooks/pesapal')).rejects.toThrow(
+        'Invalid consumer key',
+      );
+    });
+
+    it('should throw with top-level message when token is missing and error object is absent', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: 'Bad credentials' }),
+      });
+
+      const provider = new PesapalProvider(credentials);
+      await expect(provider.registerIpn('https://example.com/webhooks/pesapal')).rejects.toThrow(
+        'Bad credentials',
+      );
+    });
+
+    it('should throw default message when auth response has no token and no error details', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      });
+
+      const provider = new PesapalProvider(credentials);
+      await expect(provider.registerIpn('https://example.com/webhooks/pesapal')).rejects.toThrow(
+        'Pesapal authentication failed: no token returned',
+      );
+    });
+  });
+
   describe('registerIpn', () => {
     it('should register an IPN URL and return the ipn_id', async () => {
       // Auth token request
       mockFetch
         .mockResolvedValueOnce({
+          ok: true,
           json: async () => ({
             token: 'test_token',
             expiryDate: new Date(Date.now() + 3600_000).toISOString(),
@@ -54,6 +109,7 @@ describe('PesapalProvider', () => {
     it('should throw if Pesapal returns no ipn_id', async () => {
       mockFetch
         .mockResolvedValueOnce({
+          ok: true,
           json: async () => ({
             token: 'test_token',
             expiryDate: new Date(Date.now() + 3600_000).toISOString(),
@@ -74,6 +130,7 @@ describe('PesapalProvider', () => {
     it('should throw with default message when error field is absent', async () => {
       mockFetch
         .mockResolvedValueOnce({
+          ok: true,
           json: async () => ({
             token: 'test_token',
             expiryDate: new Date(Date.now() + 3600_000).toISOString(),
@@ -96,6 +153,7 @@ describe('PesapalProvider', () => {
 
       mockFetch
         .mockResolvedValueOnce({
+          ok: true,
           json: async () => ({
             token: 'test_token',
             expiryDate: new Date(Date.now() + 3600_000).toISOString(),
@@ -125,6 +183,7 @@ describe('PesapalProvider', () => {
     it('should send empty string as notification_id when ipnId is absent', async () => {
       mockFetch
         .mockResolvedValueOnce({
+          ok: true,
           json: async () => ({
             token: 'test_token',
             expiryDate: new Date(Date.now() + 3600_000).toISOString(),
