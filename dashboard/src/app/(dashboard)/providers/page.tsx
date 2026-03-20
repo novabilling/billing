@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Loader2, Copy, ExternalLink, ShieldCheck } from "lucide-react";
+import { Settings as SettingsIcon, Loader2, Copy, ExternalLink, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,6 +84,12 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   pesapal: { label: "Pesapal Settings", url: "https://dashboard.pesapal.com" },
   paypal: { label: "PayPal Webhooks", url: "https://developer.paypal.com/dashboard/webhooks" },
 };
+
+/**
+ * Providers whose IPN / webhook URL is automatically registered via the
+ * provider API when the credentials are saved — no manual setup needed.
+ */
+const autoIpnProviders = new Set(["pesapal"]);
 
 const signatureVerification: Record<string, { method: string; detail: string }> = {
   stripe: {
@@ -351,17 +357,25 @@ export default function ProvidersPage() {
                 <div className="rounded-md border border-border bg-muted/50 p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-muted-foreground">Webhook URL</p>
-                    {webhookDocs[provider.code] && (
-                      <a
-                        href={webhookDocs[provider.code].url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                      >
-                        Set up
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {autoIpnProviders.has(provider.code) && (
+                        <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0">
+                          <Zap className="h-2.5 w-2.5" />
+                          Auto-registered
+                        </Badge>
+                      )}
+                      {!autoIpnProviders.has(provider.code) && webhookDocs[provider.code] && (
+                        <a
+                          href={webhookDocs[provider.code].url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                        >
+                          Set up
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <code className="flex-1 px-2 py-1.5 bg-background border border-border rounded font-mono text-xs truncate select-all">
@@ -382,7 +396,9 @@ export default function ProvidersPage() {
                     </Button>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Paste this URL in your {provider.name} dashboard to receive payment notifications.
+                    {autoIpnProviders.has(provider.code)
+                      ? `NovaBilling automatically registers this IPN URL with ${provider.name} when you save your credentials — no manual setup required.`
+                      : `Paste this URL in your ${provider.name} dashboard to receive payment notifications.`}
                   </p>
                 </div>
 
@@ -530,7 +546,15 @@ export default function ProvidersPage() {
             {/* Webhook URL in dialog */}
             {configProvider && (
               <div className="rounded-md border border-border bg-muted/50 p-3 space-y-2">
-                <Label className="text-xs">Webhook URL</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Webhook URL</Label>
+                  {autoIpnProviders.has(configProvider.code) && (
+                    <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0">
+                      <Zap className="h-2.5 w-2.5" />
+                      Auto-registered
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5">
                   <code className="flex-1 px-2 py-1.5 bg-background border border-border rounded font-mono text-xs truncate select-all">
                     {getApiBaseUrl()}/webhooks/{configProvider.code}
@@ -550,22 +574,29 @@ export default function ProvidersPage() {
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground leading-tight">
-                  Add this URL to your{" "}
-                  {webhookDocs[configProvider.code] ? (
-                    <a
-                      href={webhookDocs[configProvider.code].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      {configProvider.name} dashboard
-                    </a>
-                  ) : (
-                    `${configProvider.name} dashboard`
-                  )}{" "}
-                  to receive payment notifications.
-                </p>
+                {autoIpnProviders.has(configProvider.code) ? (
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    NovaBilling will automatically register this IPN URL with{" "}
+                    {configProvider.name} when you save — no manual setup required.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Add this URL to your{" "}
+                    {webhookDocs[configProvider.code] ? (
+                      <a
+                        href={webhookDocs[configProvider.code].url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {configProvider.name} dashboard
+                      </a>
+                    ) : (
+                      `${configProvider.name} dashboard`
+                    )}{" "}
+                    to receive payment notifications.
+                  </p>
+                )}
               </div>
             )}
 
