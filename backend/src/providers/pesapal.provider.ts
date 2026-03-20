@@ -21,6 +21,16 @@ interface PesapalAuthResponse {
   expiryDate: string;
 }
 
+interface PesapalRegisterIpnResponse {
+  url: string;
+  created_date: string;
+  ipn_id: string;
+  ipn_status: number;
+  ipn_status_description: string;
+  ipn_notification_type_description: string;
+  error?: { code?: string; message?: string };
+}
+
 export class PesapalProvider extends BasePaymentProvider {
   readonly name = 'pesapal';
   private readonly logger = new Logger(PesapalProvider.name);
@@ -228,6 +238,40 @@ export class PesapalProvider extends BasePaymentProvider {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Registers an IPN (Instant Payment Notification) URL with Pesapal and
+   * returns the resulting `ipn_id` UUID. This ID must be supplied as
+   * `notification_id` on every order submission.
+   *
+   * @param ipnUrl - The publicly reachable URL Pesapal will POST IPN events to.
+   */
+  async registerIpn(ipnUrl: string): Promise<string> {
+    const token = await this.getAccessToken();
+
+    const response = await fetch(`${this.baseUrl}/api/URLSetup/RegisterIPN`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        url: ipnUrl,
+        ipn_notification_type: 'POST',
+      }),
+    });
+
+    const data = (await response.json()) as PesapalRegisterIpnResponse;
+
+    if (!data.ipn_id) {
+      throw new Error(
+        data.error?.message || 'Pesapal IPN registration failed: no ipn_id returned',
+      );
+    }
+
+    return data.ipn_id;
   }
 
   // Pesapal does NOT support merchant-initiated recurring billing.
