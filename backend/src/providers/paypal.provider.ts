@@ -93,6 +93,15 @@ export class PayPalProvider extends BasePaymentProvider {
             description: `Invoice ${params.reference}`,
           },
         ],
+        // return_url/cancel_url belong in exactly one place. PayPal's Orders
+        // v2 API rejects the request outright (422
+        // INCOMPATIBLE_PARAMETER_VALUE on all four fields) when both
+        // payment_source.paypal.experience_context *and* the legacy
+        // top-level application_context set them — confirmed against a
+        // real order-creation attempt, not just the docs. experience_context
+        // is the current one to use alongside payment_source; the
+        // application_context block that used to sit here was the
+        // redundant leftover actually causing every checkout to fail.
         payment_source: {
           paypal: {
             experience_context: {
@@ -101,10 +110,6 @@ export class PayPalProvider extends BasePaymentProvider {
               cancel_url: params.callbackUrl,
             },
           },
-        },
-        application_context: {
-          return_url: params.callbackUrl,
-          cancel_url: params.callbackUrl,
         },
       };
 
