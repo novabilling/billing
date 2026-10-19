@@ -69,6 +69,8 @@ export interface CollectRequest {
   callbackUrl?: string;
   notificationUrl?: string;
   failureNotificationUrl?: string;
+  /** One-time code the payer received, for providers that confirm collections by SMS (Eversend). Never stored. */
+  otp?: { pinId: string; pin: string };
 }
 
 export interface PayoutRequest {
@@ -103,7 +105,9 @@ export interface MoneyProvider {
   readonly capabilities: Capabilities;
   collect?(request: CollectRequest): Promise<ProviderOutcome>;
   /** `expected` is what the payer was asked for, for providers that only report deposits. */
-  getCollection?(reference: string, providerTxnId?: string | null, expected?: string): Promise<ProviderOutcome>;
+  getCollection?(reference: string, providerTxnId?: string | null, expected?: string, rail?: Rail): Promise<ProviderOutcome>;
+  /** Send the payer a one-time code that a later collection quotes back. */
+  requestPayerOtp?(msisdn: string): Promise<{ pinId: string }>;
   payout?(request: PayoutRequest): Promise<ProviderOutcome>;
   getPayout?(reference: string, providerTxnId: string | null | undefined, rail: Rail): Promise<ProviderOutcome>;
   /** Available balance per currency, in major units as decimal strings. */

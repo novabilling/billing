@@ -216,7 +216,7 @@ const providerDescriptions: Record<string, string> = {
   mtn_momo: "MTN Mobile Money direct: collections (request to pay) and disbursements for MTN subscribers",
   airtel_money: "Airtel Money direct: USSD-push collections and disbursements for Airtel subscribers",
   nowpayments: "Crypto collections on a hosted page (BTC, USDT, ETH and more), priced in your currency",
-  eversend: "Stablecoin collections (USDT, USDC) and mobile money and bank payouts across Africa from your Eversend account",
+  eversend: "Mobile money and stablecoin (USDT, USDC) collections, and mobile money and bank payouts across Africa",
 };
 
 const providerDisplayNames: Record<string, string> = {

@@ -2,6 +2,7 @@ import {
   Capabilities,
   CollectRequest,
   MoneyProvider,
+  Party,
   PayoutRequest,
   ProviderAmbiguousError,
   ProviderOutcome,
@@ -11,9 +12,13 @@ import { toScaled } from '../../ledger/ledger.money';
 import { countryOfNumber, toInternational } from '../msisdn';
 
 /**
- * Eversend (eversend.co): stablecoin collections and mobile money / bank
- * payouts in its payout markets. The tenant holds its own Eversend business
- * account.
+ * Eversend (eversend.co): mobile money and stablecoin collections, and
+ * mobile money / bank payouts in its markets. The tenant holds its own
+ * Eversend business account.
+ *
+ * Mobile money collections: a prompt to the payer's phone, with our
+ * reference as transactionRef. Where Eversend asks for it, the payer first
+ * gets an SMS code (collections/otp) that the collection quotes back.
  *
  * Collections: for each collection we create a
  * deposit address on the chosen chain, the payer sends the coin to it, and
@@ -70,7 +75,12 @@ interface Deposit {
 
 export class EversendAdapter implements MoneyProvider {
   readonly name = 'eversend';
-  readonly capabilities: Capabilities = { collect: ['crypto'], payout: ['mobile_money', 'bank'], balance: true, verifyPayee: false };
+  readonly capabilities: Capabilities = {
+    collect: ['mobile_money', 'crypto'],
+    payout: ['mobile_money', 'bank'],
+    balance: true,
+    verifyPayee: false,
+  };
 
   constructor(
     private readonly credentials: EversendCredentials,
@@ -82,8 +92,9 @@ export class EversendAdapter implements MoneyProvider {
   }
 
   async collect(request: CollectRequest): Promise<ProviderOutcome> {
+    if (request.payer.type === 'mobile_money') return this.collectMobileMoney(request, request.payer);
     if (request.payer.type !== 'crypto') {
-      return { state: 'failed', failureReason: 'Eversend collects crypto to a deposit address' };
+      return { state: 'failed', failureReason: 'Eversend collects from mobile money numbers and to crypto deposit addresses' };
     }
     const coin = request.currency.toUpperCase();
     if (!EVERSEND_COINS.includes(coin)) {
@@ -125,12 +136,64 @@ export class EversendAdapter implements MoneyProvider {
     };
   }
 
+  private async collectMobileMoney(request: CollectRequest, payer: Extract<Party, { type: 'mobile_money' }>): Promise<ProviderOutcome> {
+    const fallback = this.credentials.defaultCountry?.toUpperCase() ?? 'UG';
+    const phone = toInternational(payer.msisdn, fallback);
+    const country = countryOfNumber(phone) ?? fallback;
+    const currency = request.currency.toUpperCase();
+
+    let r: { status: number; body: unknown };
+    try {
+      r = await this.call('POST', '/collections/momo', {
+        amount: Number(request.amount),
+        currency,
+        country,
+        phone: `+${phone}`,
+        transactionRef: request.reference,
+        ...(payer.name && { customer: { name: payer.name } }),
+        ...(request.otp?.pin && request.otp.pinId && { otp: { pin: request.otp.pin, pinId: request.otp.pinId } }),
+        // Ghana mobile money finishes on a page Eversend redirects back from.
+        ...(country === 'GH' && request.callbackUrl && { redirect_url: request.callbackUrl }),
+      });
+    } catch (error) {
+      // The prompt may have gone out; find it by reference before anything else.
+      throw new ProviderAmbiguousError(error instanceof Error ? error.message : String(error));
+    }
+    if (r.status >= 500) {
+      return { state: 'pending', indeterminate: true, failureReason: message(r.body) || `Eversend HTTP ${r.status}` };
+    }
+    if (r.status >= 300) {
+      return { state: 'failed', providerStatus: `HTTP_${r.status}`, failureReason: message(r.body) || 'Eversend refused the collection' };
+    }
+    const tx = transaction(r.body);
+    const d = unwrap(r.body);
+    const redirect = str(d?.redirectUrl) ?? str(d?.redirect_url) ?? str(d?.paymentUrl) ?? str(d?.link);
+    return {
+      ...mapTransactionStatus(tx?.status),
+      providerTxnId: tx?.transactionId,
+      providerStatus: tx?.status?.toUpperCase() || 'PROMPT_SENT',
+      ...(redirect && { paymentUrl: redirect }),
+    };
+  }
+
+  /** Text the payer a one-time code; the collection then quotes back the pinId and the code. */
+  async requestPayerOtp(msisdn: string): Promise<{ pinId: string }> {
+    const phone = toInternational(msisdn, this.credentials.defaultCountry?.toUpperCase() ?? 'UG');
+    const r = await this.call('POST', '/collections/otp', { phone: `+${phone}` });
+    const d = unwrap(r.body);
+    const pinId = str(d?.pinId) ?? str((d?.otp as Obj | undefined)?.pinId);
+    if (r.status >= 300 || !pinId) throw new Error(message(r.body) || `Eversend could not send the code (HTTP ${r.status})`);
+    return { pinId };
+  }
+
   /**
    * Settled deposits to the address are added up: enough settles the
    * collection, less is held for review (an underpayment the tenant decides
    * on), nothing yet stays pending.
    */
-  async getCollection(_reference: string, address?: string | null, expected?: string): Promise<ProviderOutcome> {
+  async getCollection(reference: string, address?: string | null, expected?: string, rail?: Rail): Promise<ProviderOutcome> {
+    // Mobile money collections are ordinary Eversend transactions.
+    if (rail === 'mobile_money') return this.transactionStatus(reference, address, 'collection');
     if (!address) return { state: 'pending', providerStatus: 'NO_ADDRESS' };
     const r = await this.call('GET', `/crypto/addresses/${encodeURIComponent(address)}/transactions`);
     if (r.status !== 200) return { state: 'pending', providerStatus: `HTTP_${r.status}`, providerTxnId: address };
@@ -239,19 +302,23 @@ export class EversendAdapter implements MoneyProvider {
     };
   }
 
-  /** By Eversend's transaction id when we have it, else by our reference. */
   async getPayout(reference: string, providerTxnId?: string | null, _rail?: Rail): Promise<ProviderOutcome> {
+    return this.transactionStatus(reference, providerTxnId, 'payout');
+  }
+
+  /** By Eversend's transaction id when we have it, else by our reference. */
+  private async transactionStatus(reference: string, providerTxnId: string | null | undefined, kind: 'payout' | 'collection'): Promise<ProviderOutcome> {
     let tx: { transactionId?: string; status?: string; reason?: string } | undefined;
     if (providerTxnId) {
       const r = await this.call('GET', `/transactions/${encodeURIComponent(providerTxnId)}`);
-      if (r.status === 404) return { state: 'failed', providerStatus: 'NOT_FOUND', failureReason: 'Eversend has no record of this payout' };
+      if (r.status === 404) return { state: 'failed', providerStatus: 'NOT_FOUND', failureReason: `Eversend has no record of this ${kind}` };
       if (r.status !== 200) return { state: 'pending', providerStatus: `HTTP_${r.status}`, providerTxnId };
       tx = transaction(r.body);
     } else {
       const r = await this.call('GET', `/transactions?search=${encodeURIComponent(reference)}&limit=20`);
       if (r.status !== 200) return { state: 'pending', providerStatus: `HTTP_${r.status}` };
       const match = list(r.body).find((t) => str(t.transactionRef) === reference);
-      // Not found yet: the payout may never have arrived. It stays open for a person to resolve, never resent.
+      // Not found yet: the request may never have arrived. It stays open for a person to resolve, never resent.
       if (!match) return { state: 'pending', providerStatus: 'NOT_FOUND_BY_REFERENCE' };
       tx = transaction({ data: match });
     }

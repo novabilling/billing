@@ -263,3 +263,80 @@ describe('countryOfNumber', () => {
     expect(countryOfNumber('2567')).toBeUndefined();
   });
 });
+
+describe('Eversend mobile money collections', () => {
+  const creds = { clientId: 'cid', clientSecret: 'secret' };
+  beforeEach(() => clearEversendTokenCache());
+  const payer = { type: 'mobile_money' as const, msisdn: '0772123456', name: 'Jane Doe' };
+
+  it('prompts the payer with our reference and passes a one-time code through', async () => {
+    const fetch = jest
+      .fn()
+      .mockImplementationOnce(token)
+      .mockImplementationOnce(() => res(200, { data: { transaction: { transactionId: 'EVC1', status: 'pending' } } }));
+    const out = await new EversendAdapter(creds, fetch as never).collect({
+      reference: 'col_7',
+      amount: '20000',
+      currency: 'UGX',
+      payer,
+      description: 'Order 7',
+      otp: { pinId: 'pin-1', pin: '123456' },
+    });
+    const [url, init] = fetch.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('https://api.eversend.co/v1/collections/momo');
+    expect(JSON.parse(String(init.body))).toEqual({
+      amount: 20000,
+      currency: 'UGX',
+      country: 'UG',
+      phone: '+256772123456',
+      transactionRef: 'col_7',
+      customer: { name: 'Jane Doe' },
+      otp: { pin: '123456', pinId: 'pin-1' },
+    });
+    expect(out).toEqual({ state: 'pending', providerTxnId: 'EVC1', providerStatus: 'PENDING' });
+  });
+
+  it('sends Ghana payers to the redirect page and refuses cleanly on 4xx', async () => {
+    const gh = jest
+      .fn()
+      .mockImplementationOnce(token)
+      .mockImplementationOnce(() => res(200, { data: { transactionId: 'EVG', status: 'pending', redirectUrl: 'https://pay.example/gh' } }));
+    const out = await new EversendAdapter(creds, gh as never).collect({
+      reference: 'col_8',
+      amount: '50',
+      currency: 'GHS',
+      payer: { type: 'mobile_money', msisdn: '233241234567' },
+      description: 'x',
+      callbackUrl: 'https://shop.example/back',
+    });
+    expect(JSON.parse(String((gh.mock.calls[1] as [string, RequestInit])[1].body))).toMatchObject({ country: 'GH', redirect_url: 'https://shop.example/back' });
+    expect(out).toMatchObject({ state: 'pending', paymentUrl: 'https://pay.example/gh' });
+
+    clearEversendTokenCache();
+    const refused = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() => res(400, { message: 'Invalid OTP' }));
+    expect(
+      await new EversendAdapter(creds, refused as never).collect({ reference: 'c', amount: '1', currency: 'UGX', payer, description: 'x' }),
+    ).toMatchObject({ state: 'failed', failureReason: 'Invalid OTP' });
+
+    clearEversendTokenCache();
+    const lost = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() => Promise.reject(new TypeError('socket hang up')));
+    await expect(
+      new EversendAdapter(creds, lost as never).collect({ reference: 'c', amount: '1', currency: 'UGX', payer, description: 'x' }),
+    ).rejects.toBeInstanceOf(ProviderAmbiguousError);
+  });
+
+  it('checks mobile money collections as transactions, not deposit addresses', async () => {
+    const fetch = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() => res(200, { data: { transaction: { transactionId: 'EVC1', status: 'successful' } } }));
+    expect(await new EversendAdapter(creds, fetch as never).getCollection('col_7', 'EVC1', '20000', 'mobile_money')).toMatchObject({
+      state: 'succeeded',
+      providerTxnId: 'EVC1',
+    });
+    expect(fetch.mock.calls[1][0]).toBe('https://api.eversend.co/v1/transactions/EVC1');
+  });
+
+  it('sends the payer a one-time code', async () => {
+    const fetch = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() => res(200, { data: { pinId: 'pin-9' } }));
+    expect(await new EversendAdapter(creds, fetch as never).requestPayerOtp('0772123456')).toEqual({ pinId: 'pin-9' });
+    expect(JSON.parse(String((fetch.mock.calls[1] as [string, RequestInit])[1].body))).toEqual({ phone: '+256772123456' });
+  });
+});

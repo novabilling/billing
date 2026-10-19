@@ -439,6 +439,16 @@ function CreateDialog({
     }
   };
 
+  const sendOtp = async () => {
+    try {
+      const { pinId } = await moneyApi.requestOtp(form.provider, form.msisdn ?? "");
+      set("otpPinId", pinId);
+      toast.success("Code sent to the payer");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send the code");
+    }
+  };
+
   const submit = async () => {
     setSaving(true);
     try {
@@ -457,9 +467,10 @@ function CreateDialog({
           provider: form.provider === AUTO ? undefined : form.provider,
           walletId: form.walletId === "none" ? undefined : form.walletId,
         };
+        const otp = form.otpPinId && form.otpPin ? { pinId: form.otpPinId, pin: form.otpPin } : undefined;
         created =
           type === "collection"
-            ? await moneyApi.createCollection({ ...body, payer: party(), returnUrl: form.returnUrl || undefined })
+            ? await moneyApi.createCollection({ ...body, payer: party(), returnUrl: form.returnUrl || undefined, otp })
             : await moneyApi.createPayout({ ...body, payee: party() });
       }
       if (created.status === "failed") {
@@ -557,6 +568,17 @@ function CreateDialog({
                         Check registered name
                       </Button>
                       {lookup && <span className="text-muted-foreground">{lookup}</span>}
+                    </div>
+                  )}
+                  {type === "collection" && form.provider === "eversend" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Button type="button" variant="outline" size="sm" disabled={!form.msisdn} onClick={sendOtp}>
+                          {form.otpPinId ? "Resend code" : "Text the payer a code"}
+                        </Button>
+                        <span className="text-xs text-muted-foreground">Only if Eversend asks for one</span>
+                      </div>
+                      {form.otpPinId && field("otpPin", "Code the payer received", { inputMode: "numeric", autoComplete: "one-time-code" })}
                     </div>
                   )}
                 </>

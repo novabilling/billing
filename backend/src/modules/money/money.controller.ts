@@ -25,6 +25,7 @@ import {
   CreateTransferDto,
   UpdateMoneySettingsDto,
   VerifyPayeeDto,
+  RequestOtpDto,
 } from './dto/money.dto';
 import { MoneyService } from './money.service';
 
@@ -212,7 +213,17 @@ export class MoneySettingsController {
     return this.money.balance(db, provider);
   }
 
-  @Post('providers/:provider/verify-payee')
+  @Post('providers/:provider/otp')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Text a payer the one-time code some providers need before a mobile money collection',
+    description: 'Pass the returned pinId, with the code the payer reads back, as `otp` when creating the collection.',
+  })
+  requestOtp(@TenantDb() db: PrismaClient, @Param('provider') provider: string, @Body() dto: RequestOtpDto) {
+    return this.money.requestPayerOtp(db, provider, dto.phone);
+  }
+
+    @Post('providers/:provider/verify-payee')
   @HttpCode(200)
   @ApiOperation({ summary: 'Look up the name registered to a payee account before paying it' })
   verifyPayee(@TenantDb() db: PrismaClient, @Param('provider') provider: string, @Body() dto: VerifyPayeeDto) {

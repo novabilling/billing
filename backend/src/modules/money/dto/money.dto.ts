@@ -52,6 +52,14 @@ export class CreateCollectionDto {
   @IsUrl({ require_tld: false })
   returnUrl?: string;
 
+  @ApiPropertyOptional({
+    example: { pinId: 'dg524fhsgfde', pin: '123456' },
+    description: 'Code the payer received after POST /money/providers/{provider}/otp, where the provider asks for one (Eversend)',
+  })
+  @IsOptional()
+  @IsObject()
+  otp?: { pinId: string; pin: string };
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
@@ -157,4 +165,11 @@ export class VerifyPayeeDto {
   @ApiProperty({ example: { type: 'mobile_money', msisdn: '256771234567' } })
   @IsObject()
   payee!: Record<string, unknown>;
+}
+
+export class RequestOtpDto {
+  @ApiProperty({ example: '256771234567', description: 'Payer mobile number in international format' })
+  @IsString()
+  @Length(9, 16)
+  phone!: string;
 }

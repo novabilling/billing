@@ -42,6 +42,7 @@ export interface CreateCollectionInput {
   walletId?: string;
   returnUrl?: string;
   metadata?: Record<string, unknown>;
+  otp?: { pinId: string; pin: string };
 }
 
 export interface CreatePayoutInput {
@@ -145,6 +146,7 @@ export class MoneyService {
         description: input.description || 'Payment',
         callbackUrl: input.returnUrl,
         ...notify,
+        ...(input.otp && { otp: { pinId: String(input.otp.pinId ?? ''), pin: String(input.otp.pin ?? '') } }),
       }),
     );
     return this.present(await this.applyOutcome(db, tenant.id, intent.row, outcome, 'create'));
@@ -329,6 +331,7 @@ export class MoneyService {
             intent.providerReference!,
             intent.providerTxnId,
             majorAmount(intent.chargedAmount ?? intent.amount, getCurrencyDecimals(intent.currency)),
+            intent.rail as Rail,
           )
         : provider.getPayout?.bind(provider, intent.providerReference!, intent.providerTxnId, intent.rail as Rail);
     if (!check) return this.present(intent);
@@ -528,6 +531,13 @@ export class MoneyService {
     const provider = await this.registry.get(db, providerName);
     if (!provider.verifyPayee) throw new BadRequestException(`${providerName} cannot look up account names`);
     return provider.verifyPayee(parseParty(rawParty, 'payee'));
+  }
+
+  /** Text the payer a one-time code for a provider that confirms collections that way. */
+  async requestPayerOtp(db: PrismaClient, providerName: string, phone: string) {
+    const provider = await this.registry.get(db, providerName);
+    if (!provider.requestPayerOtp) throw new BadRequestException(`${providerName} does not use one-time codes`);
+    return provider.requestPayerOtp(phone);
   }
 
   /** Tenant settings changes for the self-service features (collections, transfers, approval rules). */

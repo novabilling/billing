@@ -125,6 +125,8 @@ export const moneyApi = {
       method: "POST",
       body: JSON.stringify({ payee }),
     }),
+  requestOtp: (provider: string, phone: string) =>
+    apiFetch<{ pinId: string }>(`/money/providers/${provider}/otp`, { method: "POST", body: JSON.stringify({ phone }) }),
   balance: (provider: string) =>
     apiFetch<{ provider: string; balances: Record<string, string> }>(`/money/providers/${provider}/balance`),
 };
