@@ -230,6 +230,7 @@ function TenantDetail() {
       </div>
 
       <MoneyControls tenantId={tenant.id} data={data} onChange={load} />
+      <CommissionEditor tenantId={tenant.id} rules={data.money.commission ?? {}} onSaved={load} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -377,5 +378,124 @@ function MoneyControls({ tenantId, data, onChange }: { tenantId: string; data: P
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+type Kind = "collection" | "payout" | "transfer";
+
+/** One currency per rule in this editor; the API accepts several. */
+function CommissionEditor({
+  tenantId,
+  rules,
+  onSaved,
+}: {
+  tenantId: string;
+  rules: PlatformTenantDetail["money"]["commission"];
+  onSaved: () => void;
+}) {
+  const initial = (kind: Kind) => {
+    const r = rules[kind];
+    const currency = Object.keys({ ...r?.flat, ...r?.min, ...r?.max })[0] ?? "UGX";
+    return {
+      on: Boolean(r),
+      rate: r?.rateBps ? String(r.rateBps / 100) : "",
+      currency,
+      flat: r?.flat?.[currency] ?? "",
+      min: r?.min?.[currency] ?? "",
+      max: r?.max?.[currency] ?? "",
+      chargeTo: r?.chargeTo ?? "tenant",
+    };
+  };
+  const [form, setForm] = useState({ collection: initial("collection"), payout: initial("payout"), transfer: initial("transfer") });
+  const [saving, setSaving] = useState(false);
+  const set = (kind: Kind, key: string, value: string | boolean) => setForm((f) => ({ ...f, [kind]: { ...f[kind], [key]: value } }));
+
+  const save = async () => {
+    const commission: Record<string, unknown> = {};
+    for (const kind of ["collection", "payout", "transfer"] as const) {
+      const f = form[kind];
+      if (!f.on) continue;
+      const c = f.currency.toUpperCase();
+      commission[kind] = {
+        ...(f.rate && { rateBps: Math.round(Number(f.rate) * 100) }),
+        ...(f.flat && { flat: { [c]: f.flat } }),
+        ...(f.min && { min: { [c]: f.min } }),
+        ...(f.max && { max: { [c]: f.max } }),
+        ...(kind === "collection" && f.chargeTo === "payer" && { chargeTo: "payer" }),
+      };
+    }
+    setSaving(true);
+    try {
+      await platformApi.updateMoney(tenantId, { commission });
+      toast.success("Commission saved");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save commission");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Platform commission</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Charged on settled movements and recorded in the tenant&apos;s ledger as owed to the platform. Off unless switched on here.
+        </p>
+      </CardHeader>
+      <CardContent className="grid gap-4 lg:grid-cols-3 text-sm">
+        {(["collection", "payout", "transfer"] as const).map((kind) => {
+          const f = form[kind];
+          return (
+            <div key={kind} className="rounded-md border p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-medium capitalize">{kind}s</p>
+                <Switch checked={f.on} onCheckedChange={(v) => set(kind, "on", v)} />
+              </div>
+              {f.on && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Rate %" value={f.rate} onChange={(v) => set(kind, "rate", v)} placeholder="1.5" />
+                  <Field label="Currency" value={f.currency} onChange={(v) => set(kind, "currency", v.toUpperCase())} placeholder="UGX" />
+                  <Field label="Flat fee" value={f.flat} onChange={(v) => set(kind, "flat", v)} placeholder="0" />
+                  <Field label="Minimum" value={f.min} onChange={(v) => set(kind, "min", v)} placeholder="none" />
+                  <Field label="Maximum" value={f.max} onChange={(v) => set(kind, "max", v)} placeholder="none" />
+                  {kind === "collection" && (
+                    <label className="col-span-2 flex items-center gap-2 text-xs">
+                      <input
+                        id="commission-payer"
+                        type="checkbox"
+                        checked={f.chargeTo === "payer"}
+                        onChange={(e) => set(kind, "chargeTo", e.target.checked ? "payer" : "tenant")}
+                      />
+                      Add it to what the payer pays
+                    </label>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="lg:col-span-3">
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save commission"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <label className="space-y-1 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <input
+        className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   );
 }

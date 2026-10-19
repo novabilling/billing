@@ -34,6 +34,9 @@ export interface MoneyIntent {
   paymentUrl: string | null;
   failureReason: string | null;
   fee: string | null;
+  commission: string | null;
+  commissionChargeTo: "tenant" | "payer" | null;
+  chargedAmount: string | null;
   customerId: string | null;
   walletId: string | null;
   toWalletId: string | null;
@@ -49,6 +52,29 @@ export interface MoneySettings {
   payouts: boolean;
   payoutApprovalThreshold: Record<string, string>;
   payoutDailyLimit: Record<string, string>;
+  commission: Partial<Record<"collection" | "payout" | "transfer", CommissionRule>>;
+}
+
+export interface CommissionRule {
+  rateBps?: number;
+  flat?: Record<string, string>;
+  min?: Record<string, string>;
+  max?: Record<string, string>;
+  chargeTo?: "tenant" | "payer";
+}
+
+/** "1.5% + 200 UGX (min 500, max 10,000) · paid by payer" */
+export function describeCommission(rule: CommissionRule | undefined): string {
+  if (!rule) return "None";
+  const parts: string[] = [];
+  if (rule.rateBps) parts.push(`${rule.rateBps / 100}%`);
+  for (const [c, v] of Object.entries(rule.flat ?? {})) parts.push(`${Number(v).toLocaleString()} ${c}`);
+  const bounds = [
+    ...Object.entries(rule.min ?? {}).map(([c, v]) => `min ${Number(v).toLocaleString()} ${c}`),
+    ...Object.entries(rule.max ?? {}).map(([c, v]) => `max ${Number(v).toLocaleString()} ${c}`),
+  ];
+  const text = parts.join(" + ") || "0";
+  return `${text}${bounds.length ? ` (${bounds.join(", ")})` : ""}${rule.chargeTo === "payer" ? " · added to what the payer pays" : ""}`;
 }
 
 export interface ProviderCapabilities {
@@ -108,6 +134,7 @@ export const railLabels: Record<string, string> = {
   paypal: "PayPal",
   yo_account: "Yo account",
   hosted: "Checkout link",
+  crypto: "Crypto",
   wallet: "Wallet",
 };
 

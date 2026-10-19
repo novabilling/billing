@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api/client";
 import {
+  describeCommission,
   describeParty,
   moneyApi,
   railLabels,
@@ -280,6 +281,12 @@ function IntentList({
                   <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
                     {formatCurrency(Number(r.amount), r.currency)}
                     {r.fee && <p className="text-xs text-muted-foreground">fee {formatCurrency(Number(r.fee), r.currency)}</p>}
+                    {r.commission && (
+                      <p className="text-xs text-muted-foreground">
+                        commission {formatCurrency(Number(r.commission), r.currency)}
+                        {r.commissionChargeTo === "payer" ? " (paid by payer)" : ""}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <p className="capitalize">{r.provider ?? "Internal"}</p>
@@ -724,6 +731,21 @@ function SettingsPanel({
           <Button disabled={saving} onClick={() => save({ payoutApprovalThreshold: threshold, payoutDailyLimit: limit })}>
             Save payout controls
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Platform commission</CardTitle>
+          <CardDescription>Set by the platform operator. Shown on each movement it applies to.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-3 text-sm">
+          {(["collection", "payout", "transfer"] as const).map((kind) => (
+            <div key={kind} className="rounded-md border px-3 py-2">
+              <p className="font-medium capitalize">{kind}s</p>
+              <p className="text-muted-foreground">{describeCommission(settings.commission?.[kind])}</p>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

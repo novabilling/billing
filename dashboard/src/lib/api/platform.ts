@@ -36,6 +36,7 @@ export interface PlatformOverview {
     transfers: number;
     stuck: number;
     awaitingApproval: number;
+    commission: CurrencyMap;
   };
   providers: { provider: string; tenants: number; succeeded: number; failed: number }[];
   features: { feature: string; tenants: number }[];
@@ -82,7 +83,11 @@ export interface MoneySettings {
   payouts: boolean;
   payoutApprovalThreshold: Record<string, string>;
   payoutDailyLimit: Record<string, string>;
+  commission: Partial<Record<"collection" | "payout" | "transfer", CommissionRule>>;
 }
+
+export type { CommissionRule } from "./money";
+import type { CommissionRule } from "./money";
 
 export interface MoneyMovementStats {
   collections: { count: number; failed: number; volume: CurrencyMap };
@@ -90,6 +95,7 @@ export interface MoneyMovementStats {
   transfers: { count: number };
   stuck: number;
   awaitingApproval: number;
+  commission?: CurrencyMap;
 }
 
 export interface LedgerCheck {

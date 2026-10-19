@@ -38,6 +38,8 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   pesapal: { logo: "📱", color: "bg-green-500" },
   paypal: { logo: "🅿️", color: "bg-blue-700" },
   yo: { logo: "📲", color: "bg-yellow-500" },
+  mtn_momo: { logo: "🟡", color: "bg-yellow-400" },
+  airtel_money: { logo: "🔴", color: "bg-red-600" },
 };
 
 const credentialFields: Record<
@@ -96,6 +98,32 @@ const credentialFields: Record<
       optional: true,
     },
   ],
+  mtn_momo: [
+    { key: "environment", label: "Environment", placeholder: "sandbox or production" },
+    { key: "targetEnvironment", label: "Target environment", placeholder: "mtnuganda (sandbox: sandbox)" },
+    { key: "collectionSubscriptionKey", label: "Collection subscription key", placeholder: "Primary key of the Collection product" },
+    { key: "collectionApiUser", label: "Collection API user", placeholder: "UUID" },
+    { key: "collectionApiKey", label: "Collection API key", placeholder: "" },
+    { key: "disbursementSubscriptionKey", label: "Disbursement subscription key (for payouts)", placeholder: "", optional: true },
+    { key: "disbursementApiUser", label: "Disbursement API user", placeholder: "UUID", optional: true },
+    { key: "disbursementApiKey", label: "Disbursement API key", placeholder: "", optional: true },
+    { key: "baseUrl", label: "API host (only if MTN gave you a different one)", placeholder: "https://proxy.momoapi.mtn.com", optional: true },
+  ],
+  airtel_money: [
+    { key: "environment", label: "Environment", placeholder: "staging or production" },
+    { key: "clientId", label: "Client ID", placeholder: "" },
+    { key: "clientSecret", label: "Client secret", placeholder: "" },
+    { key: "country", label: "Country", placeholder: "UG" },
+    { key: "currency", label: "Currency", placeholder: "UGX" },
+    { key: "disbursementPin", label: "Disbursement PIN (for payouts)", placeholder: "", optional: true },
+    {
+      key: "encryptionPublicKey",
+      label: "Airtel public key for PIN encryption (PEM)",
+      placeholder: "-----BEGIN PUBLIC KEY-----",
+      multiline: true,
+      optional: true,
+    },
+  ],
 };
 
 const webhookDocs: Record<string, { label: string; url: string }> = {
@@ -107,18 +135,20 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   pesapal: { label: "Pesapal Settings", url: "https://dashboard.pesapal.com" },
   paypal: { label: "PayPal Webhooks", url: "https://developer.paypal.com/dashboard/webhooks" },
   yo: { label: "Yo! Payments", url: "https://www.yo.co.ug" },
+  mtn_momo: { label: "MTN MoMo Developer", url: "https://momodeveloper.mtn.com" },
+  airtel_money: { label: "Airtel Developer Portal", url: "https://developers.airtel.africa" },
 };
 
 /**
  * Providers whose IPN / webhook URL is automatically registered via the
  * provider API when the credentials are saved — no manual setup needed.
  */
-const autoIpnProviders = new Set(["pesapal", "yo"]);
+const autoIpnProviders = new Set(["pesapal", "yo", "mtn_momo"]);
 
 /** What to tell the user about notification setup for providers we wire up ourselves. */
 function autoIpnNote(code: string, name: string): string {
-  return code === "yo"
-    ? `${brand.name} sends this notification URL to ${name} with every collection request — no setup needed in the Yo dashboard.`
+  return code === "yo" || code === "mtn_momo"
+    ? `${brand.name} sends this notification URL to ${name} with every collection request — nothing to set up on their side.`
     : `${brand.name} automatically registers this IPN URL with ${name} when you save your credentials — no manual setup required.`;
 }
 
@@ -151,6 +181,14 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
     method: "PayPal verification API",
     detail: "Each notification is verified with PayPal using your Webhook ID (verify-webhook-signature)",
   },
+  mtn_momo: {
+    method: "Status check",
+    detail: "MTN callbacks are unsigned, so each one triggers a status request to MTN, which decides the outcome",
+  },
+  airtel_money: {
+    method: "Status check",
+    detail: "Airtel callbacks trigger a status request to Airtel, which decides the outcome",
+  },
   yo: {
     method: "RSA-SHA1 + status check",
     detail: "Notifications are signature-checked with Yo's public key, then confirmed with a status request to Yo",
@@ -176,6 +214,9 @@ function getApiBaseUrl(): string {
 function webhookUrlFor(code: string): string {
   const tenant = useAuthStore.getState().user?.tenantId;
   if (code === "yo") return `${getApiBaseUrl()}/webhooks/yo/${tenant ?? "{tenantId}"}/ipn`;
+  if (code === "mtn_momo" || code === "airtel_money") {
+    return `${getApiBaseUrl()}/webhooks/${code}/${tenant ?? "{tenantId}"}/callback`;
+  }
   if (autoIpnProviders.has(code)) return `${getApiBaseUrl()}/webhooks/${code}`;
   const tenantId = useAuthStore.getState().user?.tenantId;
   return tenantId

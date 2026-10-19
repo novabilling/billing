@@ -213,6 +213,8 @@ const providerDescriptions: Record<string, string> = {
   pesapal: "East African payment platform for mobile money, cards, and bank transfers",
   paypal: "Global digital payments platform supporting cards, PayPal balance, and Buy Now Pay Later",
   yo: "Uganda mobile money collections, and payouts to mobile money, registered bank accounts and Yo accounts",
+  mtn_momo: "MTN Mobile Money direct: collections (request to pay) and disbursements for MTN subscribers",
+  airtel_money: "Airtel Money direct: USSD-push collections and disbursements for Airtel subscribers",
 };
 
 const providerDisplayNames: Record<string, string> = {
@@ -224,6 +226,8 @@ const providerDisplayNames: Record<string, string> = {
   pesapal: "Pesapal",
   paypal: "PayPal",
   yo: "Yo! Payments",
+  mtn_momo: "MTN MoMo",
+  airtel_money: "Airtel Money",
 };
 
 function mapProvider(p: any): PaymentProvider {
@@ -787,6 +791,24 @@ export const apiClient = {
           isConfigured: false,
           isActive: false,
           priority: 8,
+        },
+        {
+          id: "default_mtn_momo",
+          name: "MTN MoMo",
+          code: "mtn_momo" as const,
+          description: providerDescriptions.mtn_momo,
+          isConfigured: false,
+          isActive: false,
+          priority: 9,
+        },
+        {
+          id: "default_airtel_money",
+          name: "Airtel Money",
+          code: "airtel_money" as const,
+          description: providerDescriptions.airtel_money,
+          isConfigured: false,
+          isActive: false,
+          priority: 10,
         },
       ];
 

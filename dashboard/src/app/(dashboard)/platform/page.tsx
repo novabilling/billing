@@ -314,7 +314,11 @@ function Overview() {
           value={<CurrencyAmounts amounts={data.moneyMovement30d.payoutVolume} className="text-xl" />}
           hint={`${data.moneyMovement30d.payouts} succeeded · ${data.moneyMovement30d.payoutsFailed} failed`}
         />
-        <Stat label="Wallet transfers (30 days)" value={compact(data.moneyMovement30d.transfers)} />
+        <Stat
+          label="Commission earned (30 days)"
+          value={<CurrencyAmounts amounts={data.moneyMovement30d.commission} className="text-xl" />}
+          hint={`${compact(data.moneyMovement30d.transfers)} wallet transfers`}
+        />
         <Stat
           label="Need review"
           value={`${data.moneyMovement30d.stuck} stuck`}
