@@ -39,6 +39,8 @@ export interface MoneyMovementStats {
   transfers: { count: number };
   stuck: number;
   awaitingApproval: number;
+  /** Platform commission on settled movements, per currency. */
+  commission: Record<string, string>;
 }
 
 /**
@@ -194,7 +196,7 @@ export class TenantMetricsService {
           by: ['type', 'status', 'currency'],
           where: { createdAt: { gte: since } },
           _count: { _all: true },
-          _sum: { amount: true },
+          _sum: { amount: true, commission: true },
         }),
         db.moneyIntent.count({ where: { status: 'STUCK' } }),
         db.moneyIntent.count({ where: { status: 'REQUIRES_APPROVAL' } }),
@@ -205,9 +207,14 @@ export class TenantMetricsService {
         transfers: { count: 0 },
         stuck,
         awaitingApproval,
+        commission: {},
       };
+      const commission = new Map<string, bigint>();
       const volumes = { COLLECTION: new Map<string, bigint>(), PAYOUT: new Map<string, bigint>() };
       for (const g of groups) {
+        if (g.status === 'SUCCEEDED' && g._sum.commission) {
+          commission.set(g.currency, (commission.get(g.currency) ?? 0n) + toScaled(g._sum.commission));
+        }
         if (g.type === 'TRANSFER') {
           if (g.status === 'SUCCEEDED') stats.transfers.count += g._count._all;
           continue;
@@ -223,6 +230,7 @@ export class TenantMetricsService {
       }
       stats.collections.volume = Object.fromEntries([...volumes.COLLECTION].map(([c, v]) => [c, formatScaled(v)]));
       stats.payouts.volume = Object.fromEntries([...volumes.PAYOUT].map(([c, v]) => [c, formatScaled(v)]));
+      stats.commission = Object.fromEntries([...commission].map(([c, v]) => [c, formatScaled(v)]));
       return stats;
     } catch {
       return null;

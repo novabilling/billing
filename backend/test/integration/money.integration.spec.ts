@@ -220,4 +220,51 @@ describeDb('money movement (postgres)', () => {
     expect(await bal('wallet_topup_clearing')).toBe(0n);
     expect(await bal('provider_fees:fake')).toBe(25000000n);
   });
+
+  describe('commission', () => {
+    const withCommission = {
+      id: 't1',
+      settings: {
+        money: {
+          ...tenant.settings.money,
+          commission: {
+            collection: { rateBps: 200, chargeTo: 'payer' },
+            payout: { rateBps: 100, min: { UGX: '500' } },
+            transfer: { flat: { UGX: '100' } },
+          },
+        },
+      },
+    };
+
+    it('asks the payer for the commission on top and records it on the collection', async () => {
+      provider.collect.mockResolvedValueOnce({ state: 'pending' });
+      const c = await money.createCollection(db, withCommission, { amount: '50000', currency: 'UGX', payer: mm });
+      expect(provider.collect.mock.calls[0][0].amount).toBe('51000');
+      expect(c).toMatchObject({ amount: '50000', commission: '1000', commissionChargeTo: 'payer', chargedAmount: '51000' });
+    });
+
+    it('keeps the ledger balanced with commission charged both ways', async () => {
+      await fund('wal_a', 100000);
+      provider.collect.mockResolvedValueOnce({ state: 'succeeded' });
+      await money.createCollection(db, withCommission, { amount: '50000', currency: 'UGX', payer: mm });
+      provider.payout.mockResolvedValueOnce({ state: 'succeeded' });
+      const p = await money.createPayout(db, withCommission, { amount: '20000', currency: 'UGX', payee: mm });
+      expect(p.commission).toBe('500'); // 1% = 200, raised to the 500 minimum
+      await money.createTransfer(db, withCommission, { fromWalletId: 'wal_a', toWalletId: 'wal_b', amount: '1000' });
+
+      const past = new Date(Date.now() - 60 * 60 * 1000);
+      await db.moneyIntent.updateMany({ data: { updatedAt: past } });
+      await db.walletTransaction.updateMany({ data: { createdAt: past } });
+      const ledger = new LedgerService();
+      expect((await new LedgerProjectorService(ledger).project(db)).failed).toBe(0);
+      expect((await ledger.checkHealth(db)).balanced).toBe(true);
+
+      const bal = async (code: string) =>
+        (await db.ledgerAccount.findUniqueOrThrow({ where: { code_currency: { code, currency: 'UGX' } } })).balance;
+      // Payer-paid 1,000 + tenant-borne 500 (payout) + 100 (transfer) = 1,600 owed to the platform.
+      expect(await bal('platform_commission_payable')).toBe(-16000000n);
+      expect(await bal('platform_commission')).toBe(6000000n);
+      expect(await bal('one_time_revenue')).toBe(-500000000n);
+    });
+  });
 });

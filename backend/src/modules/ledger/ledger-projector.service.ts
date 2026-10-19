@@ -309,7 +309,7 @@ export class LedgerProjectorService {
     return this.scan(
       (cursor) =>
         db.moneyIntent.findMany({
-          where: { updatedAt: { gt: cursor, lte: until }, status: 'SUCCEEDED', type: { in: ['COLLECTION', 'PAYOUT'] } },
+          where: { updatedAt: { gt: cursor, lte: until }, status: 'SUCCEEDED' },
           orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
           take: BATCH,
         }),
@@ -331,7 +331,27 @@ export class LedgerProjectorService {
    * reported, post separately.
    */
   async projectMoneyIntent(db: PrismaClient, intent: MoneyIntent): Promise<PostingOutcome> {
-    if (!intent.provider) return 'skipped';
+    const commission = intent.commission ? toScaled(intent.commission) : 0n;
+    const payerPays = intent.commissionChargeTo === 'payer';
+
+    // Commission the tenant bears posts on its own: an expense owed to the platform.
+    if (commission > 0n && !payerPays) {
+      await this.ledger.post(db, {
+        reference: `money_intent:${intent.id}:commission`,
+        type: 'FEE',
+        description: `Platform commission on ${intent.type.toLowerCase()}`,
+        sourceType: 'money_intent',
+        sourceId: intent.id,
+        effectiveAt: intent.completedAt ?? intent.updatedAt,
+        lines: [
+          { account: Accounts.platformCommission(intent.currency), amount: commission },
+          { account: Accounts.platformCommissionPayable(intent.currency), amount: -commission },
+        ],
+      });
+    }
+
+    // Transfers' wallet legs come from wallet transactions; only commission posts here.
+    if (intent.type === 'TRANSFER' || !intent.provider) return 'skipped';
     const amount = toScaled(intent.amount);
     const clearing = Accounts.providerClearing(intent.provider, intent.currency);
     const fee = intent.fee ? toScaled(intent.fee) : 0n;
@@ -362,8 +382,13 @@ export class LedgerProjectorService {
       metadata: { rail: intent.rail, providerReference: intent.providerReference, clientReference: intent.clientReference },
       lines: collection
         ? [
-            { account: clearing, amount },
+            // When the payer was charged the commission on top, it arrived in
+            // clearing with the payment and is owed straight to the platform.
+            { account: clearing, amount: payerPays ? amount + commission : amount },
             { account: other, amount: -amount },
+            ...(payerPays && commission > 0n
+              ? [{ account: Accounts.platformCommissionPayable(intent.currency), amount: -commission }]
+              : []),
             ...feeLines,
           ]
         : [

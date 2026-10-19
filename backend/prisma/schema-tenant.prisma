@@ -871,6 +871,13 @@ model MoneyIntent {
   paymentUrl        String?
   failureReason     String?
   fee               Decimal?          @db.Decimal(19, 4)
+  // Platform commission on this movement, when the tenant has a rule.
+  commission        Decimal?          @db.Decimal(19, 4)
+  // "tenant" or "payer" (payer: added to what the payer was asked to pay).
+  commissionChargeTo String?
+  // Amount actually requested from the payer / sent to the provider when it
+  // differs from `amount` (commission passed to the payer).
+  chargedAmount     Decimal?          @db.Decimal(19, 4)
   approvedAt        DateTime?
   approvedBy        String?
   lastCheckedAt     DateTime?

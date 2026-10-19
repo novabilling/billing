@@ -20,4 +20,8 @@ export class UpdateTenantMoneyDto {
   @IsOptional()
   @IsObject()
   payoutDailyLimit?: Record<string, string>;
+
+  @IsOptional()
+  @IsObject()
+  commission?: Record<string, unknown>;
 }

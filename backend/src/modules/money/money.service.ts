@@ -11,6 +11,7 @@ import { formatScaled, toScaled } from '../ledger/ledger.money';
 import { ProviderRegistryService } from './provider-registry.service';
 import { majorAmount, MoneyProvider, Party, ProviderAmbiguousError, ProviderOutcome, Rail } from './types';
 import { parseParty } from './party';
+import { CommissionKind, CommissionQuote, CommissionSettings, quoteCommission, validateCommission } from './commission';
 
 export interface MoneySettings {
   collections: boolean;
@@ -21,6 +22,8 @@ export interface MoneySettings {
   payoutApprovalThreshold: Record<string, string>;
   /** Maximum total payouts per currency per UTC day. */
   payoutDailyLimit: Record<string, string>;
+  /** Platform commission rules; set by the platform operator only. */
+  commission: CommissionSettings;
 }
 
 interface TenantRef {
@@ -71,6 +74,7 @@ export function moneySettings(tenant: TenantRef): MoneySettings {
     payouts: raw?.payouts === true,
     payoutApprovalThreshold: raw?.payoutApprovalThreshold ?? {},
     payoutDailyLimit: raw?.payoutDailyLimit ?? {},
+    commission: raw?.commission ?? {},
   };
 }
 
@@ -96,7 +100,7 @@ export class MoneyService {
   // --- Collections ---
 
   async createCollection(db: PrismaClient, tenant: TenantRef, input: CreateCollectionInput) {
-    this.requireFeature(tenant, 'collections');
+    const settings = this.requireFeature(tenant, 'collections');
     const payer = parseParty(input.payer, 'payer');
     const currency = input.currency.toUpperCase();
     const amount = this.parseAmount(input.amount, currency);
@@ -111,10 +115,12 @@ export class MoneyService {
     const existing = await this.byClientReference(db, 'COLLECTION', input.reference);
     if (existing) return this.present(existing);
 
+    const commission = this.commission(settings, 'collection', amount, currency);
     const intent = await this.createIntent(db, {
       type: 'COLLECTION',
       amount,
       currency,
+      ...commission,
       provider: providerName,
       rail,
       party: payer,
@@ -127,17 +133,17 @@ export class MoneyService {
     });
     if (intent.existing) return this.present(intent.row);
 
-    const base = `${process.env.API_BASE_URL || 'http://localhost:4000'}/webhooks/yo/${tenant.id}`;
+    const notify = notificationUrls(providerName, tenant.id);
     const outcome = await this.callProvider(() =>
       provider.collect!({
         reference: intent.row.providerReference!,
-        amount: majorAmount(intent.row.amount, getCurrencyDecimals(currency)),
+        // Includes the commission when it is passed on to the payer.
+        amount: majorAmount(intent.row.chargedAmount ?? intent.row.amount, getCurrencyDecimals(currency)),
         currency,
         payer,
         description: input.description || 'Payment',
         callbackUrl: input.returnUrl,
-        notificationUrl: `${base}/ipn`,
-        failureNotificationUrl: `${base}/failure`,
+        ...notify,
       }),
     );
     return this.present(await this.applyOutcome(db, tenant.id, intent.row, outcome, 'create'));
@@ -173,6 +179,7 @@ export class MoneyService {
         status: needsApproval ? 'REQUIRES_APPROVAL' : 'PENDING',
         amount,
         currency,
+        ...this.commission(settings, 'payout', amount, currency),
         provider: providerName,
         rail,
         party: payee,
@@ -260,7 +267,7 @@ export class MoneyService {
   // --- Transfers ---
 
   async createTransfer(db: PrismaClient, tenant: TenantRef, input: CreateTransferInput) {
-    this.requireFeature(tenant, 'transfers');
+    const settings = this.requireFeature(tenant, 'transfers');
     if (input.fromWalletId === input.toWalletId) throw new BadRequestException('Choose two different wallets');
     const [from, to] = await Promise.all([
       db.wallet.findUnique({ where: { id: input.fromWalletId } }),
@@ -283,6 +290,7 @@ export class MoneyService {
         status: 'SUCCEEDED',
         amount,
         currency: from.currency,
+        ...this.commission(settings, 'transfer', amount, from.currency),
         rail: 'wallet',
         description: input.description,
         clientReference: input.reference,
@@ -422,10 +430,11 @@ export class MoneyService {
     }
     if (!intent || intent.type !== 'COLLECTION') return false;
 
-    const amountDiffers = data.amount > 0 && toScaled(data.amount) !== toScaled(intent.amount);
+    const expected = intent.chargedAmount ?? intent.amount;
+    const amountDiffers = data.amount > 0 && toScaled(data.amount) !== toScaled(expected);
     const currencyDiffers = Boolean(data.currency) && data.currency.toUpperCase() !== intent.currency;
     const mismatch = data.status === 'succeeded' && (amountDiffers || currencyDiffers)
-      ? `provider reported ${data.amount} ${data.currency}, expected ${intent.amount.toString()} ${intent.currency}`
+      ? `provider reported ${data.amount} ${data.currency}, expected ${expected.toString()} ${intent.currency}`
       : null;
 
     try {
@@ -514,9 +523,13 @@ export class MoneyService {
   }
 
   /** Tenant settings changes for the self-service features (collections, transfers, approval rules). */
-  async updateSettings(tenant: TenantRef, patch: Partial<MoneySettings>, allowPayoutsFlag: boolean) {
-    if (patch.payouts !== undefined && !allowPayoutsFlag) {
+  async updateSettings(tenant: TenantRef, patch: Partial<MoneySettings>, operator: boolean) {
+    if (patch.payouts !== undefined && !operator) {
       throw new BadRequestException('Payouts are enabled by the platform operator after review');
+    }
+    if (patch.commission !== undefined) {
+      if (!operator) throw new BadRequestException('Commission is set by the platform operator');
+      patch = { ...patch, commission: validateCommission(patch.commission) };
     }
     for (const map of [patch.payoutApprovalThreshold, patch.payoutDailyLimit]) {
       for (const [currency, value] of Object.entries(map ?? {})) {
@@ -533,6 +546,16 @@ export class MoneyService {
   }
 
   // --- Internals ---
+
+  private commission(settings: MoneySettings, kind: CommissionKind, amount: string, currency: string) {
+    const quote: CommissionQuote | null = quoteCommission(settings.commission, kind, amount, currency, getCurrencyDecimals(currency));
+    if (!quote) return {};
+    return {
+      commission: quote.amount,
+      commissionChargeTo: quote.chargeTo,
+      ...(quote.charged !== amount && { chargedAmount: quote.charged }),
+    };
+  }
 
   private requireFeature(tenant: TenantRef, feature: 'collections' | 'payouts' | 'transfers'): MoneySettings {
     const settings = moneySettings(tenant);
@@ -653,6 +676,9 @@ export class MoneyService {
       paymentUrl: intent.paymentUrl,
       failureReason: intent.failureReason,
       fee: intent.fee?.toString() ?? null,
+      commission: intent.commission?.toString() ?? null,
+      commissionChargeTo: intent.commissionChargeTo,
+      chargedAmount: intent.chargedAmount?.toString() ?? null,
       customerId: intent.customerId,
       walletId: intent.walletId,
       toWalletId: intent.toWalletId,
@@ -664,6 +690,18 @@ export class MoneyService {
       completedAt: intent.completedAt,
     };
   }
+}
+
+/**
+ * Where providers send collection notifications. Yo takes success and
+ * failure URLs with each request; MTN takes one callback URL per request;
+ * Airtel's callback is set once in its portal (the same URL shown here).
+ */
+export function notificationUrls(provider: string, tenantId: string) {
+  const base = `${process.env.API_BASE_URL || 'http://localhost:4000'}/webhooks/${provider}/${tenantId}`;
+  return provider === 'yo'
+    ? { notificationUrl: `${base}/ipn`, failureNotificationUrl: `${base}/failure` }
+    : { notificationUrl: `${base}/callback` };
 }
 
 function newReference(prefix: string): string {

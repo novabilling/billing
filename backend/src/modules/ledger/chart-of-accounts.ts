@@ -148,4 +148,20 @@ export const Accounts = {
     currency: cur(currency),
     provider: provider.toLowerCase(),
   }),
+
+  /** Commission owed to the platform operator, until it is settled. */
+  platformCommissionPayable: (currency: string): AccountSpec => ({
+    code: 'platform_commission_payable',
+    name: 'Platform commission payable',
+    type: 'LIABILITY',
+    currency: cur(currency),
+  }),
+
+  /** Commission the tenant bears (not passed on to payers). */
+  platformCommission: (currency: string): AccountSpec => ({
+    code: 'platform_commission',
+    name: 'Platform commission',
+    type: 'EXPENSE',
+    currency: cur(currency),
+  }),
 };

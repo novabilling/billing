@@ -388,6 +388,7 @@ export class PlatformService {
       payoutVolume: sumCurrencyMaps(stats.map((s) => s.payouts.volume)),
       transfers: stats.reduce((n, s) => n + s.transfers.count, 0),
       stuck: stats.reduce((n, s) => n + s.stuck, 0),
+      commission: sumCurrencyMaps(stats.map((s) => s.commission ?? {})),
       awaitingApproval: stats.reduce((n, s) => n + s.awaitingApproval, 0),
     };
   }
