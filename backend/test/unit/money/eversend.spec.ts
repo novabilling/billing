@@ -1,6 +1,8 @@
 import { clearEversendTokenCache, EversendAdapter } from '../../../src/modules/money/adapters/eversend.adapter';
 import { ProviderRegistryService } from '../../../src/modules/money/provider-registry.service';
 import { parseParty } from '../../../src/modules/money/party';
+import { ProviderAmbiguousError } from '../../../src/modules/money/types';
+import { countryOfNumber } from '../../../src/modules/money/msisdn';
 
 const res = (status: number, body: unknown) =>
   Promise.resolve({ ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) } as Response);
@@ -119,5 +121,145 @@ describe('crypto routing', () => {
     expect(await registry.pick(db as never, 'collect', 'crypto', { type: 'crypto' }, 'USDT')).toBe('eversend');
     expect(await registry.pick(db as never, 'collect', 'crypto', { type: 'crypto' }, 'usdc')).toBe('eversend');
     expect(await registry.pick(db as never, 'collect', 'crypto', { type: 'crypto' }, 'UGX')).toBe('nowpayments');
+  });
+});
+
+describe('Eversend payouts', () => {
+  const creds = { clientId: 'cid', clientSecret: 'secret' };
+  beforeEach(() => clearEversendTokenCache());
+  const quote = () => res(200, { data: { token: 'q-token', totalFees: 1500 } });
+
+  it('quotes for the exact amount, then pays a mobile money number with our reference', async () => {
+    const fetch = jest
+      .fn()
+      .mockImplementationOnce(token)
+      .mockImplementationOnce(quote)
+      .mockImplementationOnce(() => res(200, { data: { transaction: { transactionId: 'EV123', status: 'pending' } } }));
+    const out = await new EversendAdapter(creds, fetch as never).payout({
+      reference: 'pay_1',
+      amount: '50000',
+      currency: 'KES',
+      payee: { type: 'mobile_money', msisdn: '254712345678', name: 'Wanjiku Kamau Njeri' },
+      description: 'Refund',
+    });
+
+    const [qUrl, qInit] = fetch.mock.calls[1] as [string, RequestInit];
+    expect(qUrl).toBe('https://api.eversend.co/v1/payouts/quotation');
+    expect(JSON.parse(String(qInit.body))).toEqual({
+      sourceWallet: 'KES',
+      type: 'momo',
+      amount: 50000,
+      destinationCountry: 'KE',
+      destinationCurrency: 'KES',
+      amountType: 'DESTINATION',
+    });
+    const [pUrl, pInit] = fetch.mock.calls[2] as [string, RequestInit];
+    expect(pUrl).toBe('https://api.eversend.co/v1/payouts');
+    expect(JSON.parse(String(pInit.body))).toEqual({
+      token: 'q-token',
+      transactionRef: 'pay_1',
+      firstName: 'Wanjiku',
+      lastName: 'Kamau Njeri',
+      phoneNumber: '+254712345678',
+      country: 'KE',
+    });
+    expect(out).toEqual({ state: 'pending', providerTxnId: 'EV123', providerStatus: 'PENDING', fee: 1500 });
+  });
+
+  it('pays bank accounts from another wallet, without claiming a fee in the wrong currency', async () => {
+    const fetch = jest
+      .fn()
+      .mockImplementationOnce(token)
+      .mockImplementationOnce(quote)
+      .mockImplementationOnce(() => res(201, { data: { transactionId: 'EV9', status: 'successful' } }));
+    const out = await new EversendAdapter({ ...creds, payoutSourceWallet: 'usd', contactPhone: '+256700000001' }, fetch as never).payout({
+      reference: 'pay_2',
+      amount: '1000000',
+      currency: 'UGX',
+      payee: { type: 'bank', accountName: 'Okello John', accountNumber: '9030001', bankCode: '014', bankName: 'Stanbic', country: 'ug' },
+      description: 'Supplier',
+    });
+    expect(JSON.parse(String((fetch.mock.calls[1] as [string, RequestInit])[1].body))).toMatchObject({ sourceWallet: 'USD', type: 'bank', destinationCountry: 'UG' });
+    expect(JSON.parse(String((fetch.mock.calls[2] as [string, RequestInit])[1].body))).toMatchObject({
+      phoneNumber: '+256700000001',
+      bankCode: '014',
+      bankAccountNumber: '9030001',
+      bankAccountName: 'Okello John',
+    });
+    expect(out).toEqual({ state: 'succeeded', providerTxnId: 'EV9', providerStatus: 'SUCCESSFUL' });
+  });
+
+  it('refuses before quoting when Eversend would reject the payee', async () => {
+    const fetch = jest.fn();
+    const adapter = new EversendAdapter(creds, fetch as never);
+    const base = { reference: 'p', amount: '1000', currency: 'UGX', description: 'x' };
+    expect(await adapter.payout({ ...base, payee: { type: 'mobile_money', msisdn: '0772123456', name: 'Cher' } })).toMatchObject({
+      state: 'failed',
+      failureReason: expect.stringMatching(/first and last name/),
+    });
+    expect(await adapter.payout({ ...base, payee: { type: 'bank', accountName: 'A B', accountNumber: '1', bankCode: '1' } })).toMatchObject({
+      failureReason: expect.stringMatching(/phone number/),
+    });
+    expect(await adapter.payout({ ...base, payee: { type: 'paypal', email: 'a@b.co' } })).toMatchObject({ state: 'failed' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('fails cleanly on a refused quotation and treats a lost payout reply as ambiguous', async () => {
+    const payee = { type: 'mobile_money' as const, msisdn: '256772123456', name: 'Jane Doe' };
+    const refused = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() => res(400, { message: 'Insufficient balance' }));
+    expect(
+      await new EversendAdapter(creds, refused as never).payout({ reference: 'p', amount: '1', currency: 'UGX', payee, description: 'x' }),
+    ).toEqual({ state: 'failed', failureReason: 'Insufficient balance' });
+
+    clearEversendTokenCache();
+    const lost = jest
+      .fn()
+      .mockImplementationOnce(token)
+      .mockImplementationOnce(quote)
+      .mockImplementationOnce(() => Promise.reject(new TypeError('socket hang up')));
+    await expect(
+      new EversendAdapter(creds, lost as never).payout({ reference: 'p', amount: '1', currency: 'UGX', payee, description: 'x' }),
+    ).rejects.toBeInstanceOf(ProviderAmbiguousError);
+
+    clearEversendTokenCache();
+    const down = jest.fn().mockImplementationOnce(token).mockImplementationOnce(quote).mockImplementationOnce(() => res(502, null));
+    expect(
+      await new EversendAdapter(creds, down as never).payout({ reference: 'p', amount: '1', currency: 'UGX', payee, description: 'x' }),
+    ).toMatchObject({ state: 'pending', indeterminate: true });
+  });
+
+  it('checks status by Eversend id, or finds the payout by our reference', async () => {
+    const byId = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() => res(200, { data: { transaction: { transactionId: 'EV1', status: 'failed', reason: 'Invalid account' } } }));
+    expect(await new EversendAdapter(creds, byId as never).getPayout('pay_1', 'EV1')).toEqual({
+      state: 'failed',
+      providerTxnId: 'EV1',
+      providerStatus: 'FAILED',
+      failureReason: 'Invalid account',
+    });
+    expect(byId.mock.calls[1][0]).toBe('https://api.eversend.co/v1/transactions/EV1');
+
+    clearEversendTokenCache();
+    const byRef = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() =>
+      res(200, { data: { transactions: [{ transactionRef: 'other', status: 'failed' }, { transactionRef: 'pay_1', transactionId: 'EV2', status: 'successful' }] } }),
+    );
+    expect(await new EversendAdapter(creds, byRef as never).getPayout('pay_1', null)).toMatchObject({ state: 'succeeded', providerTxnId: 'EV2' });
+
+    clearEversendTokenCache();
+    const missing = jest.fn().mockImplementationOnce(token).mockImplementationOnce(() => res(200, { data: { transactions: [] } }));
+    expect(await new EversendAdapter(creds, missing as never).getPayout('pay_1', null)).toEqual({ state: 'pending', providerStatus: 'NOT_FOUND_BY_REFERENCE' });
+  });
+
+  it('parses a bank payee phone', () => {
+    expect(parseParty({ type: 'bank', accountNumber: '1', accountName: 'A B', phone: '+256 700-000001' }, 'payee')).toMatchObject({ phone: '256700000001' });
+    expect(() => parseParty({ type: 'bank', accountNumber: '1', accountName: 'A B', phone: 'call me' }, 'payee')).toThrow(/phone/);
+  });
+});
+
+describe('countryOfNumber', () => {
+  it('reads the country from the calling code', () => {
+    expect(countryOfNumber('256772123456')).toBe('UG');
+    expect(countryOfNumber('254712345678')).toBe('KE');
+    expect(countryOfNumber('27821234567')).toBe('ZA');
+    expect(countryOfNumber('2567')).toBeUndefined();
   });
 });

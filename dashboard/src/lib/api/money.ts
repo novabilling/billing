@@ -12,7 +12,7 @@ export type MoneyStatus =
 
 export type Party =
   | { type: "mobile_money"; msisdn: string; network?: string; name?: string }
-  | { type: "bank"; accountNumber: string; accountName: string; bankCode?: string; bankName?: string; transferType?: string }
+  | { type: "bank"; accountNumber: string; accountName: string; bankCode?: string; bankName?: string; country?: string; phone?: string; transferType?: string }
   | { type: "paypal"; email: string; name?: string }
   | { type: "yo_account"; accountNumber: string; email: string; name?: string }
   | { type: "hosted"; email: string; name?: string }

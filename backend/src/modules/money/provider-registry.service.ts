@@ -86,7 +86,7 @@ export class ProviderRegistryService {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
     if (name === 'eversend') {
-      return { collect: ['crypto'], payout: [], balance: true, verifyPayee: false };
+      return { collect: ['crypto'], payout: ['mobile_money', 'bank'], balance: true, verifyPayee: false };
     }
     if (name === 'mtn_momo' || name === 'airtel_money') {
       return { collect: ['mobile_money'], payout: ['mobile_money'], balance: true, verifyPayee: true };

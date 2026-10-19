@@ -7,7 +7,17 @@ export type Rail = 'card' | 'bank' | 'mobile_money' | 'paypal' | 'yo_account' | 
 /** Who pays (collections) or who is paid (payouts). */
 export type Party =
   | { type: 'mobile_money'; msisdn: string; network?: string; name?: string }
-  | { type: 'bank'; accountNumber: string; accountName: string; bankCode?: string; bankName?: string; country?: string; transferType?: 'RTGS' | 'EFT' | 'TT' }
+  | {
+      type: 'bank';
+      accountNumber: string;
+      accountName: string;
+      bankCode?: string;
+      bankName?: string;
+      country?: string;
+      transferType?: 'RTGS' | 'EFT' | 'TT';
+      /** Account holder's phone, international format; some providers (Eversend) require it. */
+      phone?: string;
+    }
   | { type: 'paypal'; email: string; name?: string }
   | { type: 'yo_account'; accountNumber: string; email: string; name?: string }
   // Hosted checkout: the payer chooses card, bank or mobile money on the provider's page.

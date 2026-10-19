@@ -99,7 +99,7 @@ export class OperatorWebhooksController {
     const { reference, providerTxnId, status } = callbackRefs(provider, body);
     const intent = await this.money.findByProviderRef(db, provider, {
       reference: reference || undefined,
-      // Eversend deposits are matched by the collection's own address.
+      // Eversend: a crypto collection's address, or a payout's Eversend id.
       ...(provider === 'eversend' && providerTxnId && { providerTxnId }),
     });
     try {
@@ -138,10 +138,12 @@ function callbackRefs(provider: string, body: Record<string, unknown>) {
   }
   if (provider === 'eversend') {
     const data = (body.data ?? body) as Record<string, unknown>;
-    const address = data.address ?? data.cryptoAddress ?? data.walletAddress ?? data.destinationAddress ?? '';
+    const tx = (data.transaction ?? data) as Record<string, unknown>;
+    // Crypto deposits name the collection's address; payouts carry our transactionRef and Eversend's id.
+    const address = data.address ?? data.cryptoAddress ?? data.walletAddress ?? data.destinationAddress;
     return {
-      reference: String(data.destinationAddressDescription ?? ''),
-      providerTxnId: String(address),
+      reference: String(data.destinationAddressDescription ?? tx.transactionRef ?? ''),
+      providerTxnId: String(address ?? tx.transactionId ?? ''),
       status: String(data.status ?? body.eventType ?? body.event ?? ''),
     };
   }

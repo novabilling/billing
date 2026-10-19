@@ -424,6 +424,8 @@ function CreateDialog({
           accountName: form.accountName ?? "",
           bankCode: form.bankCode || undefined,
           bankName: form.bankName || undefined,
+          country: form.country ? form.country.toUpperCase() : undefined,
+          phone: form.phone || undefined,
           transferType: form.transferType || undefined,
         };
       case "yo_account":
@@ -567,8 +569,13 @@ function CreateDialog({
                     {field("bankCode", "Bank code / identifier", { placeholder: "Provider bank code" })}
                     {field("bankName", "Bank name (optional)")}
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {field("country", "Country (optional)", { placeholder: "e.g. UG, KE" })}
+                    {field("phone", "Account holder phone (optional)", { placeholder: "+256…" })}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Yo! Payments only pays bank accounts already registered and verified in your Yo account.
+                    Yo! Payments only pays bank accounts already registered and verified in your Yo account. Eversend needs
+                    the account holder&apos;s full name, a phone number and the bank code from its bank list.
                   </p>
                 </>
               )}

@@ -37,6 +37,10 @@ export function parseParty(raw: unknown, role: 'payer' | 'payee'): Party {
       if (transferType && !['RTGS', 'EFT', 'TT'].includes(transferType)) {
         throw new BadRequestException(`${role}.transferType must be RTGS, EFT or TT`);
       }
+      const phone = optional('phone');
+      if (phone && !/^\+?\d{9,15}$/.test(phone.replace(/[\s-]/g, ''))) {
+        throw new BadRequestException(`${role}.phone must be a phone number in international format`);
+      }
       return {
         type: 'bank',
         accountNumber: need('accountNumber'),
@@ -45,6 +49,7 @@ export function parseParty(raw: unknown, role: 'payer' | 'payee'): Party {
         bankName: optional('bankName'),
         country: optional('country'),
         transferType: transferType as 'RTGS' | 'EFT' | 'TT' | undefined,
+        phone: phone ? phone.replace(/[\s-]/g, '').replace(/^\+/, '') : undefined,
       };
     }
     case 'paypal':

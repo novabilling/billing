@@ -1,9 +1,21 @@
-import { Capabilities, CollectRequest, MoneyProvider, ProviderOutcome } from '../types';
+import {
+  Capabilities,
+  CollectRequest,
+  MoneyProvider,
+  PayoutRequest,
+  ProviderAmbiguousError,
+  ProviderOutcome,
+  Rail,
+} from '../types';
 import { toScaled } from '../../ledger/ledger.money';
+import { countryOfNumber, toInternational } from '../msisdn';
 
 /**
- * Stablecoin collections through Eversend (eversend.co). The tenant holds
- * its own Eversend business account; for each collection we create a
+ * Eversend (eversend.co): stablecoin collections and mobile money / bank
+ * payouts in its payout markets. The tenant holds its own Eversend business
+ * account.
+ *
+ * Collections: for each collection we create a
  * deposit address on the chosen chain, the payer sends the coin to it, and
  * Eversend credits the tenant's wallet there. We never hold crypto.
  *
@@ -11,7 +23,11 @@ import { toScaled } from '../../ledger/ledger.money';
  * the coin itself (USDT or USDC), and it settles when deposits to its
  * address reach the amount asked for.
  *
- * Paths follow Eversend's v1 API (auth/token, crypto/assets, crypto/addresses).
+ * Payouts: a quotation (payouts/quotation) fixes the rate and fee and
+ * returns a token, which the payout (payouts) then spends. Our reference
+ * goes as transactionRef so a payout can be found even if its reply is lost.
+ *
+ * Paths follow Eversend's v1 API as used by its official Node SDK.
  */
 export interface EversendCredentials {
   clientId: string;
@@ -20,14 +36,23 @@ export interface EversendCredentials {
   baseUrl?: string;
   /** Chain used when the payer does not name one, e.g. "TRON". */
   defaultChain?: string;
+  /**
+   * Eversend wallet payouts are paid from, e.g. "USD" to fund KES payouts
+   * from a dollar balance. Defaults to the payout's own currency.
+   */
+  payoutSourceWallet?: string;
+  /** Country for payouts when the payee does not say (ISO alpha-2), e.g. "UG". */
+  defaultCountry?: string;
+  /** Phone sent with bank payouts when the payee has none (Eversend requires one). */
+  contactPhone?: string;
 }
 
 export const EVERSEND_COINS = ['USDT', 'USDC'];
 
 const DEFAULT_URL = 'https://api.eversend.co/v1';
 const TIMEOUT_MS = 30_000;
-const SETTLED = new Set(['successful', 'success', 'completed', 'complete', 'confirmed', 'credited']);
-const FAILED = new Set(['failed', 'rejected', 'reversed', 'cancelled', 'canceled']);
+const SETTLED = new Set(['successful', 'success', 'completed', 'complete', 'confirmed', 'credited', 'settled']);
+const FAILED = new Set(['failed', 'rejected', 'reversed', 'cancelled', 'canceled', 'declined', 'expired']);
 
 const tokens = new Map<string, { token: string; expiresAt: number }>();
 
@@ -45,7 +70,7 @@ interface Deposit {
 
 export class EversendAdapter implements MoneyProvider {
   readonly name = 'eversend';
-  readonly capabilities: Capabilities = { collect: ['crypto'], payout: [], balance: true, verifyPayee: false };
+  readonly capabilities: Capabilities = { collect: ['crypto'], payout: ['mobile_money', 'bank'], balance: true, verifyPayee: false };
 
   constructor(
     private readonly credentials: EversendCredentials,
@@ -133,6 +158,112 @@ export class EversendAdapter implements MoneyProvider {
     };
   }
 
+  // --- Payouts ---
+
+  async payout(request: PayoutRequest): Promise<ProviderOutcome> {
+    const payee = request.payee;
+    if (payee.type !== 'mobile_money' && payee.type !== 'bank') {
+      return { state: 'failed', failureReason: 'Eversend pays out to mobile money numbers and bank accounts only' };
+    }
+    const fullName = payee.type === 'bank' ? payee.accountName : payee.name;
+    const [firstName, ...rest] = (fullName ?? '').trim().split(/\s+/);
+    if (!firstName || rest.length === 0) {
+      return { state: 'failed', failureReason: "Eversend needs the recipient's first and last name" };
+    }
+    const destinationCurrency = request.currency.toUpperCase();
+    const fallbackCountry = this.credentials.defaultCountry?.toUpperCase();
+    let country: string | undefined;
+    let phone: string | undefined;
+    if (payee.type === 'mobile_money') {
+      const international = toInternational(payee.msisdn, fallbackCountry ?? 'UG');
+      country = countryOfNumber(international) ?? fallbackCountry;
+      phone = international;
+    } else {
+      country = payee.country?.toUpperCase() ?? fallbackCountry;
+      phone = (payee.phone ?? this.credentials.contactPhone)?.replace(/[^\d]/g, '');
+      if (!phone) return { state: 'failed', failureReason: "Eversend bank payouts need the recipient's phone number" };
+      if (!payee.bankCode) return { state: 'failed', failureReason: 'Eversend bank payouts need the bank code (see its delivery banks list)' };
+    }
+    if (!country) return { state: 'failed', failureReason: 'Could not tell which country to pay out to' };
+
+    // The quotation only prices the payout; nothing moves, so errors are clean failures.
+    const quote = await this.call('POST', '/payouts/quotation', {
+      sourceWallet: (this.credentials.payoutSourceWallet ?? destinationCurrency).toUpperCase(),
+      type: payee.type === 'bank' ? 'bank' : 'momo',
+      amount: Number(request.amount),
+      destinationCountry: country,
+      destinationCurrency,
+      // The payee receives exactly the amount asked for; fees come from the source wallet.
+      amountType: 'DESTINATION',
+    }).catch((error: Error) => ({ status: 0, body: { message: error.message } }));
+    const q = (unwrap(quote.body)?.quotation ?? unwrap(quote.body)) as Obj | undefined;
+    const quotationToken = str(unwrap(quote.body)?.token) ?? str(q?.token);
+    if (quote.status < 200 || quote.status >= 300 || !quotationToken) {
+      return { state: 'failed', failureReason: message(quote.body) || `Eversend could not quote the payout (HTTP ${quote.status})` };
+    }
+    const sameWallet = (this.credentials.payoutSourceWallet ?? destinationCurrency).toUpperCase() === destinationCurrency;
+    const fee = sameWallet ? Number(q?.totalFees ?? q?.fees ?? q?.fee) : NaN;
+
+    let r: { status: number; body: unknown };
+    try {
+      r = await this.call('POST', '/payouts', {
+        token: quotationToken,
+        transactionRef: request.reference,
+        firstName,
+        lastName: rest.join(' '),
+        phoneNumber: `+${phone}`,
+        country,
+        ...(payee.type === 'bank' && {
+          bankName: payee.bankName ?? payee.bankCode,
+          bankAccountName: payee.accountName,
+          bankCode: payee.bankCode,
+          bankAccountNumber: payee.accountNumber,
+        }),
+      });
+    } catch (error) {
+      // The request may have reached Eversend; check by reference before anything else.
+      throw new ProviderAmbiguousError(error instanceof Error ? error.message : String(error));
+    }
+    const tx = transaction(r.body);
+    if (r.status >= 500 || r.status === 0) {
+      return { state: 'pending', indeterminate: true, failureReason: message(r.body) || `Eversend HTTP ${r.status}` };
+    }
+    if (r.status >= 300) {
+      return { state: 'failed', providerStatus: `HTTP_${r.status}`, failureReason: message(r.body) || 'Eversend refused the payout' };
+    }
+    return {
+      ...mapTransactionStatus(tx?.status),
+      providerTxnId: tx?.transactionId,
+      providerStatus: tx?.status?.toUpperCase() || 'SUBMITTED',
+      ...(Number.isFinite(fee) && fee >= 0 && { fee }),
+    };
+  }
+
+  /** By Eversend's transaction id when we have it, else by our reference. */
+  async getPayout(reference: string, providerTxnId?: string | null, _rail?: Rail): Promise<ProviderOutcome> {
+    let tx: { transactionId?: string; status?: string; reason?: string } | undefined;
+    if (providerTxnId) {
+      const r = await this.call('GET', `/transactions/${encodeURIComponent(providerTxnId)}`);
+      if (r.status === 404) return { state: 'failed', providerStatus: 'NOT_FOUND', failureReason: 'Eversend has no record of this payout' };
+      if (r.status !== 200) return { state: 'pending', providerStatus: `HTTP_${r.status}`, providerTxnId };
+      tx = transaction(r.body);
+    } else {
+      const r = await this.call('GET', `/transactions?search=${encodeURIComponent(reference)}&limit=20`);
+      if (r.status !== 200) return { state: 'pending', providerStatus: `HTTP_${r.status}` };
+      const match = list(r.body).find((t) => str(t.transactionRef) === reference);
+      // Not found yet: the payout may never have arrived. It stays open for a person to resolve, never resent.
+      if (!match) return { state: 'pending', providerStatus: 'NOT_FOUND_BY_REFERENCE' };
+      tx = transaction({ data: match });
+    }
+    const mapped = mapTransactionStatus(tx?.status);
+    return {
+      ...mapped,
+      providerTxnId: tx?.transactionId ?? providerTxnId ?? undefined,
+      providerStatus: tx?.status?.toUpperCase(),
+      ...(mapped.state === 'failed' && { failureReason: tx?.reason || `Eversend status ${tx?.status}` }),
+    };
+  }
+
   async getBalance(): Promise<Record<string, string>> {
     const r = await this.call('GET', '/wallets');
     if (r.status !== 200) throw new Error(`Eversend balance failed (HTTP ${r.status})`);
@@ -216,6 +347,30 @@ export function clearEversendTokenCache(): void {
 // --- Response helpers (Eversend wraps payloads in `data`, sometimes nested) ---
 
 type Obj = Record<string, unknown>;
+
+export function mapTransactionStatus(status: string | undefined): Pick<ProviderOutcome, 'state'> {
+  const s = (status ?? '').toLowerCase();
+  if (SETTLED.has(s)) return { state: 'succeeded' };
+  if (FAILED.has(s)) return { state: 'failed' };
+  return { state: 'pending' };
+}
+
+function unwrap(body: unknown): Obj | undefined {
+  const b = body as Obj | null;
+  return ((b?.data ?? b) as Obj | null) ?? undefined;
+}
+
+/** The transaction in a payout or transaction response, wherever Eversend nests it. */
+function transaction(body: unknown): { transactionId?: string; status?: string; reason?: string } | undefined {
+  const d = unwrap(body);
+  const t = ((d?.transaction ?? d) as Obj | undefined) ?? undefined;
+  if (!t) return undefined;
+  return {
+    transactionId: str(t.transactionId) ?? str(t.id),
+    status: str(t.status),
+    reason: str(t.reason) ?? str(t.failureReason) ?? str(t.message),
+  };
+}
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : undefined;

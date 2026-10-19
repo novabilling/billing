@@ -119,7 +119,10 @@ const credentialFields: Record<
   eversend: [
     { key: "clientId", label: "Client ID", placeholder: "From Eversend Business → Settings → API" },
     { key: "clientSecret", label: "Client secret", placeholder: "" },
-    { key: "defaultChain", label: "Default chain (optional)", placeholder: "e.g. TRON", optional: true },
+    { key: "defaultChain", label: "Default crypto chain (optional)", placeholder: "e.g. TRON", optional: true },
+    { key: "payoutSourceWallet", label: "Pay out from wallet (optional)", placeholder: "Payout currency by default, or e.g. USD", optional: true },
+    { key: "defaultCountry", label: "Default payout country (optional)", placeholder: "e.g. UG", optional: true },
+    { key: "contactPhone", label: "Fallback phone for bank payouts (optional)", placeholder: "+256…", optional: true },
     { key: "baseUrl", label: "API host (optional)", placeholder: "https://api.eversend.co/v1", optional: true },
   ],
   airtel_money: [

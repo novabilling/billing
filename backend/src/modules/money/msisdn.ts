@@ -12,6 +12,16 @@ export const MTN_MARKETS: Record<string, string> = {
   mtnliberia: 'LR', mtnrwanda: 'RW', mtnsouthsudan: 'SS',
 };
 
+/** Country of an international number (digits, no "+"), from its calling code. */
+export function countryOfNumber(international: string): string | undefined {
+  const digits = international.replace(/[^\d]/g, '');
+  // Longest code first so "27" (ZA) never shadows a three-digit code.
+  const match = Object.entries(DIAL_CODES)
+    .sort((a, b) => b[1].length - a[1].length)
+    .find(([, code]) => digits.startsWith(code) && digits.length > code.length + 6);
+  return match?.[0];
+}
+
 export function dialCode(country: string): string | undefined {
   return DIAL_CODES[country.toUpperCase()];
 }
