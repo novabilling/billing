@@ -26,6 +26,8 @@ import {
   Webhook,
   Globe,
   Building2,
+  ArrowLeftRight,
+  BookOpenCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useUIStore } from "@/lib/stores/ui";
@@ -75,6 +77,13 @@ const navigation: NavGroup[] = [
       { name: "Invoices", href: "/invoices", icon: CreditCard },
       { name: "Payments", href: "/payments", icon: DollarSign },
       { name: "Credit Notes", href: "/credit-notes", icon: FileText },
+    ],
+  },
+  {
+    label: "Money",
+    items: [
+      { name: "Money movement", href: "/money", icon: ArrowLeftRight },
+      { name: "Ledger", href: "/ledger", icon: BookOpenCheck },
     ],
   },
   {

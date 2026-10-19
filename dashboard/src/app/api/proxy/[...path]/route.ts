@@ -48,10 +48,13 @@ async function makeBackendRequest(
   method: string,
   token: string,
   body?: string,
+  idempotencyKey?: string | null,
 ): Promise<Response> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
   };
+  // Lets money-moving requests from the dashboard be retried safely.
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
   if (method !== "GET" && method !== "HEAD") {
     headers["Content-Type"] = "application/json";
@@ -93,7 +96,8 @@ async function proxyRequest(
   }
 
   try {
-    let res = await makeBackendRequest(url.toString(), req.method, token, body);
+    const idempotencyKey = req.headers.get("idempotency-key");
+    let res = await makeBackendRequest(url.toString(), req.method, token, body, idempotencyKey);
 
     // If 401, attempt token refresh and retry
     if (res.status === 401) {
@@ -104,6 +108,7 @@ async function proxyRequest(
           req.method,
           newToken,
           body,
+          idempotencyKey,
         );
       }
     }

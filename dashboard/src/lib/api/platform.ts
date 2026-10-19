@@ -9,6 +9,7 @@ export type HealthFlag =
   | "payment_failures"
   | "ledger_unbalanced"
   | "ledger_not_provisioned"
+  | "money_stuck"
   | "deactivated";
 
 export type CurrencyMap = Record<string, string>;
@@ -24,6 +25,17 @@ export interface PlatformOverview {
     paymentsFailed: number;
     customers: number;
     activeSubscriptions: number;
+  };
+  moneyMovement30d: {
+    collections: number;
+    collectionsFailed: number;
+    collectionVolume: CurrencyMap;
+    payouts: number;
+    payoutsFailed: number;
+    payoutVolume: CurrencyMap;
+    transfers: number;
+    stuck: number;
+    awaitingApproval: number;
   };
   providers: { provider: string; tenants: number; succeeded: number; failed: number }[];
   features: { feature: string; tenants: number }[];
@@ -60,6 +72,24 @@ export interface PlatformTenantRow {
   providers: string[];
   features: string[];
   ledger: LedgerSummary | null;
+  money: MoneySettings;
+  moneyMovement30d: MoneyMovementStats | null;
+}
+
+export interface MoneySettings {
+  collections: boolean;
+  transfers: boolean;
+  payouts: boolean;
+  payoutApprovalThreshold: Record<string, string>;
+  payoutDailyLimit: Record<string, string>;
+}
+
+export interface MoneyMovementStats {
+  collections: { count: number; failed: number; volume: CurrencyMap };
+  payouts: { count: number; failed: number; volume: CurrencyMap };
+  transfers: { count: number };
+  stuck: number;
+  awaitingApproval: number;
 }
 
 export interface LedgerCheck {
@@ -97,6 +127,7 @@ export interface PlatformTenantDetail {
     featuresUsed: string[];
     firstPaymentAt: string | null;
     lastPaymentAt: string | null;
+    moneyMovement30d: MoneyMovementStats | null;
     createdAt: string;
   } | null;
   history: { date: string; customers: number; activeSubscriptions: number; paymentsSucceeded30d: number; paymentsFailed30d: number }[];
@@ -114,6 +145,7 @@ export interface PlatformTenantDetail {
     lastCheckAt: string | null;
     checks: LedgerCheck[] | null;
   } | null;
+  money: MoneySettings;
 }
 
 export const platformApi = {
@@ -129,6 +161,8 @@ export const platformApi = {
   refreshTenant: (id: string) =>
     apiFetch<{ refreshed: boolean }>(`/admin/tenants/${id}/refresh`, { method: "POST" }),
   refreshAll: () => apiFetch<{ started: boolean }>("/admin/metrics/refresh", { method: "POST" }),
+  updateMoney: (id: string, patch: Partial<MoneySettings>) =>
+    apiFetch<MoneySettings>(`/admin/tenants/${id}/money`, { method: "PATCH", body: JSON.stringify(patch) }),
 };
 
 export const stageLabels: Record<TenantStage, string> = {
@@ -145,6 +179,7 @@ export const flagLabels: Record<HealthFlag, string> = {
   payment_failures: "Payment failures",
   ledger_unbalanced: "Ledger out of balance",
   ledger_not_provisioned: "Ledger tables missing",
+  money_stuck: "Payments need review",
   deactivated: "Deactivated",
 };
 

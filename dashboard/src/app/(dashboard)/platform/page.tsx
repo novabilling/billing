@@ -303,6 +303,26 @@ function Overview() {
         </Card>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          label="Collections (30 days)"
+          value={<CurrencyAmounts amounts={data.moneyMovement30d.collectionVolume} className="text-xl" />}
+          hint={`${data.moneyMovement30d.collections} succeeded · ${data.moneyMovement30d.collectionsFailed} failed`}
+        />
+        <Stat
+          label="Payouts (30 days)"
+          value={<CurrencyAmounts amounts={data.moneyMovement30d.payoutVolume} className="text-xl" />}
+          hint={`${data.moneyMovement30d.payouts} succeeded · ${data.moneyMovement30d.payoutsFailed} failed`}
+        />
+        <Stat label="Wallet transfers (30 days)" value={compact(data.moneyMovement30d.transfers)} />
+        <Stat
+          label="Need review"
+          value={`${data.moneyMovement30d.stuck} stuck`}
+          hint={`${data.moneyMovement30d.awaitingApproval} payouts waiting for tenant approval`}
+          tone={data.moneyMovement30d.stuck > 0 ? "warn" : undefined}
+        />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Customers across tenants" value={compact(money30d.customers)} />
         <Stat label="Active subscriptions" value={compact(money30d.activeSubscriptions)} />

@@ -16,6 +16,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { PlatformGate } from "@/components/platform/platform-gate";
 import { CurrencyAmounts, Stat, compact, percent, plural } from "@/components/platform/bits";
 import { featureLabels, platformApi, type PlatformTenantDetail } from "@/lib/api/platform";
@@ -227,6 +229,8 @@ function TenantDetail() {
         </Card>
       </div>
 
+      <MoneyControls tenantId={tenant.id} data={data} onChange={load} />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -286,5 +290,92 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right">{value}</span>
     </div>
+  );
+}
+
+function MoneyControls({ tenantId, data, onChange }: { tenantId: string; data: PlatformTenantDetail; onChange: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const money = data.money;
+  const stats = data.latest?.moneyMovement30d ?? null;
+
+  const update = async (patch: Partial<PlatformTenantDetail["money"]>) => {
+    setSaving(true);
+    try {
+      await platformApi.updateMoney(tenantId, patch);
+      toast.success("Saved");
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const limits = (map: Record<string, string>) =>
+    Object.entries(map)
+      .map(([c, v]) => `${Number(v).toLocaleString()} ${c}`)
+      .join(", ") || "none";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Money movement</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-6 lg:grid-cols-2 text-sm">
+        <div className="space-y-3">
+          {(["collections", "transfers", "payouts"] as const).map((feature) => (
+            <div key={feature} className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-medium capitalize">{feature}</p>
+                <p className="text-xs text-muted-foreground">
+                  {feature === "payouts"
+                    ? "Only operators can turn payouts on. Review the account and its limits first."
+                    : "The tenant can also switch this in their own settings."}
+                </p>
+              </div>
+              <Switch checked={money[feature]} disabled={saving} onCheckedChange={(v) => update({ [feature]: v })} />
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Approval at or above: {limits(money.payoutApprovalThreshold)} · Daily limit: {limits(money.payoutDailyLimit)}
+          </p>
+        </div>
+        <div className="space-y-2">
+          {!stats ? (
+            <p className="text-muted-foreground">No money movement in the last 30 days.</p>
+          ) : (
+            <>
+              <Row
+                label="Collections"
+                value={
+                  <span className="inline-flex flex-col items-end">
+                    <span>{stats.collections.count} succeeded · {stats.collections.failed} failed</span>
+                    <CurrencyAmounts amounts={stats.collections.volume} className="text-xs text-muted-foreground items-end" />
+                  </span>
+                }
+              />
+              <Row
+                label="Payouts"
+                value={
+                  <span className="inline-flex flex-col items-end">
+                    <span>{stats.payouts.count} succeeded · {stats.payouts.failed} failed</span>
+                    <CurrencyAmounts amounts={stats.payouts.volume} className="text-xs text-muted-foreground items-end" />
+                  </span>
+                }
+              />
+              <Row label="Transfers" value={stats.transfers.count} />
+              <Row
+                label="Needs review"
+                value={
+                  <span className={stats.stuck ? "text-amber-600" : ""}>
+                    {stats.stuck} stuck · {stats.awaitingApproval} awaiting approval
+                  </span>
+                }
+              />
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

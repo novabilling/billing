@@ -212,6 +212,7 @@ const providerDescriptions: Record<string, string> = {
   payu: "Payment gateway for South Africa supporting credit cards, EFT, and instant payments",
   pesapal: "East African payment platform for mobile money, cards, and bank transfers",
   paypal: "Global digital payments platform supporting cards, PayPal balance, and Buy Now Pay Later",
+  yo: "Uganda mobile money collections, and payouts to mobile money, registered bank accounts and Yo accounts",
 };
 
 const providerDisplayNames: Record<string, string> = {
@@ -222,6 +223,7 @@ const providerDisplayNames: Record<string, string> = {
   payu: "PayU",
   pesapal: "Pesapal",
   paypal: "PayPal",
+  yo: "Yo! Payments",
 };
 
 function mapProvider(p: any): PaymentProvider {
@@ -776,6 +778,15 @@ export const apiClient = {
           isConfigured: false,
           isActive: false,
           priority: 7,
+        },
+        {
+          id: "default_yo",
+          name: "Yo! Payments",
+          code: "yo" as const,
+          description: providerDescriptions.yo,
+          isConfigured: false,
+          isActive: false,
+          priority: 8,
         },
       ];
 

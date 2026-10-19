@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api/client";
 import type { PaymentProvider } from "@/types";
 import { toast } from "sonner";
@@ -36,11 +37,12 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   payu: { logo: "💰", color: "bg-emerald-500" },
   pesapal: { logo: "📱", color: "bg-green-500" },
   paypal: { logo: "🅿️", color: "bg-blue-700" },
+  yo: { logo: "📲", color: "bg-yellow-500" },
 };
 
 const credentialFields: Record<
   string,
-  { key: string; label: string; placeholder: string }[]
+  { key: string; label: string; placeholder: string; multiline?: boolean; optional?: boolean }[]
 > = {
   stripe: [
     { key: "secretKey", label: "Secret Key", placeholder: "sk_live_..." },
@@ -75,6 +77,25 @@ const credentialFields: Record<
     { key: "webhookId", label: "Webhook ID", placeholder: "From PayPal Developer Dashboard" },
     { key: "environment", label: "Environment", placeholder: "sandbox or live" },
   ],
+  yo: [
+    { key: "apiUsername", label: "API Username", placeholder: "From Yo! Payments → API credentials" },
+    { key: "apiPassword", label: "API Password", placeholder: "" },
+    { key: "environment", label: "Environment", placeholder: "sandbox or live" },
+    {
+      key: "privateKey",
+      label: "Private key (PEM, if Yo has public-key authentication on)",
+      placeholder: "-----BEGIN PRIVATE KEY-----",
+      multiline: true,
+      optional: true,
+    },
+    {
+      key: "notificationPublicKey",
+      label: "Yo public key for notifications (PEM)",
+      placeholder: "-----BEGIN PUBLIC KEY----- (from Yo; needed to verify payment notifications)",
+      multiline: true,
+      optional: true,
+    },
+  ],
 };
 
 const webhookDocs: Record<string, { label: string; url: string }> = {
@@ -85,13 +106,21 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   payu: { label: "PayU Settings", url: "https://developers.payu.co.za" },
   pesapal: { label: "Pesapal Settings", url: "https://dashboard.pesapal.com" },
   paypal: { label: "PayPal Webhooks", url: "https://developer.paypal.com/dashboard/webhooks" },
+  yo: { label: "Yo! Payments", url: "https://www.yo.co.ug" },
 };
 
 /**
  * Providers whose IPN / webhook URL is automatically registered via the
  * provider API when the credentials are saved — no manual setup needed.
  */
-const autoIpnProviders = new Set(["pesapal"]);
+const autoIpnProviders = new Set(["pesapal", "yo"]);
+
+/** What to tell the user about notification setup for providers we wire up ourselves. */
+function autoIpnNote(code: string, name: string): string {
+  return code === "yo"
+    ? `${brand.name} sends this notification URL to ${name} with every collection request — no setup needed in the Yo dashboard.`
+    : `${brand.name} automatically registers this IPN URL with ${name} when you save your credentials — no manual setup required.`;
+}
 
 const signatureVerification: Record<string, { method: string; detail: string }> = {
   stripe: {
@@ -119,8 +148,12 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
     detail: "IPN verified via server-to-server status fetch (no signature header)",
   },
   paypal: {
-    method: "HMAC-SHA256",
-    detail: "Verified using your Client Secret and Webhook ID (PAYPAL-TRANSMISSION-SIG header)",
+    method: "PayPal verification API",
+    detail: "Each notification is verified with PayPal using your Webhook ID (verify-webhook-signature)",
+  },
+  yo: {
+    method: "RSA-SHA1 + status check",
+    detail: "Notifications are signature-checked with Yo's public key, then confirmed with a status request to Yo",
   },
 };
 
@@ -141,6 +174,8 @@ function getApiBaseUrl(): string {
 // with; for the rest, show this tenant's own URL so notifications are only
 // checked against this account's credentials.
 function webhookUrlFor(code: string): string {
+  const tenant = useAuthStore.getState().user?.tenantId;
+  if (code === "yo") return `${getApiBaseUrl()}/webhooks/yo/${tenant ?? "{tenantId}"}/ipn`;
   if (autoIpnProviders.has(code)) return `${getApiBaseUrl()}/webhooks/${code}`;
   const tenantId = useAuthStore.getState().user?.tenantId;
   return tenantId
@@ -209,9 +244,9 @@ export default function ProvidersPage() {
   async function handleSaveConfig() {
     if (!configProvider) return;
     const fields = credentialFields[configProvider.code] || [];
-    const hasEmpty = fields.some((f) => !credentials[f.key]);
+    const hasEmpty = fields.some((f) => !f.optional && !credentials[f.key]);
     if (hasEmpty) {
-      toast.error("All credential fields are required");
+      toast.error("Fill in every required credential field");
       return;
     }
     setIsSaving(true);
@@ -219,7 +254,8 @@ export default function ProvidersPage() {
       if (configProvider.id.startsWith("default_")) {
         await apiClient.providers.create({
           providerName: configProvider.code,
-          credentials,
+          // Optional fields left blank are not sent.
+          credentials: Object.fromEntries(Object.entries(credentials).filter(([, v]) => v)),
           isActive: true,
           priority: configProvider.priority,
         });
@@ -410,7 +446,7 @@ export default function ProvidersPage() {
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-tight">
                     {autoIpnProviders.has(provider.code)
-                      ? `${brand.name} automatically registers this IPN URL with ${provider.name} when you save your credentials — no manual setup required.`
+                      ? autoIpnNote(provider.code, provider.name)
                       : `Paste this URL in your ${provider.name} dashboard to receive payment notifications.`}
                   </p>
                 </div>
@@ -541,18 +577,34 @@ export default function ProvidersPage() {
               (credentialFields[configProvider.code] || []).map((field) => (
                 <div key={field.key} className="space-y-2">
                   <Label htmlFor={field.key}>{field.label}</Label>
-                  <Input
-                    id={field.key}
-                    type="password"
-                    placeholder={field.placeholder}
-                    value={credentials[field.key] || ""}
-                    onChange={(e) =>
-                      setCredentials({
-                        ...credentials,
-                        [field.key]: e.target.value,
-                      })
-                    }
-                  />
+                  {field.multiline ? (
+                    <Textarea
+                      id={field.key}
+                      rows={4}
+                      className="font-mono text-xs"
+                      placeholder={field.placeholder}
+                      value={credentials[field.key] || ""}
+                      onChange={(e) =>
+                        setCredentials({
+                          ...credentials,
+                          [field.key]: e.target.value,
+                        })
+                      }
+                    />
+                  ) : (
+                    <Input
+                      id={field.key}
+                      type="password"
+                      placeholder={field.placeholder}
+                      value={credentials[field.key] || ""}
+                      onChange={(e) =>
+                        setCredentials({
+                          ...credentials,
+                          [field.key]: e.target.value,
+                        })
+                      }
+                    />
+                  )}
                 </div>
               ))}
 
@@ -589,8 +641,7 @@ export default function ProvidersPage() {
                 </div>
                 {autoIpnProviders.has(configProvider.code) ? (
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    {brand.name} will automatically register this IPN URL with{" "}
-                    {configProvider.name} when you save — no manual setup required.
+                    {autoIpnNote(configProvider.code, configProvider.name)}
                   </p>
                 ) : (
                   <p className="text-[10px] text-muted-foreground leading-tight">

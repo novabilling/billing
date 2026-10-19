@@ -121,7 +121,7 @@ export interface Payment {
 export interface PaymentProvider {
   id: string;
   name: string;
-  code: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal" | "paypal";
+  code: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal" | "paypal" | "yo";
   description: string;
   isConfigured: boolean;
   isActive: boolean;
