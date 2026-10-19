@@ -16,6 +16,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
+import { brand } from "@/lib/brand";
 
 interface BillingData {
   customer: {
@@ -358,7 +359,7 @@ export default function CustomerBillingPortal() {
       {/* Footer */}
       <div className="mt-12 pt-6 border-t text-center">
         <p className="text-xs text-muted-foreground">
-          Powered by <span className="font-medium">NovaBilling</span>
+          Powered by <span className="font-medium">{brand.name}</span>
         </p>
       </div>
     </div>

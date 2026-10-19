@@ -24,11 +24,14 @@ import {
   Calculator,
   SlidersHorizontal,
   Webhook,
+  Globe,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useUIStore } from "@/lib/stores/ui";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/stores/auth";
+import { usePlatformAccess } from "@/components/platform/platform-gate";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { brand } from "@/lib/brand";
 
 interface NavItem {
   name: string;
@@ -99,12 +103,28 @@ const navigation: NavGroup[] = [
   },
 ];
 
+// Shown only to operator accounts (see PLATFORM_ADMIN_TENANT_IDS on the API).
+const platformGroup: NavGroup = {
+  label: "Platform",
+  items: [
+    { name: "Platform overview", href: "/platform", icon: Globe },
+    { name: "Tenants", href: "/platform/tenants", icon: Building2 },
+  ],
+};
+
 const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { user, logout } = useAuthStore();
+  const isPlatformAdmin = usePlatformAccess();
+  const groups = isPlatformAdmin ? [platformGroup, ...navigation] : navigation;
+  // The most specific matching link wins, so /platform/tenants does not also light up /platform.
+  const activeHref = groups
+    .flatMap((g) => g.items.map((i) => i.href))
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
 
   return (
     <div
@@ -116,16 +136,16 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Image src="/logo.png" alt="NovaBilling" width={32} height={32} className="h-8 w-8 rounded-lg" />
+          <Image src={brand.logo} alt={brand.name} width={32} height={32} className="h-8 w-8 rounded-lg" />
           {!sidebarCollapsed && (
-            <span className="font-semibold text-lg">NovaBilling</span>
+            <span className="font-semibold text-lg">{brand.name}</span>
           )}
         </Link>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-4">
-        {navigation.map((group) => (
+        {groups.map((group) => (
           <div key={group.label}>
             {!sidebarCollapsed && (
               <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -134,9 +154,7 @@ export function Sidebar() {
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/" && pathname.startsWith(item.href));
+                const isActive = item.href === activeHref;
                 return (
                   <Link
                     key={item.name}

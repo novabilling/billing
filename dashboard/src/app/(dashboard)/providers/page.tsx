@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { apiClient } from "@/lib/api/client";
 import type { PaymentProvider } from "@/types";
 import { toast } from "sonner";
+import { brand } from "@/lib/brand";
 
 const providerInfo: Record<string, { logo: string; color: string }> = {
   stripe: { logo: "💳", color: "bg-indigo-500" },
@@ -397,7 +398,7 @@ export default function ProvidersPage() {
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-tight">
                     {autoIpnProviders.has(provider.code)
-                      ? `NovaBilling automatically registers this IPN URL with ${provider.name} when you save your credentials — no manual setup required.`
+                      ? `${brand.name} automatically registers this IPN URL with ${provider.name} when you save your credentials — no manual setup required.`
                       : `Paste this URL in your ${provider.name} dashboard to receive payment notifications.`}
                   </p>
                 </div>
@@ -576,7 +577,7 @@ export default function ProvidersPage() {
                 </div>
                 {autoIpnProviders.has(configProvider.code) ? (
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    NovaBilling will automatically register this IPN URL with{" "}
+                    {brand.name} will automatically register this IPN URL with{" "}
                     {configProvider.name} when you save — no manual setup required.
                   </p>
                 ) : (

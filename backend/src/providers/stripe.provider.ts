@@ -13,6 +13,7 @@ import {
   ChargePaymentMethodParams,
 } from './base-payment.provider';
 import { toSmallestUnit, fromSmallestUnit } from '../common/utils/currency.utils';
+import { getBrand } from '../config/brand';
 
 interface StripeCredentials {
   secretKey: string;
@@ -263,7 +264,7 @@ export class StripeProvider extends BasePaymentProvider {
       if (!customerId) {
         const customerBody = this.encodeParams({
           email: params.customerEmail,
-          ...(params.metadata ? { 'metadata[source]': 'novabilling' } : {}),
+          ...(params.metadata ? { 'metadata[source]': getBrand().slug } : {}),
         });
 
         const customerResponse = await fetch(`${this.baseUrl}/customers`, {

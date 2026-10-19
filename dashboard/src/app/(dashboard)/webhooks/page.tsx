@@ -18,6 +18,7 @@ import { apiClient } from "@/lib/api/client";
 import { formatDateTime } from "@/lib/utils/date";
 import type { WebhookLog } from "@/types";
 import { toast } from "sonner";
+import { brand } from "@/lib/brand";
 
 const PROVIDER_LABELS: Record<string, string> = {
   stripe: "Stripe",
@@ -350,7 +351,7 @@ export default function WebhooksPage() {
 
         <TabsContent value="outbound" className="mt-4 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Events delivered from NovaBilling to your configured webhook
+            Events delivered from {brand.name} to your configured webhook
             endpoint. Configure your endpoint in{" "}
             <a href="/settings" className="underline underline-offset-2">
               Settings

@@ -58,6 +58,12 @@ services:
       INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      BRAND_NAME: ${BRAND_NAME:-}
+      BRAND_SLUG: ${BRAND_SLUG:-}
+      BRAND_SUPPORT_EMAIL: ${BRAND_SUPPORT_EMAIL:-}
+      BRAND_WEBSITE: ${BRAND_WEBSITE:-}
+      PLATFORM_ADMIN_TENANT_IDS: ${PLATFORM_ADMIN_TENANT_IDS:-}
+      LEDGER_MODE: ${LEDGER_MODE:-shadow}
       JWT_EXPIRATION: 1h
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
       JWT_REFRESH_EXPIRATION: 7d
@@ -93,6 +99,12 @@ services:
       INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      BRAND_NAME: ${BRAND_NAME:-}
+      BRAND_SLUG: ${BRAND_SLUG:-}
+      BRAND_SUPPORT_EMAIL: ${BRAND_SUPPORT_EMAIL:-}
+      BRAND_WEBSITE: ${BRAND_WEBSITE:-}
+      PLATFORM_ADMIN_TENANT_IDS: ${PLATFORM_ADMIN_TENANT_IDS:-}
+      LEDGER_MODE: ${LEDGER_MODE:-shadow}
       JWT_EXPIRATION: 1h
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
       JWT_REFRESH_EXPIRATION: 7d
@@ -136,6 +148,10 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_DOCS_URL: ${DOCS_URL:-http://localhost:4003}
+        NEXT_PUBLIC_BRAND_NAME: ${BRAND_NAME:-}
+        NEXT_PUBLIC_BRAND_LOGO: ${BRAND_LOGO:-}
+        NEXT_PUBLIC_BRAND_TAGLINE: ${BRAND_TAGLINE:-}
+        NEXT_PUBLIC_BRAND_PRIMARY: ${BRAND_PRIMARY:-}
     ports:
       - "${DASHBOARD_PORT:-4002}:4002"
     environment:

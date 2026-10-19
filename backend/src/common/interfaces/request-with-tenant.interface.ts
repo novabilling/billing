@@ -18,4 +18,6 @@ export interface TenantInfo {
 export interface RequestWithTenant extends Request {
   tenant: TenantInfo;
   tenantDb: PrismaClient;
+  /** How the request authenticated: a dashboard session (JWT) or an API key. */
+  authMethod?: 'session' | 'api_key';
 }

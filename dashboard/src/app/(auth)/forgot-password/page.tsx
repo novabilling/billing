@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
+import { brand } from "@/lib/brand";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -45,7 +46,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <Image src="/logo.png" alt="NovaBilling" width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
+          <Image src={brand.logo} alt={brand.name} width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
           <CardTitle className="text-2xl">Reset your password</CardTitle>
           <CardDescription>
             {submitted

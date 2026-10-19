@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { CentralPrismaService } from '../database/central-prisma.service';
+import { getBrand } from '../config/brand';
 
 export interface SmtpSettings {
   host: string;
@@ -43,8 +44,8 @@ export class EmailService {
    * Uses tenant SMTP settings if configured, otherwise falls back to system SMTP.
    */
   private async getTransporterForTenant(tenantId?: string): Promise<{ transporter: nodemailer.Transporter | null; from: string }> {
-    const systemFromEmail = this.configService.get<string>('EMAIL_FROM', 'noreply@novabilling.com');
-    const systemFromName = this.configService.get<string>('EMAIL_FROM_NAME', 'Nova Billing');
+    const systemFromEmail = this.configService.get<string>('EMAIL_FROM', getBrand().supportEmail);
+    const systemFromName = this.configService.get<string>('EMAIL_FROM_NAME', process.env.BRAND_NAME?.trim() || 'Nova Billing');
     const systemFrom = `"${systemFromName}" <${systemFromEmail}>`;
 
     if (!tenantId) {
@@ -214,7 +215,7 @@ ${body}
 <tr><td style="padding:20px 32px;border-top:1px solid #e4e4e7;background-color:#fafafa;">
 <p style="margin:0;font-size:12px;color:#a1a1aa;text-align:center;">
 This email was sent by ${tenantName}.<br>
-Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span>
+Powered by <span style="color:${accentColor};font-weight:600;">${getBrand().name}</span>
 </p>
 </td></tr>
 

@@ -24,7 +24,7 @@ import type {
 // All calls go to the dashboard's own API routes (same origin).
 // The server-side proxy adds auth headers and forwards to the backend.
 
-async function apiFetch<T>(
+export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {

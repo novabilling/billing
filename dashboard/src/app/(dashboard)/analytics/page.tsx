@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import { brand } from "@/lib/brand";
 
 const COLORS = ["#3b82f6", "#a855f7", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899"];
 
@@ -218,7 +219,7 @@ export default function AnalyticsPage() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `novabilling-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.download = `${brand.fileSlug}-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
             URL.revokeObjectURL(url);
           }}

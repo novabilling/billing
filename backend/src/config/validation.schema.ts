@@ -41,5 +41,14 @@ export const validationSchema = Joi.object({
 
   // 'shadow' projects billing activity into the double-entry ledger alongside
   // the existing tables (nothing reads from it yet); 'off' disables it.
+  // Comma-separated tenant ids whose dashboard sessions may open the platform console.
+  PLATFORM_ADMIN_TENANT_IDS: Joi.string().optional().allow(''),
+
+  // Product branding (see src/config/brand.ts).
+  BRAND_NAME: Joi.string().optional().allow(''),
+  BRAND_SLUG: Joi.string().optional().allow(''),
+  BRAND_SUPPORT_EMAIL: Joi.string().optional().allow(''),
+  BRAND_WEBSITE: Joi.string().optional().allow(''),
+
   LEDGER_MODE: Joi.string().valid('off', 'shadow').optional().default('shadow'),
 });

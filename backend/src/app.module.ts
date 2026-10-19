@@ -30,6 +30,7 @@ import { PaymentMethodsModule } from './modules/payment-methods/payment-methods.
 import { TaxesModule } from './modules/taxes/taxes.module';
 import { PlanOverridesModule } from './modules/plan-overrides/plan-overrides.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { PlatformModule } from './modules/platform/platform.module';
 import { QueuesModule } from './queues/queues.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -78,6 +79,7 @@ import { ServicesModule } from './services/services.module';
     TaxesModule,
     PlanOverridesModule,
     LedgerModule,
+    PlatformModule,
     QueuesModule,
   ],
   providers: [

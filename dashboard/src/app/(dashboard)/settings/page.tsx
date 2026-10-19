@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { brand } from "@/lib/brand";
 
 function maskApiKey(key: string): string {
   if (!key || key.length < 12) return key;
@@ -492,7 +493,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">
                 {smtpHost
                   ? "This will use your configured SMTP settings above."
-                  : 'No custom SMTP configured. Test email will be sent using the system default SMTP from "Nova Billing".'}
+                  : 'No custom SMTP configured. Test email will be sent using the system default SMTP.'}
               </p>
             </CardContent>
           </Card>
@@ -540,7 +541,7 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Use this secret to verify webhook signatures from NovaBilling
+                    Use this secret to verify webhook signatures from {brand.name}
                   </p>
                 </div>
               )}
@@ -691,7 +692,7 @@ export default function SettingsPage() {
               <div className="pt-4 border-t">
                 <h4 className="font-medium mb-3">API Documentation</h4>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Learn how to integrate NovaBilling into your application
+                  Learn how to integrate {brand.name} into your application
                 </p>
                 <Button
                   variant="outline"

@@ -2,6 +2,10 @@ import { create } from "zustand";
 import type { User } from "@/types";
 import { apiClient } from "@/lib/api/client";
 
+// Storage key for the cached profile. Deliberately not tied to the brand name:
+// renaming it would sign every user out.
+const SESSION_KEY = "novabilling_user";
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -14,7 +18,7 @@ interface AuthState {
 function loadAuthState(): { user: User | null; isAuthenticated: boolean } {
   if (typeof window === "undefined")
     return { user: null, isAuthenticated: false };
-  const stored = localStorage.getItem("novabilling_user");
+  const stored = localStorage.getItem(SESSION_KEY);
   if (stored) {
     try {
       return { user: JSON.parse(stored), isAuthenticated: true };
@@ -40,18 +44,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     };
 
     // Only store display info — no tokens or API keys
-    localStorage.setItem("novabilling_user", JSON.stringify(user));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
     set({ user, isAuthenticated: true });
   },
 
   logout: () => {
     apiClient.auth.logout().catch(() => {});
-    localStorage.removeItem("novabilling_user");
+    localStorage.removeItem(SESSION_KEY);
     set({ user: null, isAuthenticated: false });
   },
 
   setUser: (user: User) => {
-    localStorage.setItem("novabilling_user", JSON.stringify(user));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
     set({ user });
   },
 
@@ -65,10 +69,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         role: "owner",
         tenantId: result.user.tenantId,
       };
-      localStorage.setItem("novabilling_user", JSON.stringify(user));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
       set({ user, isAuthenticated: true });
     } else {
-      localStorage.removeItem("novabilling_user");
+      localStorage.removeItem(SESSION_KEY);
       set({ user: null, isAuthenticated: false });
     }
   },

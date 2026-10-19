@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { validationPipe } from './common/pipes/validation.pipe';
+import { getBrand } from './config/brand';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -53,10 +54,11 @@ async function bootstrap() {
   });
 
   // OpenAPI document
+  const brand = getBrand();
   const config = new DocumentBuilder()
-    .setTitle('NovaBilling API')
+    .setTitle(`${brand.name} API`)
     .setDescription(
-      'NovaBilling is a multi-tenant billing and subscription management API. ' +
+      `${brand.name} is a multi-tenant billing and subscription management API. ` +
         'It supports African and global payment providers including Stripe, Paystack, Flutterwave, and M-Pesa.\n\n' +
         '## Authentication\n' +
         '- **JWT (Bearer)**: Used for tenant management endpoints (`/api/tenants/me/*`, `/api/auth/*`). Obtain tokens via `/api/auth/login`.\n' +
@@ -65,7 +67,7 @@ async function bootstrap() {
         '## Webhooks\n' +
         'Payment provider webhooks are received at `/webhooks/{provider}` (no `/api` prefix). ' +
         'Configure your provider dashboard to point to these URLs.\n' +
-        'NovaBilling also forwards billing events to your application via the webhook URL configured in your tenant settings.',
+        `${brand.name} also forwards billing events to your application via the webhook URL configured in your tenant settings.`,
     )
     .setVersion('1.0')
     .addServer(process.env.API_BASE_URL || 'http://localhost:4000', 'API Server')
@@ -102,8 +104,8 @@ async function bootstrap() {
       layout: 'modern',
       darkMode: true,
       metaData: {
-        title: 'NovaBilling API Reference',
-        description: 'Interactive API documentation for NovaBilling',
+        title: `${brand.name} API Reference`,
+        description: `Interactive API documentation for ${brand.name}`,
       },
     }),
   );
@@ -119,7 +121,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  logger.log(`NovaBilling API running on port ${port}`);
+  logger.log(`${brand.name} API running on port ${port}`);
   logger.log(`API Reference available at http://localhost:${port}/api/reference`);
   logger.log(`OpenAPI spec available at http://localhost:${port}/api/openapi.json`);
 }

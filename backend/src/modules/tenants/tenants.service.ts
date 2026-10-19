@@ -5,6 +5,7 @@ import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { EmailService } from '../../services/email.service';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { getBrand } from '../../config/brand';
 
 @Injectable()
 export class TenantsService {
@@ -206,12 +207,12 @@ export class TenantsService {
     try {
       await this.emailService.sendMail(
         to,
-        'NovaBilling SMTP Test',
+        `${getBrand().name} SMTP Test`,
         'smtp-test',
         {
           heading: 'SMTP Configuration Test',
           message: 'If you received this email, your SMTP settings are configured correctly.',
-          footer: 'Sent from NovaBilling',
+          footer: `Sent from ${getBrand().name}`,
         },
         tenantId,
       );

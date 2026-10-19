@@ -38,7 +38,8 @@ export class TenantGuard implements CanActivate {
     }
 
     // Try JWT first — dashboard sessions use this path
-    const tenant = (await this.resolveFromJwt(token)) ?? (await this.resolveFromApiKey(token));
+    const sessionTenant = await this.resolveFromJwt(token);
+    const tenant = sessionTenant ?? (await this.resolveFromApiKey(token));
 
     if (!tenant) {
       throw new UnauthorizedException('Invalid credentials');
@@ -52,6 +53,7 @@ export class TenantGuard implements CanActivate {
 
     request.tenant = tenant;
     request.tenantDb = tenantDbClient;
+    request.authMethod = sessionTenant ? 'session' : 'api_key';
 
     return true;
   }

@@ -30,6 +30,8 @@ model Tenant {
   databaseConnection DatabaseConnection?
   tenantBilling      TenantBilling?
   ledgerStatus       TenantLedgerStatus?
+  apiUsage           ApiUsageHourly[]
+  dailyMetrics       TenantMetricsDaily[]
   apiKeys            ApiKey[]
   webhookLogs        WebhookLog[]
 
@@ -122,4 +124,63 @@ model TenantLedgerStatus {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([balanced])
+}
+
+// ============================================================
+// Platform visibility
+// ============================================================
+
+// API request counters per tenant, hour, route and client, flushed from each
+// API process every minute (increments, so several replicas add up).
+model ApiUsageHourly {
+  id          String   @id @default(cuid())
+  tenantId    String
+  hour        DateTime
+  // Route pattern, e.g. "GET /api/invoices/:id"
+  route       String
+  // "session" (dashboard) or "api_key"
+  authMethod  String
+  // Client SDK and version from request headers, or "http" when unknown
+  client      String
+  requests    Int      @default(0)
+  clientErrors Int     @default(0)
+  serverErrors Int     @default(0)
+  totalMs     BigInt   @default(0)
+  maxMs       Int      @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, hour, route, authMethod, client])
+  @@index([hour])
+  @@index([tenantId, hour])
+}
+
+// Daily snapshot of each tenant's usage, built by a job that reads every
+// tenant database. Aggregates only: no customer names, emails or phone numbers.
+model TenantMetricsDaily {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  date                DateTime @db.Date
+  customers           Int      @default(0)
+  activeSubscriptions Int      @default(0)
+  invoicesIssued30d   Int      @default(0)
+  paymentsSucceeded30d Int     @default(0)
+  paymentsFailed30d   Int      @default(0)
+  // { "UGX": "1250000.0000", "USD": "310.5000" }
+  paymentVolume30d    Json?
+  // { "USD": "1200.0000" } — monthly-normalised plan prices of active subscriptions
+  mrr                 Json?
+  // { "flutterwave": { "succeeded": 12, "failed": 1 } }
+  providerStats30d    Json?
+  providersConfigured String[]
+  // Product areas the tenant has data in, e.g. ["subscriptions", "wallets", "usage_metering"]
+  featuresUsed        String[]
+  firstPaymentAt      DateTime?
+  lastPaymentAt       DateTime?
+  createdAt           DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date])
+  @@index([date])
 }

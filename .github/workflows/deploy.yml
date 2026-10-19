@@ -95,6 +95,10 @@ jobs:
             LANDING_URL=${{ vars.LANDING_URL || 'http://localhost:4001' }}
             DASHBOARD_URL=${{ vars.DASHBOARD_URL || 'http://localhost:4002' }}
             API_REF_URL=${{ vars.API_URL || 'http://localhost:4000' }}/api/reference
+            NEXT_PUBLIC_BRAND_NAME=${{ vars.BRAND_NAME || '' }}
+            NEXT_PUBLIC_BRAND_LOGO=${{ vars.BRAND_LOGO || '' }}
+            NEXT_PUBLIC_BRAND_TAGLINE=${{ vars.BRAND_TAGLINE || '' }}
+            NEXT_PUBLIC_BRAND_PRIMARY=${{ vars.BRAND_PRIMARY || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
