@@ -924,8 +924,12 @@ model CryptoDeposit {
   txHash      String   @unique
   fromAddress String?
   amount      Decimal  @db.Decimal(28, 6)
+  // Exact amount in the coin's base units (satoshis for BTC), when amount is rounded.
+  rawAmount   String?
+  decimals    Int?
   blockTime   DateTime
-  // MATCHED (to a collection automatically), ASSIGNED (by a person), UNMATCHED.
+  // MATCHED (to a collection automatically), ASSIGNED (by a person), UNMATCHED,
+  // CONFIRMING (seen, not yet deep enough; Bitcoin).
   status      String
   // MoneyIntent.providerReference of the collection it paid, when known.
   reference   String?
@@ -934,4 +938,26 @@ model CryptoDeposit {
   @@index([address, blockTime])
   @@index([status])
   @@index([reference])
+}
+
+// Watch-only Bitcoin: one address per collection, derived from the
+// merchant's extended public key. An address that expired unpaid is handed
+// out again after a week, to keep the merchant's wallet within its gap limit.
+model CryptoAddressClaim {
+  id          String   @id @default(cuid())
+  // Fingerprint of the extended public key the address comes from.
+  keyId       String
+  index       Int
+  address     String   @unique
+  // MoneyIntent.providerReference of the collection currently using it.
+  reference   String?  @unique
+  // What the payer is asked to send, in satoshis, and the quote behind it.
+  amountSats  BigInt
+  rate        String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([keyId, index])
+  @@index([keyId, expiresAt])
 }

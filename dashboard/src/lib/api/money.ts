@@ -97,7 +97,7 @@ export interface CryptoDeposit {
   from: string | null;
   amount: string;
   blockTime: string;
-  status: "matched" | "assigned" | "unmatched";
+  status: "matched" | "assigned" | "unmatched" | "confirming";
   collectionId: string | null;
 }
 

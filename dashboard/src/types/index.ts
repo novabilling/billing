@@ -121,7 +121,7 @@ export interface Payment {
 export interface PaymentProvider {
   id: string;
   name: string;
-  code: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal" | "paypal" | "yo" | "mtn_momo" | "airtel_money" | "nowpayments" | "eversend" | "tron_usdt";
+  code: "stripe" | "flutterwave" | "paystack" | "dpo" | "payu" | "pesapal" | "paypal" | "yo" | "mtn_momo" | "airtel_money" | "nowpayments" | "eversend" | "tron_usdt" | "eth_usdt" | "btc";
   description: string;
   isConfigured: boolean;
   isActive: boolean;

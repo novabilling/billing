@@ -43,6 +43,8 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   nowpayments: { logo: "₿", color: "bg-sky-600" },
   eversend: { logo: "💲", color: "bg-indigo-600" },
   tron_usdt: { logo: "₮", color: "bg-emerald-600" },
+  eth_usdt: { logo: "Ξ", color: "bg-slate-600" },
+  btc: { logo: "₿", color: "bg-orange-500" },
 };
 
 const credentialFields: Record<
@@ -132,6 +134,27 @@ const credentialFields: Record<
     { key: "network", label: "Network (optional)", placeholder: "mainnet or nile (testnet)", optional: true },
     { key: "expiryMinutes", label: "Minutes to pay before a collection expires (optional)", placeholder: "60", optional: true },
   ],
+  eth_usdt: [
+    { key: "address", label: "Your Ethereum address (receives the USDT)", placeholder: "0x…" },
+    { key: "apiKey", label: "Etherscan API key", placeholder: "Free at etherscan.io" },
+    { key: "confirmations", label: "Confirmations before paid (optional)", placeholder: "12", optional: true },
+    { key: "expiryMinutes", label: "Minutes to pay before a collection expires (optional)", placeholder: "60", optional: true },
+    { key: "network", label: "Network (optional)", placeholder: "mainnet or sepolia (testnet)", optional: true },
+    { key: "tokenContract", label: "Token contract (testnet only)", placeholder: "0x…", optional: true },
+  ],
+  btc: [
+    {
+      key: "xpub",
+      label: "Wallet account public key (zpub, ypub or xpub)",
+      placeholder: "From Sparrow, Electrum or BlueWallet. Never paste a private key or seed words.",
+      multiline: true,
+    },
+    { key: "addressType", label: "Address type for an xpub (optional)", placeholder: "p2wpkh (bc1q…), p2sh-p2wpkh (3…) or p2pkh (1…)", optional: true },
+    { key: "confirmations", label: "Confirmations before paid (optional)", placeholder: "2", optional: true },
+    { key: "expiryMinutes", label: "Minutes a BTC quote holds (optional)", placeholder: "30", optional: true },
+    { key: "tolerancePercent", label: "Underpayment accepted, % (optional)", placeholder: "0.5", optional: true },
+    { key: "esploraUrl", label: "Blockchain API (optional)", placeholder: "https://blockstream.info/api or https://mempool.space/api", optional: true },
+  ],
   airtel_money: [
     { key: "environment", label: "Environment", placeholder: "staging or production" },
     { key: "clientId", label: "Client ID", placeholder: "" },
@@ -163,6 +186,8 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   nowpayments: { label: "NOWPayments", url: "https://account.nowpayments.io" },
   eversend: { label: "Eversend Business", url: "https://business.eversend.co" },
   tron_usdt: { label: "TronGrid", url: "https://www.trongrid.io" },
+  eth_usdt: { label: "Etherscan API keys", url: "https://etherscan.io/myapikey" },
+  btc: { label: "Sparrow Wallet", url: "https://sparrowwallet.com" },
 };
 
 /**
@@ -214,6 +239,14 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
   tron_usdt: {
     method: "On-chain",
     detail: "No notifications: confirmed transfers to your address are read from the TRON blockchain every minute",
+  },
+  eth_usdt: {
+    method: "On-chain",
+    detail: "No notifications: transfers to your address with enough confirmations are read from Ethereum every minute",
+  },
+  btc: {
+    method: "On-chain",
+    detail: "No notifications: each payment address is checked on the Bitcoin blockchain every minute",
   },
   eversend: {
     method: "Status check",

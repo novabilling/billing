@@ -218,6 +218,8 @@ const providerDescriptions: Record<string, string> = {
   nowpayments: "Crypto collections on a hosted page (BTC, USDT, ETH and more), priced in your currency",
   eversend: "Mobile money and stablecoin (USDT, USDC) collections, and mobile money and bank payouts across Africa",
   tron_usdt: "USDT on TRON straight to your own wallet address. We only watch the chain; no processor, no custody",
+  eth_usdt: "USDT on Ethereum straight to your own wallet address. We only watch the chain; no processor, no custody",
+  btc: "Bitcoin straight to your own wallet: a fresh address per payment from your wallet's public key, priced in your currency",
 };
 
 const providerDisplayNames: Record<string, string> = {
@@ -234,6 +236,8 @@ const providerDisplayNames: Record<string, string> = {
   nowpayments: "NOWPayments (crypto)",
   eversend: "Eversend",
   tron_usdt: "USDT on TRON (own wallet)",
+  eth_usdt: "USDT on Ethereum (own wallet)",
+  btc: "Bitcoin (own wallet)",
 };
 
 function mapProvider(p: any): PaymentProvider {
@@ -842,6 +846,24 @@ export const apiClient = {
           isConfigured: false,
           isActive: false,
           priority: 13,
+        },
+        {
+          id: "default_eth_usdt",
+          name: "USDT on Ethereum (own wallet)",
+          code: "eth_usdt" as const,
+          description: providerDescriptions.eth_usdt,
+          isConfigured: false,
+          isActive: false,
+          priority: 14,
+        },
+        {
+          id: "default_btc",
+          name: "Bitcoin (own wallet)",
+          code: "btc" as const,
+          description: providerDescriptions.btc,
+          isConfigured: false,
+          isActive: false,
+          priority: 15,
         },
       ];
 

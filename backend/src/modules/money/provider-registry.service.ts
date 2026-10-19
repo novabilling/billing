@@ -10,17 +10,26 @@ import { AirtelMoneyAdapter, AirtelMoneyCredentials } from './adapters/airtel-mo
 import { NowPaymentsAdapter, NowPaymentsCredentials } from './adapters/nowpayments.adapter';
 import { EVERSEND_COINS, EversendAdapter, EversendCredentials } from './adapters/eversend.adapter';
 import { TronUsdtAdapter, TronUsdtCredentials } from './adapters/tron-usdt.adapter';
+import { EthUsdtAdapter, EthUsdtCredentials } from './adapters/eth-usdt.adapter';
+import { BtcAdapter, BtcCredentials } from './adapters/btc.adapter';
 import { detectNetwork } from './msisdn';
 import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
 /** Providers that only move money (no invoice checkout). */
-export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments', 'eversend', 'tron_usdt'];
+export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments', 'eversend', 'tron_usdt', 'eth_usdt', 'btc'];
+
+/** Watch-only providers: payments go straight to the merchant's own wallet; we read the chain. */
+export const WATCH_ONLY_PROVIDERS = ['tron_usdt', 'eth_usdt', 'btc'];
 
 /** Crypto providers that collect in the stablecoin itself rather than at a fiat price. */
 const STABLECOIN_PROVIDERS: Record<string, { coins: string[]; chains?: string[] }> = {
   eversend: { coins: EVERSEND_COINS },
   tron_usdt: { coins: ['USDT'], chains: ['TRON', 'TRC20', 'TRX'] },
+  eth_usdt: { coins: ['USDT'], chains: ['ETHEREUM', 'ETH', 'ERC20'] },
 };
+
+/** Crypto providers that price in the merchant's currency, and the chains they take (none listed: any). */
+const FIAT_PRICED_PROVIDERS: Record<string, string[] | undefined> = { nowpayments: undefined, btc: ['BITCOIN', 'BTC'] };
 
 /** Operator APIs that only serve their own network's subscribers. */
 const NETWORK_PROVIDERS: Record<string, 'MTN' | 'AIRTEL'> = { mtn_momo: 'MTN', airtel_money: 'AIRTEL' };
@@ -63,11 +72,20 @@ export class ProviderRegistryService {
     if (rail === 'crypto' && currency) {
       const coin = currency.toUpperCase();
       const chain = party?.type === 'crypto' ? party.chain : undefined;
+      const payCoin = party?.type === 'crypto' ? party.payCurrency?.toUpperCase() : undefined;
       candidates = candidates.filter((p) => {
         const s = STABLECOIN_PROVIDERS[p.provider];
-        if (!s) return ![...EVERSEND_COINS, 'USDT'].includes(coin);
-        return s.coins.includes(coin) && (!chain || !s.chains || s.chains.includes(chain));
+        if (s) return s.coins.includes(coin) && (!chain || !s.chains || s.chains.includes(chain));
+        if ([...EVERSEND_COINS, 'USDT'].includes(coin)) return false;
+        const chains = FIAT_PRICED_PROVIDERS[p.provider];
+        if (!chains) return true;
+        return (!chain || chains.includes(chain)) && (!payCoin || payCoin === 'BTC');
       });
+      // A chain the merchant receives on directly beats a processor for it: no fee, no middleman.
+      if (chain) {
+        const direct = candidates.find((p) => WATCH_ONLY_PROVIDERS.includes(p.provider));
+        if (direct) candidates = [direct];
+      }
     }
     if (rail === 'mobile_money' && party?.type === 'mobile_money') {
       const network = (party.network?.toUpperCase().startsWith('MTN') ? 'MTN' : party.network?.toUpperCase().startsWith('AIRTEL') ? 'AIRTEL' : undefined) ?? detectNetwork(party.msisdn);
@@ -98,7 +116,7 @@ export class ProviderRegistryService {
     if (name === 'nowpayments') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
-    if (name === 'tron_usdt') {
+    if (WATCH_ONLY_PROVIDERS.includes(name)) {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
     if (name === 'eversend') {
@@ -136,6 +154,14 @@ export class ProviderRegistryService {
     if (name === 'tron_usdt') {
       if (!db) throw new Error('USDT on TRON needs the tenant database');
       return new TronUsdtAdapter(credentials as unknown as TronUsdtCredentials, db);
+    }
+    if (name === 'eth_usdt') {
+      if (!db) throw new Error('USDT on Ethereum needs the tenant database');
+      return new EthUsdtAdapter(credentials as unknown as EthUsdtCredentials, db);
+    }
+    if (name === 'btc') {
+      if (!db) throw new Error('Bitcoin needs the tenant database');
+      return new BtcAdapter(credentials as unknown as BtcCredentials, db);
     }
 
     const checkout = new HostedCheckout(ProviderFactory.create(name, credentials));

@@ -131,6 +131,15 @@ describe('crypto routing', () => {
     expect(await registry.pick(tdb as never, 'collect', 'crypto', { type: 'crypto' }, 'USDC')).toBe('eversend');
     expect(await registry.pick(tdb as never, 'collect', 'crypto', { type: 'crypto' }, 'USD')).toBe('nowpayments');
   });
+
+  it('routes each native chain to its own connection', async () => {
+    const all = ['nowpayments', 'tron_usdt', 'eth_usdt', 'btc'].map((providerName, i) => ({ providerName, isActive: true, priority: i + 1 }));
+    const adb = { paymentProvider: { findMany: jest.fn().mockResolvedValue(all) } };
+    expect(await registry.pick(adb as never, 'collect', 'crypto', { type: 'crypto', chain: 'ETHEREUM' }, 'USDT')).toBe('eth_usdt');
+    expect(await registry.pick(adb as never, 'collect', 'crypto', { type: 'crypto', chain: 'BTC' }, 'UGX')).toBe('btc');
+    expect(await registry.pick(adb as never, 'collect', 'crypto', { type: 'crypto', payCurrency: 'usdttrc20' }, 'UGX')).toBe('nowpayments');
+    expect(await registry.pick(adb as never, 'collect', 'crypto', { type: 'crypto', chain: 'SOLANA' }, 'UGX')).toBe('nowpayments');
+  });
 });
 
 describe('Eversend payouts', () => {

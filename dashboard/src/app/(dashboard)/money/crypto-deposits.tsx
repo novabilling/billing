@@ -14,7 +14,16 @@ const statusVariant: Record<CryptoDeposit["status"], "default" | "secondary" | "
   matched: "default",
   assigned: "secondary",
   unmatched: "outline",
+  confirming: "outline",
 };
+
+/** Public block explorer for a deposit; Bitcoin deposits are keyed "txid:output". */
+function explorerUrl(d: CryptoDeposit): string {
+  const hash = d.txHash.split(":")[0];
+  if (d.chain === "ETHEREUM") return `https://etherscan.io/tx/${hash}`;
+  if (d.chain === "BITCOIN") return `https://mempool.space/tx/${hash}`;
+  return `https://tronscan.org/#/transaction/${hash}`;
+}
 
 /**
  * USDT transfers seen arriving at the merchant's own TRON address. Most
@@ -36,7 +45,7 @@ export function CryptoDeposits() {
         moneyApi.list("collection", { status: "processing" }),
       ]);
       setRows(deposits.data);
-      setOpen(collections.data.filter((c) => c.provider === "tron_usdt"));
+      setOpen(collections.data.filter((c) => c.provider === "tron_usdt" || c.provider === "eth_usdt"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not load deposits");
       setRows([]);
@@ -68,8 +77,8 @@ export function CryptoDeposits() {
         <div className="space-y-1">
           <CardTitle>Crypto deposits</CardTitle>
           <CardDescription>
-            USDT received at your own TRON address, checked every minute. Funds are already in your wallet; this list only
-            shows which collection each one paid.
+            Crypto received at your own wallet addresses (USDT on TRON or Ethereum, Bitcoin), checked every minute. Funds
+            are already in your wallet; this list only shows which collection each one paid.
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
@@ -94,7 +103,7 @@ export function CryptoDeposits() {
           </div>
         ) : rows.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">
-            {filter === "unmatched" ? "Every deposit matched a collection." : "No USDT has arrived at your address yet."}
+            {filter === "unmatched" ? "Every deposit matched a collection." : "Nothing has arrived at your wallet addresses yet."}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -114,7 +123,7 @@ export function CryptoDeposits() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       {formatDateTime(d.blockTime)}
                       <a
-                        href={`https://tronscan.org/#/transaction/${d.txHash}`}
+                        href={explorerUrl(d)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-0.5 flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground"
@@ -133,16 +142,17 @@ export function CryptoDeposits() {
                       {d.collectionId && <p className="mt-1 font-mono text-xs text-muted-foreground">{d.collectionId}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      {d.status === "unmatched" && open.length > 0 && (
+                      {d.status === "unmatched" && d.chain !== "BITCOIN" && open.some((c) => c.paymentDetails?.chain === d.chain) && (
                         <div className="flex items-center justify-end gap-2">
                           <Select value={choice[d.id] ?? ""} onValueChange={(v) => setChoice((c) => ({ ...c, [d.id]: v }))}>
                             <SelectTrigger className="w-[220px]">
                               <SelectValue placeholder="Pick an open collection" />
                             </SelectTrigger>
                             <SelectContent>
-                              {open.map((c) => (
+                              {open.filter((c) => c.paymentDetails?.chain === d.chain).map((c) => (
                                 <SelectItem key={c.id} value={c.id}>
-                                  {c.paymentDetails?.amount ?? c.amount} USDT · {c.description || c.reference || c.id.slice(-6)}
+                                  {c.paymentDetails?.amount ?? c.amount} {c.paymentDetails?.coin ?? "USDT"} ·{" "}
+                                  {c.description || c.reference || c.id.slice(-6)}
                                 </SelectItem>
                               ))}
                             </SelectContent>

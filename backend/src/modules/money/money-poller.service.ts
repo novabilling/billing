@@ -3,8 +3,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { MoneyService, moneySettings } from './money.service';
-import { ProviderRegistryService } from './provider-registry.service';
-import { TronUsdtAdapter } from './adapters/tron-usdt.adapter';
+import { ProviderRegistryService, WATCH_ONLY_PROVIDERS } from './provider-registry.service';
+import { StablecoinWatchAdapter } from './adapters/stablecoin-watch';
 
 const RECHECK_AFTER_MS = 4 * 60 * 1000;
 const GIVE_UP_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
@@ -75,13 +75,25 @@ export class MoneyPollerService {
 
   async watchTenant(tenantId: string): Promise<number> {
     const db = await this.tenantDb.getTenantClient(tenantId);
-    const configured = await db.paymentProvider.findFirst({ where: { providerName: 'tron_usdt', isActive: true }, select: { id: true } });
-    if (!configured) return 0;
-    const adapter = await this.registry.get(db, 'tron_usdt');
-    if (adapter instanceof TronUsdtAdapter) await adapter.scan();
+    const configured = await db.paymentProvider.findMany({
+      where: { providerName: { in: WATCH_ONLY_PROVIDERS }, isActive: true },
+      select: { providerName: true },
+    });
+    if (configured.length === 0) return 0;
+    for (const { providerName } of configured) {
+      // Account chains are read once per address; Bitcoin is read per collection address on refresh below.
+      const adapter = await this.registry.get(db, providerName);
+      if (adapter instanceof StablecoinWatchAdapter) {
+        await adapter.scan().catch((error) => this.logger.warn(`${providerName} scan failed for tenant ${tenantId}: ${error instanceof Error ? error.message : error}`));
+      }
+    }
 
     const open = await db.moneyIntent.findMany({
-      where: { type: 'COLLECTION', provider: 'tron_usdt', status: { in: ['PENDING', 'PROCESSING', 'STUCK'] } },
+      where: {
+        type: 'COLLECTION',
+        provider: { in: configured.map((c) => c.providerName) },
+        status: { in: ['PENDING', 'PROCESSING', 'STUCK'] },
+      },
       orderBy: { createdAt: 'asc' },
       take: BATCH,
       select: { id: true },
