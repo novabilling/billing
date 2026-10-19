@@ -35,6 +35,7 @@ import {
 } from "@/lib/api/money";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateTime } from "@/lib/utils/date";
+import { CryptoDeposits } from "./crypto-deposits";
 import type { Wallet } from "@/types";
 
 const AUTO = "auto";
@@ -80,6 +81,7 @@ export default function MoneyPage() {
     );
   }
   if (!settings) return <div className="animate-shimmer h-96 rounded-lg" />;
+  const watchesChain = providers.some((p) => p.provider === "tron_usdt");
 
   return (
     <div className="space-y-6">
@@ -95,6 +97,7 @@ export default function MoneyPage() {
           <TabsTrigger value="collections">Collections</TabsTrigger>
           <TabsTrigger value="payouts">Payouts</TabsTrigger>
           <TabsTrigger value="transfers">Transfers</TabsTrigger>
+          {watchesChain && <TabsTrigger value="deposits">Crypto deposits</TabsTrigger>}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -107,6 +110,11 @@ export default function MoneyPage() {
         <TabsContent value="transfers" className="mt-4">
           <IntentList type="transfer" enabled={settings.transfers} providers={providers} wallets={wallets} onEnable={() => toggle("transfers", true)} />
         </TabsContent>
+        {watchesChain && (
+          <TabsContent value="deposits" className="mt-4">
+            <CryptoDeposits />
+          </TabsContent>
+        )}
         <TabsContent value="settings" className="mt-4">
           <SettingsPanel settings={settings} providers={providers} onSaved={setSettings} />
         </TabsContent>

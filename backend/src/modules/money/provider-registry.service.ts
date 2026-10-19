@@ -9,11 +9,18 @@ import { MtnMomoAdapter, MtnMomoCredentials } from './adapters/mtn-momo.adapter'
 import { AirtelMoneyAdapter, AirtelMoneyCredentials } from './adapters/airtel-money.adapter';
 import { NowPaymentsAdapter, NowPaymentsCredentials } from './adapters/nowpayments.adapter';
 import { EVERSEND_COINS, EversendAdapter, EversendCredentials } from './adapters/eversend.adapter';
+import { TronUsdtAdapter, TronUsdtCredentials } from './adapters/tron-usdt.adapter';
 import { detectNetwork } from './msisdn';
 import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
 /** Providers that only move money (no invoice checkout). */
-export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments', 'eversend'];
+export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments', 'eversend', 'tron_usdt'];
+
+/** Crypto providers that collect in the stablecoin itself rather than at a fiat price. */
+const STABLECOIN_PROVIDERS: Record<string, { coins: string[]; chains?: string[] }> = {
+  eversend: { coins: EVERSEND_COINS },
+  tron_usdt: { coins: ['USDT'], chains: ['TRON', 'TRC20', 'TRX'] },
+};
 
 /** Operator APIs that only serve their own network's subscribers. */
 const NETWORK_PROVIDERS: Record<string, 'MTN' | 'AIRTEL'> = { mtn_momo: 'MTN', airtel_money: 'AIRTEL' };
@@ -32,7 +39,7 @@ export class ProviderRegistryService {
     if (!config) {
       throw new BadRequestException(`The ${name} provider is not configured or is inactive`);
     }
-    return this.build(name, JSON.parse(this.encryption.decrypt(config.credentials)));
+    return this.build(name, JSON.parse(this.encryption.decrypt(config.credentials)), db);
   }
 
   /** Every active provider with what it can do. */
@@ -47,14 +54,20 @@ export class ProviderRegistryService {
    * First active provider, by priority, that supports this rail. For mobile
    * money, an operator's own API (MTN, Airtel) is only chosen for its own
    * subscribers, and is preferred over aggregators for them. For crypto,
-   * Eversend only takes collections in its stablecoins and NOWPayments only
-   * fiat-priced ones, so the currency decides.
+   * stablecoin providers (Eversend, USDT on TRON) only take collections in
+   * their coins (and chains) and NOWPayments only fiat-priced ones, so the
+   * currency decides.
    */
   async pick(db: PrismaClient, kind: 'collect' | 'payout', rail: Rail, party?: Party, currency?: string): Promise<string> {
     let candidates = (await this.list(db)).filter((p) => p.capabilities[kind].includes(rail));
     if (rail === 'crypto' && currency) {
-      const stablecoin = EVERSEND_COINS.includes(currency.toUpperCase());
-      candidates = candidates.filter((p) => (p.provider === 'eversend') === stablecoin);
+      const coin = currency.toUpperCase();
+      const chain = party?.type === 'crypto' ? party.chain : undefined;
+      candidates = candidates.filter((p) => {
+        const s = STABLECOIN_PROVIDERS[p.provider];
+        if (!s) return ![...EVERSEND_COINS, 'USDT'].includes(coin);
+        return s.coins.includes(coin) && (!chain || !s.chains || s.chains.includes(chain));
+      });
     }
     if (rail === 'mobile_money' && party?.type === 'mobile_money') {
       const network = (party.network?.toUpperCase().startsWith('MTN') ? 'MTN' : party.network?.toUpperCase().startsWith('AIRTEL') ? 'AIRTEL' : undefined) ?? detectNetwork(party.msisdn);
@@ -85,6 +98,9 @@ export class ProviderRegistryService {
     if (name === 'nowpayments') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
+    if (name === 'tron_usdt') {
+      return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
+    }
     if (name === 'eversend') {
       return { collect: ['mobile_money', 'crypto'], payout: ['mobile_money', 'bank'], balance: true, verifyPayee: false };
     }
@@ -101,7 +117,7 @@ export class ProviderRegistryService {
     return { collect: hosted, payout: [], balance: false, verifyPayee: false };
   }
 
-  build(name: string, credentials: Record<string, unknown>): MoneyProvider {
+  build(name: string, credentials: Record<string, unknown>, db?: PrismaClient): MoneyProvider {
     if (name === 'yo') {
       return new YoAdapter(credentials as unknown as YoCredentials);
     }
@@ -116,6 +132,10 @@ export class ProviderRegistryService {
     }
     if (name === 'eversend') {
       return new EversendAdapter(credentials as unknown as EversendCredentials);
+    }
+    if (name === 'tron_usdt') {
+      if (!db) throw new Error('USDT on TRON needs the tenant database');
+      return new TronUsdtAdapter(credentials as unknown as TronUsdtCredentials, db);
     }
 
     const checkout = new HostedCheckout(ProviderFactory.create(name, credentials));

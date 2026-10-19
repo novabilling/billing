@@ -26,6 +26,7 @@ import {
   UpdateMoneySettingsDto,
   VerifyPayeeDto,
   RequestOtpDto,
+  AssignDepositDto,
 } from './dto/money.dto';
 import { MoneyService } from './money.service';
 
@@ -211,6 +212,24 @@ export class MoneySettingsController {
   @ApiOperation({ summary: 'Balance held at a provider (where the provider reports it)' })
   balance(@TenantDb() db: PrismaClient, @Param('provider') provider: string) {
     return this.money.balance(db, provider);
+  }
+
+  @Get('crypto-deposits')
+  @ApiOperation({ summary: 'Crypto transfers seen arriving at your own wallet address, matched or not' })
+  cryptoDeposits(
+    @TenantDb() db: PrismaClient,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.money.listCryptoDeposits(db, { status, page: Number(page) || 1, limit: Number(limit) || 20 });
+  }
+
+  @Post('crypto-deposits/:id/assign')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Settle an open crypto collection with a deposit that did not match on its own' })
+  assignDeposit(@TenantDb() db: PrismaClient, @Req() req: RequestWithTenant, @Param('id') id: string, @Body() dto: AssignDepositDto) {
+    return this.money.assignCryptoDeposit(db, req.tenant.id, id, dto.collectionId);
   }
 
   @Post('providers/:provider/otp')

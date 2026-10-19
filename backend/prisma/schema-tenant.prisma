@@ -895,3 +895,43 @@ model MoneyIntent {
   @@index([walletId])
   @@index([createdAt])
 }
+
+// Watch-only crypto collections (tron_usdt): each open collection reserves a
+// unique amount at the merchant's own address, so a deposit of exactly that
+// amount identifies the collection. A slot is reusable a day after it expires.
+model CryptoAmountClaim {
+  id         String   @id @default(cuid())
+  address    String
+  // What the payer is asked to send: the amount plus a unique 0.0001-0.0099 tail.
+  amount     Decimal  @db.Decimal(19, 4)
+  // The amount before the tail, for deposits that leave it off.
+  baseAmount Decimal  @db.Decimal(19, 4)
+  // MoneyIntent.providerReference of the collection.
+  reference  String   @unique
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@unique([address, amount])
+  @@index([address, expiresAt])
+}
+
+// Every confirmed token transfer seen arriving at a watched address.
+model CryptoDeposit {
+  id          String   @id @default(cuid())
+  chain       String
+  token       String
+  address     String
+  txHash      String   @unique
+  fromAddress String?
+  amount      Decimal  @db.Decimal(28, 6)
+  blockTime   DateTime
+  // MATCHED (to a collection automatically), ASSIGNED (by a person), UNMATCHED.
+  status      String
+  // MoneyIntent.providerReference of the collection it paid, when known.
+  reference   String?
+  createdAt   DateTime @default(now())
+
+  @@index([address, blockTime])
+  @@index([status])
+  @@index([reference])
+}

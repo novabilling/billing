@@ -217,6 +217,7 @@ const providerDescriptions: Record<string, string> = {
   airtel_money: "Airtel Money direct: USSD-push collections and disbursements for Airtel subscribers",
   nowpayments: "Crypto collections on a hosted page (BTC, USDT, ETH and more), priced in your currency",
   eversend: "Mobile money and stablecoin (USDT, USDC) collections, and mobile money and bank payouts across Africa",
+  tron_usdt: "USDT on TRON straight to your own wallet address. We only watch the chain; no processor, no custody",
 };
 
 const providerDisplayNames: Record<string, string> = {
@@ -232,6 +233,7 @@ const providerDisplayNames: Record<string, string> = {
   airtel_money: "Airtel Money",
   nowpayments: "NOWPayments (crypto)",
   eversend: "Eversend",
+  tron_usdt: "USDT on TRON (own wallet)",
 };
 
 function mapProvider(p: any): PaymentProvider {
@@ -831,6 +833,15 @@ export const apiClient = {
           isConfigured: false,
           isActive: false,
           priority: 12,
+        },
+        {
+          id: "default_tron_usdt",
+          name: "USDT on TRON (own wallet)",
+          code: "tron_usdt" as const,
+          description: providerDescriptions.tron_usdt,
+          isConfigured: false,
+          isActive: false,
+          priority: 13,
         },
       ];
 

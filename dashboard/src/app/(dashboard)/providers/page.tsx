@@ -42,6 +42,7 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   airtel_money: { logo: "🔴", color: "bg-red-600" },
   nowpayments: { logo: "₿", color: "bg-sky-600" },
   eversend: { logo: "💲", color: "bg-indigo-600" },
+  tron_usdt: { logo: "₮", color: "bg-emerald-600" },
 };
 
 const credentialFields: Record<
@@ -125,6 +126,12 @@ const credentialFields: Record<
     { key: "contactPhone", label: "Fallback phone for bank payouts (optional)", placeholder: "+256…", optional: true },
     { key: "baseUrl", label: "API host (optional)", placeholder: "https://api.eversend.co/v1", optional: true },
   ],
+  tron_usdt: [
+    { key: "address", label: "Your TRON address (receives the USDT)", placeholder: "T…" },
+    { key: "apiKey", label: "TronGrid API key (optional)", placeholder: "From trongrid.io; needed at higher volume", optional: true },
+    { key: "network", label: "Network (optional)", placeholder: "mainnet or nile (testnet)", optional: true },
+    { key: "expiryMinutes", label: "Minutes to pay before a collection expires (optional)", placeholder: "60", optional: true },
+  ],
   airtel_money: [
     { key: "environment", label: "Environment", placeholder: "staging or production" },
     { key: "clientId", label: "Client ID", placeholder: "" },
@@ -155,6 +162,7 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   airtel_money: { label: "Airtel Developer Portal", url: "https://developers.airtel.africa" },
   nowpayments: { label: "NOWPayments", url: "https://account.nowpayments.io" },
   eversend: { label: "Eversend Business", url: "https://business.eversend.co" },
+  tron_usdt: { label: "TronGrid", url: "https://www.trongrid.io" },
 };
 
 /**
@@ -202,6 +210,10 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
   mtn_momo: {
     method: "Status check",
     detail: "MTN callbacks are unsigned, so each one triggers a status request to MTN, which decides the outcome",
+  },
+  tron_usdt: {
+    method: "On-chain",
+    detail: "No notifications: confirmed transfers to your address are read from the TRON blockchain every minute",
   },
   eversend: {
     method: "Status check",

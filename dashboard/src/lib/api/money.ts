@@ -88,6 +88,19 @@ export function describeCommission(rule: CommissionRule | undefined): string {
   return `${text}${bounds.length ? ` (${bounds.join(", ")})` : ""}${rule.chargeTo === "payer" ? " · added to what the payer pays" : ""}`;
 }
 
+export interface CryptoDeposit {
+  id: string;
+  chain: string;
+  token: string;
+  address: string;
+  txHash: string;
+  from: string | null;
+  amount: string;
+  blockTime: string;
+  status: "matched" | "assigned" | "unmatched";
+  collectionId: string | null;
+}
+
 export interface ProviderCapabilities {
   provider: string;
   capabilities: { collect: string[]; payout: string[]; balance: boolean; verifyPayee: boolean };
@@ -125,6 +138,16 @@ export const moneyApi = {
       method: "POST",
       body: JSON.stringify({ payee }),
     }),
+  cryptoDeposits: (params: { status?: string; page?: number } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)]),
+    ).toString();
+    return apiFetch<{ data: CryptoDeposit[]; meta: { total: number; page: number; totalPages: number } }>(
+      `/money/crypto-deposits${q ? `?${q}` : ""}`,
+    );
+  },
+  assignDeposit: (id: string, collectionId: string) =>
+    apiFetch<MoneyIntent>(`/money/crypto-deposits/${id}/assign`, { method: "POST", body: JSON.stringify({ collectionId }) }),
   requestOtp: (provider: string, phone: string) =>
     apiFetch<{ pinId: string }>(`/money/providers/${provider}/otp`, { method: "POST", body: JSON.stringify({ phone }) }),
   balance: (provider: string) =>

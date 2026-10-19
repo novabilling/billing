@@ -122,6 +122,15 @@ describe('crypto routing', () => {
     expect(await registry.pick(db as never, 'collect', 'crypto', { type: 'crypto' }, 'usdc')).toBe('eversend');
     expect(await registry.pick(db as never, 'collect', 'crypto', { type: 'crypto' }, 'UGX')).toBe('nowpayments');
   });
+
+  it('sends USDT on TRON to the watch-only connection when it comes first, and other chains elsewhere', async () => {
+    const withTron = ['tron_usdt', 'eversend', 'nowpayments'].map((providerName, i) => ({ providerName, isActive: true, priority: i + 1 }));
+    const tdb = { paymentProvider: { findMany: jest.fn().mockResolvedValue(withTron) } };
+    expect(await registry.pick(tdb as never, 'collect', 'crypto', { type: 'crypto', chain: 'TRON' }, 'USDT')).toBe('tron_usdt');
+    expect(await registry.pick(tdb as never, 'collect', 'crypto', { type: 'crypto', chain: 'ETHEREUM' }, 'USDT')).toBe('eversend');
+    expect(await registry.pick(tdb as never, 'collect', 'crypto', { type: 'crypto' }, 'USDC')).toBe('eversend');
+    expect(await registry.pick(tdb as never, 'collect', 'crypto', { type: 'crypto' }, 'USD')).toBe('nowpayments');
+  });
 });
 
 describe('Eversend payouts', () => {

@@ -167,6 +167,12 @@ export class VerifyPayeeDto {
   payee!: Record<string, unknown>;
 }
 
+export class AssignDepositDto {
+  @ApiProperty({ description: 'Open USDT on TRON collection this deposit pays' })
+  @IsString()
+  collectionId!: string;
+}
+
 export class RequestOtpDto {
   @ApiProperty({ example: '256771234567', description: 'Payer mobile number in international format' })
   @IsString()

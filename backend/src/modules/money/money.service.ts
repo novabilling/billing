@@ -9,7 +9,7 @@ import { WEBHOOK_QUEUE, WebhookJobType } from '../../queues/billing.queue';
 import { WalletsService } from '../wallets/wallets.service';
 import { formatScaled, toScaled } from '../ledger/ledger.money';
 import { ProviderRegistryService } from './provider-registry.service';
-import { majorAmount, MoneyProvider, Party, ProviderAmbiguousError, ProviderOutcome, Rail } from './types';
+import { majorAmount, MoneyProvider, Party, ProviderAmbiguousError, ProviderOutcome, Rail, PaymentDetails } from './types';
 import { parseParty } from './party';
 import { CommissionKind, CommissionQuote, CommissionSettings, quoteCommission, validateCommission } from './commission';
 
@@ -533,6 +533,64 @@ export class MoneyService {
     return provider.verifyPayee(parseParty(rawParty, 'payee'));
   }
 
+  // --- Watch-only crypto deposits ---
+
+  async listCryptoDeposits(db: PrismaClient, query: { status?: string; page?: number; limit?: number }) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const where = query.status ? { status: query.status.toUpperCase() } : {};
+    const [rows, total] = await Promise.all([
+      db.cryptoDeposit.findMany({ where, orderBy: { blockTime: 'desc' }, skip: (page - 1) * limit, take: limit }),
+      db.cryptoDeposit.count({ where }),
+    ]);
+    const refs = rows.map((r) => r.reference).filter((r): r is string => Boolean(r));
+    const intents = refs.length
+      ? await db.moneyIntent.findMany({ where: { providerReference: { in: refs } }, select: { id: true, providerReference: true } })
+      : [];
+    const byRef = new Map(intents.map((i) => [i.providerReference, i.id]));
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        chain: r.chain,
+        token: r.token,
+        address: r.address,
+        txHash: r.txHash,
+        from: r.fromAddress,
+        amount: r.amount.toString(),
+        blockTime: r.blockTime,
+        status: r.status.toLowerCase(),
+        collectionId: r.reference ? (byRef.get(r.reference) ?? null) : null,
+      })),
+      meta: { total, page, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * A person settles an open crypto collection with a deposit that did not
+   * match on its own (e.g. the payer left off the amount's tail, or paid a
+   * different amount the merchant accepts).
+   */
+  async assignCryptoDeposit(db: PrismaClient, tenantId: string, depositId: string, collectionId: string) {
+    const deposit = await db.cryptoDeposit.findUnique({ where: { id: depositId } });
+    if (!deposit) throw new NotFoundException('Deposit not found');
+    if (deposit.status !== 'UNMATCHED') throw new BadRequestException('This deposit already paid a collection');
+    const intent = await this.find(db, collectionId);
+    if (intent.type !== 'COLLECTION' || intent.provider !== 'tron_usdt') {
+      throw new BadRequestException('Deposits can only pay USDT on TRON collections');
+    }
+    if (!OPEN.includes(intent.status)) throw new BadRequestException(`This collection is already ${intent.status.toLowerCase()}`);
+    if (await db.cryptoDeposit.findFirst({ where: { reference: intent.providerReference } })) {
+      throw new BadRequestException('This collection already has a deposit');
+    }
+    const moved = await db.cryptoDeposit.updateMany({
+      where: { id: depositId, status: 'UNMATCHED' },
+      data: { status: 'ASSIGNED', reference: intent.providerReference },
+    });
+    if (moved.count === 0) throw new BadRequestException('This deposit already paid a collection');
+    this.logger.log(`Crypto deposit ${deposit.txHash} assigned to collection ${intent.id}`);
+    return this.refresh(db, tenantId, intent.id);
+  }
+
   /** Text the payer a one-time code for a provider that confirms collections that way. */
   async requestPayerOtp(db: PrismaClient, providerName: string, phone: string) {
     const provider = await this.registry.get(db, providerName);
@@ -692,7 +750,7 @@ export class MoneyService {
       providerTransactionId: intent.providerTxnId,
       providerStatus: intent.providerStatus,
       paymentUrl: intent.paymentUrl,
-      paymentDetails: intent.paymentDetails,
+      paymentDetails: intent.paymentDetails as unknown as PaymentDetails | null,
       failureReason: intent.failureReason,
       fee: intent.fee?.toString() ?? null,
       commission: intent.commission?.toString() ?? null,
