@@ -26,6 +26,7 @@ import { apiClient } from "@/lib/api/client";
 import type { PaymentProvider } from "@/types";
 import { toast } from "sonner";
 import { brand } from "@/lib/brand";
+import { useAuthStore } from "@/lib/stores/auth";
 
 const providerInfo: Record<string, { logo: string; color: string }> = {
   stripe: { logo: "💳", color: "bg-indigo-500" },
@@ -134,6 +135,17 @@ function getApiBaseUrl(): string {
     return `${protocol}//localhost:4000`;
   }
   return `${protocol}//api.${hostname.replace(/^app\./, "")}`;
+}
+
+// Providers we register automatically keep the shared URL they were registered
+// with; for the rest, show this tenant's own URL so notifications are only
+// checked against this account's credentials.
+function webhookUrlFor(code: string): string {
+  if (autoIpnProviders.has(code)) return `${getApiBaseUrl()}/webhooks/${code}`;
+  const tenantId = useAuthStore.getState().user?.tenantId;
+  return tenantId
+    ? `${getApiBaseUrl()}/webhooks/${code}/${tenantId}`
+    : `${getApiBaseUrl()}/webhooks/${code}`;
 }
 
 export default function ProvidersPage() {
@@ -380,7 +392,7 @@ export default function ProvidersPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <code className="flex-1 px-2 py-1.5 bg-background border border-border rounded font-mono text-xs truncate select-all">
-                      {getApiBaseUrl()}/webhooks/{provider.code}
+                      {webhookUrlFor(provider.code)}
                     </code>
                     <Button
                       variant="outline"
@@ -388,7 +400,7 @@ export default function ProvidersPage() {
                       className="h-7 w-7 shrink-0"
                       onClick={() => {
                         navigator.clipboard.writeText(
-                          `${getApiBaseUrl()}/webhooks/${provider.code}`,
+                          webhookUrlFor(provider.code),
                         );
                         toast.success("Webhook URL copied");
                       }}
@@ -558,7 +570,7 @@ export default function ProvidersPage() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <code className="flex-1 px-2 py-1.5 bg-background border border-border rounded font-mono text-xs truncate select-all">
-                    {getApiBaseUrl()}/webhooks/{configProvider.code}
+                    {webhookUrlFor(configProvider.code)}
                   </code>
                   <Button
                     type="button"
@@ -567,7 +579,7 @@ export default function ProvidersPage() {
                     className="h-7 w-7 shrink-0"
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `${getApiBaseUrl()}/webhooks/${configProvider.code}`,
+                        webhookUrlFor(configProvider.code),
                       );
                       toast.success("Webhook URL copied");
                     }}

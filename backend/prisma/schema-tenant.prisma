@@ -775,3 +775,43 @@ model LedgerCursor {
   position  DateTime
   updatedAt DateTime @updatedAt
 }
+
+// ============================================================
+// Inbound provider events (webhook inbox)
+// ============================================================
+
+enum ProviderEventStatus {
+  PROCESSED
+  DUPLICATE
+  IGNORED
+  FAILED
+}
+
+// One row per verified provider notification that matched this tenant.
+// `eventKey` identifies the notification (provider event id, or transaction id
+// plus status when the provider sends none), so a redelivered notification is
+// recorded once and never re-runs its side effects.
+model ProviderEvent {
+  id          String              @id @default(cuid())
+  provider    String
+  eventKey    String
+  eventType   String?
+  status      ProviderEventStatus
+  // Which route delivered it: "tenant" (per-tenant URL) or "shared" (legacy URL).
+  route       String
+  paymentId   String?
+  intentId    String?
+  amount      String?
+  currency    String?
+  // Set when the provider reported an amount or currency different from ours.
+  mismatch    String?
+  error       String?
+  payload     Json
+  receivedAt  DateTime            @default(now())
+
+  @@unique([provider, eventKey])
+  @@index([receivedAt])
+  @@index([status])
+  @@index([paymentId])
+  @@index([intentId])
+}

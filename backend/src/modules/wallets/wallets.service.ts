@@ -221,6 +221,11 @@ export class WalletsService {
 
   // --- Balance helpers ---
 
+  /**
+   * Credit and debit run in one transaction with the wallet row locked, so the
+   * transaction history and the stored balances can never disagree and two
+   * concurrent debits cannot take the balance below zero.
+   */
   private async addCredits(
     db: PrismaClient,
     walletId: string,
@@ -229,34 +234,35 @@ export class WalletsService {
     tenantId: string,
     metadata?: Record<string, unknown>,
   ) {
-    const wallet = await db.wallet.findUnique({ where: { id: walletId } });
-    if (!wallet) throw new NotFoundException('Wallet not found');
+    return db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${walletId} FOR UPDATE`;
+      const wallet = await tx.wallet.findUnique({ where: { id: walletId } });
+      if (!wallet) throw new NotFoundException('Wallet not found');
 
-    const amount = this.creditsToAmount(credits, Number(wallet.rateAmount));
-    const now = new Date();
+      const amount = this.creditsToAmount(credits, Number(wallet.rateAmount));
+      const txn = await tx.walletTransaction.create({
+        data: {
+          walletId,
+          transactionType: 'INBOUND',
+          status: 'SETTLED',
+          transactionStatus: kind,
+          creditAmount: credits,
+          amount,
+          settledAt: new Date(),
+          metadata: metadata as any,
+        },
+      });
 
-    const txn = await db.walletTransaction.create({
-      data: {
-        walletId,
-        transactionType: 'INBOUND',
-        status: 'SETTLED',
-        transactionStatus: kind,
-        creditAmount: credits,
-        amount,
-        settledAt: now,
-        metadata: metadata as any,
-      },
+      await tx.wallet.update({
+        where: { id: walletId },
+        data: {
+          creditsBalance: { increment: credits },
+          balance: { increment: amount },
+        },
+      });
+
+      return txn;
     });
-
-    await db.wallet.update({
-      where: { id: walletId },
-      data: {
-        creditsBalance: { increment: credits },
-        balance: { increment: amount },
-      },
-    });
-
-    return txn;
   }
 
   private async removeCredits(
@@ -268,38 +274,43 @@ export class WalletsService {
     invoiceId?: string,
     metadata?: Record<string, unknown>,
   ) {
-    const wallet = await db.wallet.findUnique({ where: { id: walletId } });
-    if (!wallet) throw new NotFoundException('Wallet not found');
+    return db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${walletId} FOR UPDATE`;
+      const wallet = await tx.wallet.findUnique({ where: { id: walletId } });
+      if (!wallet) throw new NotFoundException('Wallet not found');
+      if (credits > Number(wallet.creditsBalance) + 1e-9) {
+        throw new BadRequestException(
+          `Wallet ${walletId} has ${wallet.creditsBalance} credits; cannot remove ${credits}`,
+        );
+      }
 
-    const amount = this.creditsToAmount(credits, Number(wallet.rateAmount));
-    const now = new Date();
+      const amount = this.creditsToAmount(credits, Number(wallet.rateAmount));
+      const txn = await tx.walletTransaction.create({
+        data: {
+          walletId,
+          transactionType: 'OUTBOUND',
+          status: 'SETTLED',
+          transactionStatus: kind,
+          creditAmount: credits,
+          amount,
+          invoiceId,
+          settledAt: new Date(),
+          metadata: metadata as any,
+        },
+      });
 
-    const txn = await db.walletTransaction.create({
-      data: {
-        walletId,
-        transactionType: 'OUTBOUND',
-        status: 'SETTLED',
-        transactionStatus: kind,
-        creditAmount: credits,
-        amount,
-        invoiceId,
-        settledAt: now,
-        metadata: metadata as any,
-      },
+      await tx.wallet.update({
+        where: { id: walletId },
+        data: {
+          creditsBalance: { decrement: credits },
+          balance: { decrement: amount },
+          consumedCredits: { increment: credits },
+          consumedAmount: { increment: amount },
+        },
+      });
+
+      return txn;
     });
-
-    await db.wallet.update({
-      where: { id: walletId },
-      data: {
-        creditsBalance: { decrement: credits },
-        balance: { decrement: amount },
-        consumedCredits: { increment: credits },
-        consumedAmount: { increment: amount },
-        ...(kind === 'INVOICED' ? {} : {}),
-      },
-    });
-
-    return txn;
   }
 
   // --- Invoice integration ---

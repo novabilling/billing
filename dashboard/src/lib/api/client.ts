@@ -699,7 +699,7 @@ export const apiClient = {
 
     async refund(
       id: string,
-      data?: { amount?: number; reason?: string },
+      data?: { amount?: number; reason?: string; recordOnly?: boolean },
     ): Promise<Payment> {
       const result = await apiFetch<any>(`/payments/${id}/refund`, {
         method: "POST",

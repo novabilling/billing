@@ -62,7 +62,7 @@ export default function PaymentsPage() {
   // Refund dialog state
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundTarget, setRefundTarget] = useState<Payment | null>(null);
-  const [refundForm, setRefundForm] = useState({ amount: "", reason: "" });
+  const [refundForm, setRefundForm] = useState({ amount: "", reason: "", recordOnly: false });
   const [isRefunding, setIsRefunding] = useState(false);
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function PaymentsPage() {
 
   function openRefundDialog(payment: Payment) {
     setRefundTarget(payment);
-    setRefundForm({ amount: "", reason: "" });
+    setRefundForm({ amount: "", reason: "", recordOnly: false });
     setRefundOpen(true);
   }
 
@@ -97,11 +97,12 @@ export default function PaymentsPage() {
     if (!refundTarget) return;
     setIsRefunding(true);
     try {
-      const data: { amount?: number; reason?: string } = {};
+      const data: { amount?: number; reason?: string; recordOnly?: boolean } = {};
       if (refundForm.amount) data.amount = Number(refundForm.amount);
       if (refundForm.reason) data.reason = refundForm.reason;
+      if (refundForm.recordOnly) data.recordOnly = true;
       await apiClient.payments.refund(refundTarget.id, data);
-      toast.success("Payment refunded");
+      toast.success(refundForm.recordOnly ? "Refund recorded" : "Refund sent to the payment provider");
       setRefundOpen(false);
       loadPayments();
     } catch (error: any) {
@@ -327,6 +328,23 @@ export default function PaymentsPage() {
                 }
               />
             </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                id="refund-record-only"
+                type="checkbox"
+                className="mt-1"
+                checked={refundForm.recordOnly}
+                onChange={(e) =>
+                  setRefundForm({ ...refundForm, recordOnly: e.target.checked })
+                }
+              />
+              <span>
+                I already refunded this payment elsewhere — only record it
+                <span className="block text-xs text-muted-foreground">
+                  Otherwise the refund is sent to the payment provider now.
+                </span>
+              </span>
+            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRefundOpen(false)}>
