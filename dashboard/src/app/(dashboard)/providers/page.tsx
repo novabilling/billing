@@ -40,6 +40,7 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   yo: { logo: "📲", color: "bg-yellow-500" },
   mtn_momo: { logo: "🟡", color: "bg-yellow-400" },
   airtel_money: { logo: "🔴", color: "bg-red-600" },
+  nowpayments: { logo: "₿", color: "bg-sky-600" },
 };
 
 const credentialFields: Record<
@@ -109,6 +110,11 @@ const credentialFields: Record<
     { key: "disbursementApiKey", label: "Disbursement API key", placeholder: "", optional: true },
     { key: "baseUrl", label: "API host (only if MTN gave you a different one)", placeholder: "https://proxy.momoapi.mtn.com", optional: true },
   ],
+  nowpayments: [
+    { key: "apiKey", label: "API key", placeholder: "From NOWPayments → Store settings" },
+    { key: "ipnSecret", label: "IPN secret", placeholder: "Needed to verify payment notifications" },
+    { key: "environment", label: "Environment", placeholder: "production or sandbox" },
+  ],
   airtel_money: [
     { key: "environment", label: "Environment", placeholder: "staging or production" },
     { key: "clientId", label: "Client ID", placeholder: "" },
@@ -137,17 +143,18 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   yo: { label: "Yo! Payments", url: "https://www.yo.co.ug" },
   mtn_momo: { label: "MTN MoMo Developer", url: "https://momodeveloper.mtn.com" },
   airtel_money: { label: "Airtel Developer Portal", url: "https://developers.airtel.africa" },
+  nowpayments: { label: "NOWPayments", url: "https://account.nowpayments.io" },
 };
 
 /**
  * Providers whose IPN / webhook URL is automatically registered via the
  * provider API when the credentials are saved — no manual setup needed.
  */
-const autoIpnProviders = new Set(["pesapal", "yo", "mtn_momo"]);
+const autoIpnProviders = new Set(["pesapal", "yo", "mtn_momo", "nowpayments"]);
 
 /** What to tell the user about notification setup for providers we wire up ourselves. */
 function autoIpnNote(code: string, name: string): string {
-  return code === "yo" || code === "mtn_momo"
+  return code === "yo" || code === "mtn_momo" || code === "nowpayments"
     ? `${brand.name} sends this notification URL to ${name} with every collection request — nothing to set up on their side.`
     : `${brand.name} automatically registers this IPN URL with ${name} when you save your credentials — no manual setup required.`;
 }
@@ -185,6 +192,10 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
     method: "Status check",
     detail: "MTN callbacks are unsigned, so each one triggers a status request to MTN, which decides the outcome",
   },
+  nowpayments: {
+    method: "HMAC-SHA512",
+    detail: "Verified with your IPN secret (x-nowpayments-sig header); underpayments are held for review",
+  },
   airtel_money: {
     method: "Status check",
     detail: "Airtel callbacks trigger a status request to Airtel, which decides the outcome",
@@ -214,7 +225,7 @@ function getApiBaseUrl(): string {
 function webhookUrlFor(code: string): string {
   const tenant = useAuthStore.getState().user?.tenantId;
   if (code === "yo") return `${getApiBaseUrl()}/webhooks/yo/${tenant ?? "{tenantId}"}/ipn`;
-  if (code === "mtn_momo" || code === "airtel_money") {
+  if (code === "mtn_momo" || code === "airtel_money" || code === "nowpayments") {
     return `${getApiBaseUrl()}/webhooks/${code}/${tenant ?? "{tenantId}"}/callback`;
   }
   if (autoIpnProviders.has(code)) return `${getApiBaseUrl()}/webhooks/${code}`;

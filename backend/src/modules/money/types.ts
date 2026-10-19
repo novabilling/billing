@@ -2,7 +2,7 @@
  * Shared shapes for one-time collections, payouts and transfers.
  */
 
-export type Rail = 'card' | 'bank' | 'mobile_money' | 'paypal' | 'yo_account' | 'hosted' | 'wallet';
+export type Rail = 'card' | 'bank' | 'mobile_money' | 'paypal' | 'yo_account' | 'hosted' | 'crypto' | 'wallet';
 
 /** Who pays (collections) or who is paid (payouts). */
 export type Party =
@@ -11,7 +11,10 @@ export type Party =
   | { type: 'paypal'; email: string; name?: string }
   | { type: 'yo_account'; accountNumber: string; email: string; name?: string }
   // Hosted checkout: the payer chooses card, bank or mobile money on the provider's page.
-  | { type: 'hosted'; email: string; name?: string };
+  | { type: 'hosted'; email: string; name?: string }
+  // Hosted crypto checkout: priced in fiat, paid in the coin the payer picks
+  // (or `payCurrency`, e.g. "usdttrc20"), settled by the tenant's processor.
+  | { type: 'crypto'; email?: string; name?: string; payCurrency?: string };
 
 export type ProviderState = 'pending' | 'succeeded' | 'failed';
 

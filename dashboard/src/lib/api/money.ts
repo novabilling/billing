@@ -15,7 +15,8 @@ export type Party =
   | { type: "bank"; accountNumber: string; accountName: string; bankCode?: string; bankName?: string; transferType?: string }
   | { type: "paypal"; email: string; name?: string }
   | { type: "yo_account"; accountNumber: string; email: string; name?: string }
-  | { type: "hosted"; email: string; name?: string };
+  | { type: "hosted"; email: string; name?: string }
+  | { type: "crypto"; email?: string; name?: string; payCurrency?: string };
 
 export interface MoneyIntent {
   id: string;
@@ -148,6 +149,8 @@ export function describeParty(party: Party | null): string {
     case "paypal":
     case "hosted":
       return party.email;
+    case "crypto":
+      return `Crypto${party.payCurrency ? ` (${party.payCurrency.toUpperCase()})` : ""}${party.email ? ` · ${party.email}` : ""}`;
     case "yo_account":
       return `Yo ${party.accountNumber}`;
   }

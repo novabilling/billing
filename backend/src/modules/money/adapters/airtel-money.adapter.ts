@@ -254,16 +254,21 @@ export class AirtelMoneyAdapter implements MoneyProvider {
     const cached = tokens.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.token;
 
-    const response = await this.fetchImpl(`${this.baseUrl}/auth/oauth2/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: '*/*' },
-      body: JSON.stringify({
-        client_id: this.credentials.clientId,
-        client_secret: this.credentials.clientSecret,
-        grant_type: 'client_credentials',
-      }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}/auth/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: '*/*' },
+        body: JSON.stringify({
+          client_id: this.credentials.clientId,
+          client_secret: this.credentials.clientSecret,
+          grant_type: 'client_credentials',
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch (error) {
+      throw new Error(`Could not reach Airtel Money: ${error instanceof Error ? error.message : error}`);
+    }
     const body = (await response.json().catch(() => ({}))) as { access_token?: string; expires_in?: number | string };
     if (!response.ok || !body.access_token) throw new Error(`Airtel authentication failed (HTTP ${response.status})`);
     tokens.set(cacheKey, { token: body.access_token, expiresAt: Date.now() + (Number(body.expires_in ?? 180) - 30) * 1000 });

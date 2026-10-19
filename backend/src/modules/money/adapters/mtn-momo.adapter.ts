@@ -251,14 +251,19 @@ export class MtnMomoAdapter implements MoneyProvider {
     const cached = tokens.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.token;
 
-    const response = await this.fetchImpl(`${this.baseUrl}/${product}/token/`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${user}:${apiKey}`).toString('base64')}`,
-        'Ocp-Apim-Subscription-Key': subscriptionKey,
-      },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}/${product}/token/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${user}:${apiKey}`).toString('base64')}`,
+          'Ocp-Apim-Subscription-Key': subscriptionKey,
+        },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch (error) {
+      throw new Error(`Could not reach MTN MoMo: ${error instanceof Error ? error.message : error}`);
+    }
     const body = (await response.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
     if (!response.ok || !body.access_token) {
       throw new Error(`MTN ${product} authentication failed (HTTP ${response.status})`);

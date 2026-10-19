@@ -7,11 +7,12 @@ import { HostedCheckout } from './adapters/hosted-checkout.adapter';
 import { YoAdapter, YoCredentials } from './adapters/yo.adapter';
 import { MtnMomoAdapter, MtnMomoCredentials } from './adapters/mtn-momo.adapter';
 import { AirtelMoneyAdapter, AirtelMoneyCredentials } from './adapters/airtel-money.adapter';
+import { NowPaymentsAdapter, NowPaymentsCredentials } from './adapters/nowpayments.adapter';
 import { detectNetwork } from './msisdn';
 import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
 /** Providers that only move money (no invoice checkout). */
-export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money'];
+export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments'];
 
 /** Operator APIs that only serve their own network's subscribers. */
 const NETWORK_PROVIDERS: Record<string, 'MTN' | 'AIRTEL'> = { mtn_momo: 'MTN', airtel_money: 'AIRTEL' };
@@ -74,6 +75,9 @@ export class ProviderRegistryService {
   }
 
   capabilitiesOf(name: string): Capabilities {
+    if (name === 'nowpayments') {
+      return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
+    }
     if (name === 'mtn_momo' || name === 'airtel_money') {
       return { collect: ['mobile_money'], payout: ['mobile_money'], balance: true, verifyPayee: true };
     }
@@ -96,6 +100,9 @@ export class ProviderRegistryService {
     }
     if (name === 'airtel_money') {
       return new AirtelMoneyAdapter(credentials as unknown as AirtelMoneyCredentials);
+    }
+    if (name === 'nowpayments') {
+      return new NowPaymentsAdapter(credentials as unknown as NowPaymentsCredentials);
     }
 
     const checkout = new HostedCheckout(ProviderFactory.create(name, credentials));

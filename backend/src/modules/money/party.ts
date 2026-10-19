@@ -53,7 +53,14 @@ export function parseParty(raw: unknown, role: 'payer' | 'payee'): Party {
       return { type: 'yo_account', accountNumber: need('accountNumber'), email: email(), name: optional('name') };
     case 'hosted':
       return { type: 'hosted', email: email(), name: optional('name') };
+    case 'crypto': {
+      const payCurrency = optional('payCurrency');
+      if (payCurrency && !/^[a-z0-9]{2,20}$/i.test(payCurrency)) {
+        throw new BadRequestException(`${role}.payCurrency must be a coin code such as "btc" or "usdttrc20"`);
+      }
+      return { type: 'crypto', email: str(p.email) ? email() : undefined, name: optional('name'), payCurrency: payCurrency?.toLowerCase() };
+    }
     default:
-      throw new BadRequestException(`${role}.type must be one of mobile_money, bank, paypal, yo_account, hosted`);
+      throw new BadRequestException(`${role}.type must be one of mobile_money, bank, paypal, yo_account, hosted, crypto`);
   }
 }

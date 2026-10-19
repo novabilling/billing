@@ -363,6 +363,7 @@ const partyTypes: Record<"collection" | "payout", { value: Party["type"]; label:
     { value: "mobile_money", label: "Mobile money prompt" },
     { value: "hosted", label: "Checkout link (card, bank, mobile money)" },
     { value: "paypal", label: "PayPal" },
+    { value: "crypto", label: "Crypto checkout link" },
   ],
   payout: [
     { value: "mobile_money", label: "Mobile money" },
@@ -422,6 +423,8 @@ function CreateDialog({
         return { type: "yo_account", accountNumber: form.accountNumber ?? "", email: form.email ?? "", name };
       case "paypal":
         return { type: "paypal", email: form.email ?? "", name };
+      case "crypto":
+        return { type: "crypto", email: form.email || undefined, name, payCurrency: form.payCurrency || undefined };
       default:
         return { type: "hosted", email: form.email ?? "", name };
     }
@@ -564,6 +567,16 @@ function CreateDialog({
                 <>
                   {field("accountNumber", "Yo account number")}
                   {field("email", "Account email", { type: "email" })}
+                </>
+              )}
+              {form.partyType === "crypto" && (
+                <>
+                  {field("payCurrency", "Coin (optional)", { placeholder: "Payer chooses, or e.g. usdttrc20, btc" })}
+                  {field("email", "Payer email (optional)", { type: "email" })}
+                  {field("returnUrl", "Return link after payment (optional)", { placeholder: "https://yourapp.com/thanks" })}
+                  <p className="text-xs text-muted-foreground">
+                    Priced in your currency; the payer pays in crypto on the processor&apos;s page and it settles to your own processor account.
+                  </p>
                 </>
               )}
               {(form.partyType === "hosted" || form.partyType === "paypal") && (
