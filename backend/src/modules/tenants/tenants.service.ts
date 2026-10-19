@@ -57,7 +57,10 @@ export class TenantsService {
         select: { settings: true },
       });
       const currentSettings = (existing?.settings || {}) as Record<string, unknown>;
-      data.settings = { ...currentSettings, ...dto.settings } as any;
+      // Money-movement settings change only through /money/settings and the
+      // platform console (payouts need operator approval), never here.
+      const { money: _ignored, ...incoming } = (dto.settings ?? {}) as Record<string, unknown>;
+      data.settings = { ...currentSettings, ...incoming } as any;
     }
 
     const tenant = await this.centralPrisma.client.tenant.update({

@@ -38,7 +38,7 @@ describeDb('ledger (postgres)', () => {
 
   beforeEach(async () => {
     await db.$executeRawUnsafe(`
-      TRUNCATE "LedgerLine", "LedgerEntry", "LedgerAccount", "LedgerCursor",
+      TRUNCATE "MoneyIntent", "LedgerLine", "LedgerEntry", "LedgerAccount", "LedgerCursor",
         "WalletTransaction", "Wallet", "CreditNote", "Payment", "Invoice", "Customer" CASCADE`);
     await db.customer.create({ data: { id: 'cus_1', externalId: 'ext_1', email: 'a@example.com', currency: 'UGX' } });
   });

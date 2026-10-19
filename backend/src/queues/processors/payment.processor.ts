@@ -5,7 +5,7 @@ import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { PdfService } from '../../services/pdf.service';
-import { ProviderFactory } from '../../providers/provider.factory';
+import { CHECKOUT_PROVIDER_NAMES, ProviderFactory } from '../../providers/provider.factory';
 import {
   PAYMENT_QUEUE,
   EMAIL_QUEUE,
@@ -73,7 +73,7 @@ export class PaymentProcessor extends WorkerHost {
 
       // Get active payment provider
       const provider = await db.paymentProvider.findFirst({
-        where: { isActive: true },
+        where: { isActive: true, providerName: { in: CHECKOUT_PROVIDER_NAMES } },
         orderBy: { priority: 'asc' },
       });
 

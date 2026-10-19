@@ -30,6 +30,15 @@ export interface TenantSnapshot {
   featuresUsed: string[];
   firstPaymentAt: Date | null;
   lastPaymentAt: Date | null;
+  moneyMovement30d: MoneyMovementStats | null;
+}
+
+export interface MoneyMovementStats {
+  collections: { count: number; failed: number; volume: Record<string, string> };
+  payouts: { count: number; failed: number; volume: Record<string, string> };
+  transfers: { count: number };
+  stuck: number;
+  awaitingApproval: number;
 }
 
 /**
@@ -84,8 +93,8 @@ export class TenantMetricsService {
 
     await this.centralPrisma.client.tenantMetricsDaily.upsert({
       where: { tenantId_date: { tenantId, date } },
-      create: { tenantId, date, ...snapshot },
-      update: snapshot,
+      create: { tenantId, date, ...snapshot, moneyMovement30d: (snapshot.moneyMovement30d ?? undefined) as never },
+      update: { ...snapshot, moneyMovement30d: (snapshot.moneyMovement30d ?? undefined) as never },
     });
   }
 
@@ -173,7 +182,51 @@ export class TenantMetricsService {
       featuresUsed,
       firstPaymentAt: paymentRange._min.createdAt,
       lastPaymentAt: paymentRange._max.createdAt,
+      moneyMovement30d: await this.moneyMovement(db, since),
     };
+  }
+
+  /** Collections, payouts and transfers; null for tenants whose database predates them. */
+  private async moneyMovement(db: PrismaClient, since: Date): Promise<MoneyMovementStats | null> {
+    try {
+      const [groups, stuck, awaitingApproval] = await Promise.all([
+        db.moneyIntent.groupBy({
+          by: ['type', 'status', 'currency'],
+          where: { createdAt: { gte: since } },
+          _count: { _all: true },
+          _sum: { amount: true },
+        }),
+        db.moneyIntent.count({ where: { status: 'STUCK' } }),
+        db.moneyIntent.count({ where: { status: 'REQUIRES_APPROVAL' } }),
+      ]);
+      const stats: MoneyMovementStats = {
+        collections: { count: 0, failed: 0, volume: {} },
+        payouts: { count: 0, failed: 0, volume: {} },
+        transfers: { count: 0 },
+        stuck,
+        awaitingApproval,
+      };
+      const volumes = { COLLECTION: new Map<string, bigint>(), PAYOUT: new Map<string, bigint>() };
+      for (const g of groups) {
+        if (g.type === 'TRANSFER') {
+          if (g.status === 'SUCCEEDED') stats.transfers.count += g._count._all;
+          continue;
+        }
+        const bucket = g.type === 'COLLECTION' ? stats.collections : stats.payouts;
+        if (g.status === 'SUCCEEDED') {
+          bucket.count += g._count._all;
+          const map = volumes[g.type];
+          map.set(g.currency, (map.get(g.currency) ?? 0n) + toScaled(g._sum.amount ?? 0));
+        } else if (g.status === 'FAILED') {
+          bucket.failed += g._count._all;
+        }
+      }
+      stats.collections.volume = Object.fromEntries([...volumes.COLLECTION].map(([c, v]) => [c, formatScaled(v)]));
+      stats.payouts.volume = Object.fromEntries([...volumes.PAYOUT].map(([c, v]) => [c, formatScaled(v)]));
+      return stats;
+    } catch {
+      return null;
+    }
   }
 
   /**

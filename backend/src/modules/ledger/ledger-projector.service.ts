@@ -2,12 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   CreditNote,
   Invoice,
+  MoneyIntent,
   Payment,
   PrismaClient,
   Wallet,
   WalletTransaction,
+  WalletTransactionKind,
 } from '../../generated/prisma-tenant/client';
-import { Accounts } from './chart-of-accounts';
+import { Accounts, AccountSpec } from './chart-of-accounts';
 import { LedgerService, PostingOutcome } from './ledger.service';
 import { toScaled } from './ledger.money';
 
@@ -29,7 +31,7 @@ export interface ProjectionResult {
   errors: { reference: string; error: string }[];
 }
 
-type Source = 'invoices' | 'payments' | 'wallet_transactions' | 'credit_notes';
+type Source = 'invoices' | 'payments' | 'wallet_transactions' | 'credit_notes' | 'money_intents';
 
 /**
  * Shadow-mode projector: derives ledger entries from the existing billing
@@ -55,6 +57,7 @@ export class LedgerProjectorService {
       this.projectWalletTransactions(db, since, until, result),
     );
     await this.run(db, 'credit_notes', until, options, result, (since) => this.projectCreditNotes(db, since, until, result));
+    await this.run(db, 'money_intents', until, options, result, (since) => this.projectMoneyIntents(db, since, until, result));
 
     return result;
   }
@@ -217,12 +220,19 @@ export class LedgerProjectorService {
     // outside the system (purchased) or by a promotional expense (granted).
     // Debits: the liability shrinks, settling a receivable (invoiced) or
     // becoming breakage (voided / expired).
-    const counterpart = {
+    const counterparts: Record<WalletTransactionKind, AccountSpec> = {
       PURCHASED: Accounts.walletTopUpClearing(wallet.currency),
       GRANTED: Accounts.promotionalCredits(wallet.currency),
       INVOICED: Accounts.receivable(wallet.currency),
       VOIDED: Accounts.walletBreakage(wallet.currency),
-    }[txn.transactionStatus];
+      // Payouts and transfers: the wallet leg posts here; the money-movement
+      // service posts the other leg against the same clearing account.
+      WITHDRAWN: Accounts.payoutsInFlight(wallet.currency),
+      PAYOUT_REVERSED: Accounts.payoutsInFlight(wallet.currency),
+      TRANSFERRED_OUT: Accounts.walletTransfers(wallet.currency),
+      TRANSFERRED_IN: Accounts.walletTransfers(wallet.currency),
+    };
+    const counterpart = counterparts[txn.transactionStatus];
     const inbound = txn.transactionType === 'INBOUND';
 
     return this.ledger.post(db, {
@@ -292,6 +302,75 @@ export class LedgerProjectorService {
         { account: Accounts.creditNotes(note.currency), amount },
         { account: Accounts.customerCredit(note.currency), amount: -amount },
       ],
+    });
+  }
+
+  private async projectMoneyIntents(db: PrismaClient, since: Date, until: Date, result: ProjectionResult) {
+    return this.scan(
+      (cursor) =>
+        db.moneyIntent.findMany({
+          where: { updatedAt: { gt: cursor, lte: until }, status: 'SUCCEEDED', type: { in: ['COLLECTION', 'PAYOUT'] } },
+          orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+          take: BATCH,
+        }),
+      since,
+      async (batch: MoneyIntent[]) => {
+        for (const intent of batch) {
+          await this.safely(result, `money_intent:${intent.id}`, () => this.projectMoneyIntent(db, intent));
+        }
+      },
+    );
+  }
+
+  /**
+   * A settled collection brings money into provider clearing: as one-time
+   * revenue, or (when it funds a wallet) against the top-up clearing account
+   * that the wallet credit then draws down. A settled payout takes money out
+   * of provider clearing: from a wallet's held amount, or as a payout expense.
+   * Wallet legs themselves come from wallet transactions. Provider fees, when
+   * reported, post separately.
+   */
+  async projectMoneyIntent(db: PrismaClient, intent: MoneyIntent): Promise<PostingOutcome> {
+    if (!intent.provider) return 'skipped';
+    const amount = toScaled(intent.amount);
+    const clearing = Accounts.providerClearing(intent.provider, intent.currency);
+    const fee = intent.fee ? toScaled(intent.fee) : 0n;
+    const feeLines =
+      fee > 0n
+        ? [
+            { account: Accounts.providerFees(intent.provider, intent.currency), amount: fee },
+            { account: clearing, amount: -fee },
+          ]
+        : [];
+
+    const collection = intent.type === 'COLLECTION';
+    const other = collection
+      ? intent.walletId
+        ? Accounts.walletTopUpClearing(intent.currency)
+        : Accounts.oneTimeRevenue(intent.currency)
+      : intent.walletId
+        ? Accounts.payoutsInFlight(intent.currency)
+        : Accounts.payoutsSent(intent.currency);
+
+    return this.ledger.post(db, {
+      reference: `money_intent:${intent.id}:settled`,
+      type: collection ? 'COLLECTION' : 'PAYOUT',
+      description: `${collection ? 'Collection' : 'Payout'} via ${intent.provider}`,
+      sourceType: 'money_intent',
+      sourceId: intent.id,
+      effectiveAt: intent.completedAt ?? intent.updatedAt,
+      metadata: { rail: intent.rail, providerReference: intent.providerReference, clientReference: intent.clientReference },
+      lines: collection
+        ? [
+            { account: clearing, amount },
+            { account: other, amount: -amount },
+            ...feeLines,
+          ]
+        : [
+            { account: other, amount },
+            { account: clearing, amount: -amount },
+            ...feeLines,
+          ],
     });
   }
 

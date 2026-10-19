@@ -177,6 +177,9 @@ model TenantMetricsDaily {
   featuresUsed        String[]
   firstPaymentAt      DateTime?
   lastPaymentAt       DateTime?
+  // { collections: { count, volume: {UGX: "..."} }, payouts: {...}, transfers: { count },
+  //   stuck: n, awaitingApproval: n } over the last 30 days (open counts are current)
+  moneyMovement30d    Json?
   createdAt           DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)

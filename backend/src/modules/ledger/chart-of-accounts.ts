@@ -108,4 +108,44 @@ export const Accounts = {
     type: 'REVENUE',
     currency: cur(currency),
   }),
+
+  /** Wallet money committed to a payout that the provider has not confirmed yet. */
+  payoutsInFlight: (currency: string): AccountSpec => ({
+    code: 'payouts_in_flight',
+    name: 'Payouts in flight',
+    type: 'LIABILITY',
+    currency: cur(currency),
+  }),
+
+  /** Payouts sent from the tenant's own provider balance (not from a customer wallet). */
+  payoutsSent: (currency: string): AccountSpec => ({
+    code: 'payouts_sent',
+    name: 'Payouts sent',
+    type: 'EXPENSE',
+    currency: cur(currency),
+  }),
+
+  /** Clearing account for wallet-to-wallet transfers; nets to zero once both legs post. */
+  walletTransfers: (currency: string): AccountSpec => ({
+    code: 'wallet_transfers',
+    name: 'Wallet transfers clearing',
+    type: 'LIABILITY',
+    currency: cur(currency),
+  }),
+
+  /** Revenue from one-time collections not tied to an invoice. */
+  oneTimeRevenue: (currency: string): AccountSpec => ({
+    code: 'one_time_revenue',
+    name: 'One-time collections',
+    type: 'REVENUE',
+    currency: cur(currency),
+  }),
+
+  providerFees: (provider: string, currency: string): AccountSpec => ({
+    code: `provider_fees:${provider.toLowerCase()}`,
+    name: `Provider fees (${provider.toLowerCase()})`,
+    type: 'EXPENSE',
+    currency: cur(currency),
+    provider: provider.toLowerCase(),
+  }),
 };

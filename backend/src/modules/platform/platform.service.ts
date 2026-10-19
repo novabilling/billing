@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { Prisma, TenantMetricsDaily } from '../../generated/prisma-central/client';
 import { formatScaled, toScaled } from '../ledger/ledger.money';
+import { moneySettings } from '../money/money.service';
+import { MoneyMovementStats } from './tenant-metrics.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -14,6 +16,7 @@ export type HealthFlag =
   | 'payment_failures'
   | 'ledger_unbalanced'
   | 'ledger_not_provisioned'
+  | 'money_stuck'
   | 'deactivated';
 
 interface UsageRow {
@@ -116,6 +119,7 @@ export class PlatformService {
         customers: metrics.reduce((n, m) => n + m.customers, 0),
         activeSubscriptions: metrics.reduce((n, m) => n + m.activeSubscriptions, 0),
       },
+      moneyMovement30d: this.moneyTotals(metrics),
       providers: this.providerTotals(metrics),
       features: this.featureTotals(metrics),
       ledger: {
@@ -161,6 +165,7 @@ export class PlatformService {
           createdAt: true,
           lastLoginAt: true,
           webhookUrl: true,
+          settings: true,
           apiKeys: { select: { lastUsed: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -198,6 +203,8 @@ export class PlatformService {
         providers: m?.providersConfigured ?? [],
         features: m?.featuresUsed ?? [],
         ledger: l ? { balanced: l.balanced, warnings: l.warnings, lastError: l.lastError, lastCheckAt: l.lastCheckAt } : null,
+        money: moneySettings({ id: t.id, settings: t.settings as Record<string, unknown> | null }),
+        moneyMovement30d: (m?.moneyMovement30d ?? null) as MoneyMovementStats | null,
       };
     });
 
@@ -309,6 +316,7 @@ export class PlatformService {
         failed: outboundWebhooks.find((g) => !g.success)?._count._all ?? 0,
       },
       ledger: tenant.ledgerStatus,
+      money: moneySettings({ id: tenant.id, settings: settings as Record<string, unknown> }),
     };
   }
 
@@ -365,7 +373,23 @@ export class PlatformService {
     if (m && m.paymentsFailed30d >= 5 && m.paymentsFailed30d > m.paymentsSucceeded30d * 0.2) flags.push('payment_failures');
     if (l && !l.balanced) flags.push('ledger_unbalanced');
     if (l?.lastError?.includes('schema:sync-tenants')) flags.push('ledger_not_provisioned');
+    if (((m?.moneyMovement30d ?? null) as MoneyMovementStats | null)?.stuck) flags.push('money_stuck');
     return flags;
+  }
+
+  private moneyTotals(metrics: TenantMetricsDaily[]) {
+    const stats = metrics.map((m) => m.moneyMovement30d as MoneyMovementStats | null).filter(Boolean) as MoneyMovementStats[];
+    return {
+      collections: stats.reduce((n, s) => n + s.collections.count, 0),
+      collectionsFailed: stats.reduce((n, s) => n + s.collections.failed, 0),
+      collectionVolume: sumCurrencyMaps(stats.map((s) => s.collections.volume)),
+      payouts: stats.reduce((n, s) => n + s.payouts.count, 0),
+      payoutsFailed: stats.reduce((n, s) => n + s.payouts.failed, 0),
+      payoutVolume: sumCurrencyMaps(stats.map((s) => s.payouts.volume)),
+      transfers: stats.reduce((n, s) => n + s.transfers.count, 0),
+      stuck: stats.reduce((n, s) => n + s.stuck, 0),
+      awaitingApproval: stats.reduce((n, s) => n + s.awaitingApproval, 0),
+    };
   }
 
   private providerTotals(metrics: TenantMetricsDaily[]) {

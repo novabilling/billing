@@ -508,6 +508,10 @@ enum WalletTransactionKind {
   GRANTED   // Free/promotional credits
   VOIDED    // Credits manually voided or expired
   INVOICED  // Credits auto-deducted from invoice
+  WITHDRAWN         // Paid out of the wallet through a payout
+  PAYOUT_REVERSED   // A failed payout returned to the wallet
+  TRANSFERRED_OUT   // Moved to another wallet
+  TRANSFERRED_IN    // Received from another wallet
 }
 
 model Wallet {
@@ -814,4 +818,71 @@ model ProviderEvent {
   @@index([status])
   @@index([paymentId])
   @@index([intentId])
+}
+
+// ============================================================
+// Money movement: one-time collections, payouts, transfers
+// ============================================================
+
+enum MoneyIntentType {
+  COLLECTION
+  PAYOUT
+  TRANSFER
+}
+
+enum MoneyIntentStatus {
+  REQUIRES_APPROVAL
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  // The provider's answer is unknown (timeout, indeterminate). Never resent;
+  // resolved by status checks or by an operator.
+  STUCK
+  CANCELED
+}
+
+model MoneyIntent {
+  id                String            @id @default(cuid())
+  type              MoneyIntentType
+  status            MoneyIntentStatus @default(PENDING)
+  amount            Decimal           @db.Decimal(19, 4)
+  currency          String
+  // Provider that moves the money; null for internal transfers.
+  provider          String?
+  // card, bank, mobile_money, paypal, yo_account, wallet, hosted
+  rail              String
+  // Payer (collections) or payee (payouts): see Party in money/types.ts.
+  party             Json?
+  description       String?
+  // Caller's own reference, unique per type, for safe retries.
+  clientReference   String?
+  customerId        String?
+  // Collections: credit this wallet when paid. Payouts: pay out of this wallet.
+  // Transfers: source wallet.
+  walletId          String?
+  // Transfers: destination wallet.
+  toWalletId        String?
+  // Reference sent to the provider (stable across status checks).
+  providerReference String?           @unique
+  // The provider's own transaction id, once known.
+  providerTxnId     String?
+  providerStatus    String?
+  paymentUrl        String?
+  failureReason     String?
+  fee               Decimal?          @db.Decimal(19, 4)
+  approvedAt        DateTime?
+  approvedBy        String?
+  lastCheckedAt     DateTime?
+  completedAt       DateTime?
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([type, clientReference])
+  @@index([type, status])
+  @@index([status, lastCheckedAt])
+  @@index([customerId])
+  @@index([walletId])
+  @@index([createdAt])
 }

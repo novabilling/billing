@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, NotFoundException, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
@@ -9,6 +9,9 @@ import { LedgerRunnerService } from '../ledger/ledger-runner.service';
 import { PlatformAdminGuard, platformAdminIds } from './platform-admin.guard';
 import { PlatformService } from './platform.service';
 import { TenantMetricsService } from './tenant-metrics.service';
+import { CentralPrismaService } from '../../database/central-prisma.service';
+import { MoneyService } from '../money/money.service';
+import { UpdateTenantMoneyDto } from './dto/update-tenant-money.dto';
 
 /**
  * Platform console API for the operators of this deployment. Excluded from
@@ -24,6 +27,8 @@ export class PlatformController {
     private readonly metrics: TenantMetricsService,
     private readonly ledgerRunner: LedgerRunnerService,
     private readonly config: ConfigService,
+    private readonly money: MoneyService,
+    private readonly centralPrisma: CentralPrismaService,
   ) {}
 
   /** Lets the dashboard decide whether to show the platform section. */
@@ -66,6 +71,15 @@ export class PlatformController {
     await this.metrics.refreshTenant(id);
     const ledger = await this.ledgerRunner.syncTenant(id);
     return { refreshed: true, ledger: { mode: ledger.mode, error: ledger.error, balanced: ledger.health?.balanced } };
+  }
+
+  /** Turn money-movement features on or off for a tenant; payouts can only be enabled here. */
+  @Patch('tenants/:id/money')
+  @UseGuards(PlatformAdminGuard)
+  async updateMoney(@Param('id') id: string, @Body() dto: UpdateTenantMoneyDto) {
+    const tenant = await this.centralPrisma.client.tenant.findUnique({ where: { id }, select: { id: true, settings: true } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return this.money.updateSettings({ id, settings: tenant.settings as Record<string, unknown> | null }, dto, true);
   }
 
   /** Rebuilds every tenant's snapshot in the background; results appear on the next read. */

@@ -7,7 +7,7 @@ import { InvoiceQueryDto } from './dto/invoice-query.dto';
 import { EncryptionService } from '../../services/encryption.service';
 import { PdfService } from '../../services/pdf.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
-import { ProviderFactory } from '../../providers/provider.factory';
+import { CHECKOUT_PROVIDER_NAMES, ProviderFactory } from '../../providers/provider.factory';
 import {
   EMAIL_QUEUE,
   WEBHOOK_QUEUE,
@@ -477,7 +477,7 @@ export class InvoicesService {
           orderBy: { priority: 'asc' },
         })
       : await db.paymentProvider.findFirst({
-          where: { isActive: true },
+          where: { isActive: true, providerName: { in: CHECKOUT_PROVIDER_NAMES } },
           orderBy: { priority: 'asc' },
         });
 

@@ -24,6 +24,7 @@ import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { ProviderFactory } from '../../providers/provider.factory';
 import { WebhookData } from '../../providers/base-payment.provider';
+import { MoneyService } from '../money/money.service';
 import { Prisma, PrismaClient } from '../../generated/prisma-tenant/client';
 import {
   WEBHOOK_QUEUE,
@@ -45,6 +46,7 @@ export class WebhooksController {
     private readonly encryptionService: EncryptionService,
     @InjectQueue(WEBHOOK_QUEUE) private readonly webhookQueue: Queue,
     @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
+    private readonly money: MoneyService,
   ) {}
 
   @Public()
@@ -308,6 +310,11 @@ export class WebhooksController {
         const payment = await this.findPayment(db, providerName, webhookData);
 
         if (!payment) {
+          // Not an invoice payment: it may be a one-time collection started
+          // through this provider's hosted checkout.
+          if (await this.money.handleCheckoutNotification(db, tenant.id, providerName, route, payload, webhookData)) {
+            return;
+          }
           this.logger.debug(
             `No matching payment found for tenant ${tenant.id}, txn ${webhookData.transactionId}`,
           );
