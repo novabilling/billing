@@ -105,11 +105,12 @@ export class MoneyService {
     const currency = input.currency.toUpperCase();
     const amount = this.parseAmount(input.amount, currency);
     const rail = payer.type as Rail;
-    const providerName = input.provider?.toLowerCase() ?? (await this.registry.pick(db, 'collect', rail));
+    const providerName = input.provider?.toLowerCase() ?? (await this.registry.pick(db, 'collect', rail, payer));
     const provider = await this.registry.get(db, providerName);
     if (!provider.collect || !provider.capabilities.collect.includes(rail)) {
       throw new BadRequestException(`${providerName} cannot collect from ${rail.replace('_', ' ')}`);
     }
+    this.registry.assertNetwork(providerName, payer);
     if (input.walletId) await this.requireWallet(db, input.walletId, currency);
 
     const existing = await this.byClientReference(db, 'COLLECTION', input.reference);
@@ -157,11 +158,12 @@ export class MoneyService {
     const currency = input.currency.toUpperCase();
     const amount = this.parseAmount(input.amount, currency);
     const rail = payee.type as Rail;
-    const providerName = input.provider?.toLowerCase() ?? (await this.registry.pick(db, 'payout', rail));
+    const providerName = input.provider?.toLowerCase() ?? (await this.registry.pick(db, 'payout', rail, payee));
     const provider = await this.registry.get(db, providerName);
     if (!provider.payout || !provider.capabilities.payout.includes(rail)) {
       throw new BadRequestException(`${providerName} cannot pay out to ${rail.replace('_', ' ')}`);
     }
+    this.registry.assertNetwork(providerName, payee);
     if (input.walletId) await this.requireWallet(db, input.walletId, currency);
 
     const existing = await this.byClientReference(db, 'PAYOUT', input.reference);

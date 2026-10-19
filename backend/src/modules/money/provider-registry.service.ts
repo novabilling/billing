@@ -5,10 +5,16 @@ import { EncryptionService } from '../../services/encryption.service';
 import { FlutterwavePayouts } from './adapters/flutterwave-payout.adapter';
 import { HostedCheckout } from './adapters/hosted-checkout.adapter';
 import { YoAdapter, YoCredentials } from './adapters/yo.adapter';
-import { Capabilities, MoneyProvider, Rail } from './types';
+import { MtnMomoAdapter, MtnMomoCredentials } from './adapters/mtn-momo.adapter';
+import { AirtelMoneyAdapter, AirtelMoneyCredentials } from './adapters/airtel-money.adapter';
+import { detectNetwork } from './msisdn';
+import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
 /** Providers that only move money (no invoice checkout). */
-export const MONEY_ONLY_PROVIDERS = ['yo'];
+export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money'];
+
+/** Operator APIs that only serve their own network's subscribers. */
+const NETWORK_PROVIDERS: Record<string, 'MTN' | 'AIRTEL'> = { mtn_momo: 'MTN', airtel_money: 'AIRTEL' };
 
 /**
  * Builds a MoneyProvider for one of the tenant's configured providers,
@@ -35,9 +41,20 @@ export class ProviderRegistryService {
       .map((c) => ({ provider: c.providerName.toLowerCase(), capabilities: this.capabilitiesOf(c.providerName.toLowerCase()) }));
   }
 
-  /** First active provider, by priority, that supports this rail. */
-  async pick(db: PrismaClient, kind: 'collect' | 'payout', rail: Rail): Promise<string> {
-    const match = (await this.list(db)).find((p) => p.capabilities[kind].includes(rail));
+  /**
+   * First active provider, by priority, that supports this rail. For mobile
+   * money, an operator's own API (MTN, Airtel) is only chosen for its own
+   * subscribers, and is preferred over aggregators for them.
+   */
+  async pick(db: PrismaClient, kind: 'collect' | 'payout', rail: Rail, party?: Party): Promise<string> {
+    let candidates = (await this.list(db)).filter((p) => p.capabilities[kind].includes(rail));
+    if (rail === 'mobile_money' && party?.type === 'mobile_money') {
+      const network = (party.network?.toUpperCase().startsWith('MTN') ? 'MTN' : party.network?.toUpperCase().startsWith('AIRTEL') ? 'AIRTEL' : undefined) ?? detectNetwork(party.msisdn);
+      candidates = candidates.filter((p) => !NETWORK_PROVIDERS[p.provider] || NETWORK_PROVIDERS[p.provider] === network);
+      const direct = candidates.find((p) => NETWORK_PROVIDERS[p.provider] === network);
+      if (direct) candidates = [direct];
+    }
+    const match = candidates[0];
     if (!match) {
       throw new BadRequestException(
         `No configured provider can ${kind === 'collect' ? 'collect from' : 'pay out to'} ${rail.replace('_', ' ')}`,
@@ -46,7 +63,20 @@ export class ProviderRegistryService {
     return match.provider;
   }
 
+  /** Refuse to send an MTN number to Airtel's API or the other way round. */
+  assertNetwork(provider: string, party: Party) {
+    const expected = NETWORK_PROVIDERS[provider];
+    if (!expected || party.type !== 'mobile_money') return;
+    const detected = detectNetwork(party.msisdn);
+    if (detected && detected !== expected) {
+      throw new BadRequestException(`${party.msisdn} looks like an ${detected} number; ${provider} only serves ${expected} subscribers`);
+    }
+  }
+
   capabilitiesOf(name: string): Capabilities {
+    if (name === 'mtn_momo' || name === 'airtel_money') {
+      return { collect: ['mobile_money'], payout: ['mobile_money'], balance: true, verifyPayee: true };
+    }
     if (name === 'yo') {
       return { collect: ['mobile_money'], payout: ['mobile_money', 'bank', 'yo_account'], balance: true, verifyPayee: true };
     }
@@ -60,6 +90,12 @@ export class ProviderRegistryService {
   build(name: string, credentials: Record<string, unknown>): MoneyProvider {
     if (name === 'yo') {
       return new YoAdapter(credentials as unknown as YoCredentials);
+    }
+    if (name === 'mtn_momo') {
+      return new MtnMomoAdapter(credentials as unknown as MtnMomoCredentials);
+    }
+    if (name === 'airtel_money') {
+      return new AirtelMoneyAdapter(credentials as unknown as AirtelMoneyCredentials);
     }
 
     const checkout = new HostedCheckout(ProviderFactory.create(name, credentials));

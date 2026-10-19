@@ -8,10 +8,11 @@ import { MoneyPollerService } from './money-poller.service';
 import { MoneyService } from './money.service';
 import { ProviderRegistryService } from './provider-registry.service';
 import { YoWebhooksController } from './yo-webhooks.controller';
+import { OperatorWebhooksController } from './operator-webhooks.controller';
 
 @Module({
   imports: [WalletsModule, BullModule.registerQueue({ name: WEBHOOK_QUEUE })],
-  controllers: [CollectionsController, PayoutsController, TransfersController, MoneySettingsController, YoWebhooksController],
+  controllers: [CollectionsController, PayoutsController, TransfersController, MoneySettingsController, YoWebhooksController, OperatorWebhooksController],
   providers: [MoneyService, ProviderRegistryService, MoneyPollerService, IdempotencyInterceptor],
   exports: [MoneyService],
 })

@@ -26,7 +26,7 @@ describeDb('money movement (postgres)', () => {
     payout: jest.fn(),
     getPayout: jest.fn(),
   } satisfies MoneyProvider;
-  const registry = { get: jest.fn(async () => provider), pick: jest.fn(async () => 'fake') };
+  const registry = { get: jest.fn(async () => provider), pick: jest.fn(async () => 'fake'), assertNetwork: jest.fn() };
   const money = new MoneyService(registry as never, new WalletsService(createMockQueue() as never), { client: {} } as never, queue as never);
   const tenant = {
     id: 't1',
