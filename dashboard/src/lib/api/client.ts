@@ -216,6 +216,7 @@ const providerDescriptions: Record<string, string> = {
   mtn_momo: "MTN Mobile Money direct: collections (request to pay) and disbursements for MTN subscribers",
   airtel_money: "Airtel Money direct: USSD-push collections and disbursements for Airtel subscribers",
   nowpayments: "Crypto collections on a hosted page (BTC, USDT, ETH and more), priced in your currency",
+  eversend: "Stablecoin collections (USDT, USDC) to a deposit address in your own Eversend account",
 };
 
 const providerDisplayNames: Record<string, string> = {
@@ -230,6 +231,7 @@ const providerDisplayNames: Record<string, string> = {
   mtn_momo: "MTN MoMo",
   airtel_money: "Airtel Money",
   nowpayments: "NOWPayments (crypto)",
+  eversend: "Eversend (stablecoins)",
 };
 
 function mapProvider(p: any): PaymentProvider {
@@ -820,6 +822,15 @@ export const apiClient = {
           isConfigured: false,
           isActive: false,
           priority: 11,
+        },
+        {
+          id: "default_eversend",
+          name: "Eversend (stablecoins)",
+          code: "eversend" as const,
+          description: providerDescriptions.eversend,
+          isConfigured: false,
+          isActive: false,
+          priority: 12,
         },
       ];
 

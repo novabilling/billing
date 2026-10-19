@@ -8,11 +8,12 @@ import { YoAdapter, YoCredentials } from './adapters/yo.adapter';
 import { MtnMomoAdapter, MtnMomoCredentials } from './adapters/mtn-momo.adapter';
 import { AirtelMoneyAdapter, AirtelMoneyCredentials } from './adapters/airtel-money.adapter';
 import { NowPaymentsAdapter, NowPaymentsCredentials } from './adapters/nowpayments.adapter';
+import { EVERSEND_COINS, EversendAdapter, EversendCredentials } from './adapters/eversend.adapter';
 import { detectNetwork } from './msisdn';
 import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
 /** Providers that only move money (no invoice checkout). */
-export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments'];
+export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments', 'eversend'];
 
 /** Operator APIs that only serve their own network's subscribers. */
 const NETWORK_PROVIDERS: Record<string, 'MTN' | 'AIRTEL'> = { mtn_momo: 'MTN', airtel_money: 'AIRTEL' };
@@ -45,10 +46,16 @@ export class ProviderRegistryService {
   /**
    * First active provider, by priority, that supports this rail. For mobile
    * money, an operator's own API (MTN, Airtel) is only chosen for its own
-   * subscribers, and is preferred over aggregators for them.
+   * subscribers, and is preferred over aggregators for them. For crypto,
+   * Eversend only takes collections in its stablecoins and NOWPayments only
+   * fiat-priced ones, so the currency decides.
    */
-  async pick(db: PrismaClient, kind: 'collect' | 'payout', rail: Rail, party?: Party): Promise<string> {
+  async pick(db: PrismaClient, kind: 'collect' | 'payout', rail: Rail, party?: Party, currency?: string): Promise<string> {
     let candidates = (await this.list(db)).filter((p) => p.capabilities[kind].includes(rail));
+    if (rail === 'crypto' && currency) {
+      const stablecoin = EVERSEND_COINS.includes(currency.toUpperCase());
+      candidates = candidates.filter((p) => (p.provider === 'eversend') === stablecoin);
+    }
     if (rail === 'mobile_money' && party?.type === 'mobile_money') {
       const network = (party.network?.toUpperCase().startsWith('MTN') ? 'MTN' : party.network?.toUpperCase().startsWith('AIRTEL') ? 'AIRTEL' : undefined) ?? detectNetwork(party.msisdn);
       candidates = candidates.filter((p) => !NETWORK_PROVIDERS[p.provider] || NETWORK_PROVIDERS[p.provider] === network);
@@ -78,6 +85,9 @@ export class ProviderRegistryService {
     if (name === 'nowpayments') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
+    if (name === 'eversend') {
+      return { collect: ['crypto'], payout: [], balance: true, verifyPayee: false };
+    }
     if (name === 'mtn_momo' || name === 'airtel_money') {
       return { collect: ['mobile_money'], payout: ['mobile_money'], balance: true, verifyPayee: true };
     }
@@ -103,6 +113,9 @@ export class ProviderRegistryService {
     }
     if (name === 'nowpayments') {
       return new NowPaymentsAdapter(credentials as unknown as NowPaymentsCredentials);
+    }
+    if (name === 'eversend') {
+      return new EversendAdapter(credentials as unknown as EversendCredentials);
     }
 
     const checkout = new HostedCheckout(ProviderFactory.create(name, credentials));

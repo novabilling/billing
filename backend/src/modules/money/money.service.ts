@@ -105,7 +105,7 @@ export class MoneyService {
     const currency = input.currency.toUpperCase();
     const amount = this.parseAmount(input.amount, currency);
     const rail = payer.type as Rail;
-    const providerName = input.provider?.toLowerCase() ?? (await this.registry.pick(db, 'collect', rail, payer));
+    const providerName = input.provider?.toLowerCase() ?? (await this.registry.pick(db, 'collect', rail, payer, currency));
     const provider = await this.registry.get(db, providerName);
     if (!provider.collect || !provider.capabilities.collect.includes(rail)) {
       throw new BadRequestException(`${providerName} cannot collect from ${rail.replace('_', ' ')}`);
@@ -324,7 +324,12 @@ export class MoneyService {
     const provider = await this.registry.get(db, intent.provider);
     const check =
       intent.type === 'COLLECTION'
-        ? provider.getCollection?.bind(provider, intent.providerReference!, intent.providerTxnId)
+        ? provider.getCollection?.bind(
+            provider,
+            intent.providerReference!,
+            intent.providerTxnId,
+            majorAmount(intent.chargedAmount ?? intent.amount, getCurrencyDecimals(intent.currency)),
+          )
         : provider.getPayout?.bind(provider, intent.providerReference!, intent.providerTxnId, intent.rail as Rail);
     if (!check) return this.present(intent);
 
@@ -355,6 +360,7 @@ export class MoneyService {
       ...(outcome.providerTxnId && { providerTxnId: outcome.providerTxnId }),
       ...(outcome.providerStatus && { providerStatus: outcome.providerStatus }),
       ...(outcome.paymentUrl && { paymentUrl: outcome.paymentUrl }),
+      ...(outcome.paymentDetails && { paymentDetails: outcome.paymentDetails as unknown as Prisma.InputJsonValue }),
       ...(outcome.fee !== undefined && { fee: new Prisma.Decimal(outcome.fee) }),
       lastCheckedAt: now,
     };
@@ -676,6 +682,7 @@ export class MoneyService {
       providerTransactionId: intent.providerTxnId,
       providerStatus: intent.providerStatus,
       paymentUrl: intent.paymentUrl,
+      paymentDetails: intent.paymentDetails,
       failureReason: intent.failureReason,
       fee: intent.fee?.toString() ?? null,
       commission: intent.commission?.toString() ?? null,

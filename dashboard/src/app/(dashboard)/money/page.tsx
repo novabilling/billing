@@ -298,6 +298,13 @@ function IntentList({
                       <p className="mt-1 text-xs text-muted-foreground max-w-[260px]">{r.failureReason}</p>
                     )}
                     {r.approvedBy && <p className="mt-1 text-xs text-muted-foreground">Approved by {r.approvedBy}</p>}
+                    {r.paymentDetails && (r.status === "processing" || r.status === "stuck") && (
+                      <p className="mt-1 text-xs text-muted-foreground max-w-[260px]">
+                        Send {r.paymentDetails.amount} {r.paymentDetails.coin} on {r.paymentDetails.chain} to{" "}
+                        <span className="font-mono break-all select-all text-foreground">{r.paymentDetails.address}</span>
+                        {r.paymentDetails.memo && <> (memo <span className="font-mono select-all">{r.paymentDetails.memo}</span>)</>}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap space-x-1">
                     {r.paymentUrl && r.status === "processing" && (
@@ -363,7 +370,7 @@ const partyTypes: Record<"collection" | "payout", { value: Party["type"]; label:
     { value: "mobile_money", label: "Mobile money prompt" },
     { value: "hosted", label: "Checkout link (card, bank, mobile money)" },
     { value: "paypal", label: "PayPal" },
-    { value: "crypto", label: "Crypto checkout link" },
+    { value: "crypto", label: "Crypto (checkout link or stablecoin address)" },
   ],
   payout: [
     { value: "mobile_money", label: "Mobile money" },
@@ -424,7 +431,7 @@ function CreateDialog({
       case "paypal":
         return { type: "paypal", email: form.email ?? "", name };
       case "crypto":
-        return { type: "crypto", email: form.email || undefined, name, payCurrency: form.payCurrency || undefined };
+        return { type: "crypto", email: form.email || undefined, name, payCurrency: form.payCurrency || undefined, chain: form.chain || undefined };
       default:
         return { type: "hosted", email: form.email ?? "", name };
     }
@@ -459,6 +466,8 @@ function CreateDialog({
         toast.success(`${copy[type].create.replace("New ", "")} ${statusLabels[created.status].toLowerCase()}`);
         if (created.paymentUrl) {
           navigator.clipboard?.writeText(created.paymentUrl).then(() => toast.info("Checkout link copied"), () => undefined);
+        } else if (created.paymentDetails) {
+          navigator.clipboard?.writeText(created.paymentDetails.address).then(() => toast.info("Deposit address copied"), () => undefined);
         }
       }
       onCreated();
@@ -571,12 +580,26 @@ function CreateDialog({
               )}
               {form.partyType === "crypto" && (
                 <>
-                  {field("payCurrency", "Coin (optional)", { placeholder: "Payer chooses, or e.g. usdttrc20, btc" })}
-                  {field("email", "Payer email (optional)", { type: "email" })}
-                  {field("returnUrl", "Return link after payment (optional)", { placeholder: "https://yourapp.com/thanks" })}
-                  <p className="text-xs text-muted-foreground">
-                    Priced in your currency; the payer pays in crypto on the processor&apos;s page and it settles to your own processor account.
-                  </p>
+                  {["USDT", "USDC"].includes(form.currency.toUpperCase()) ? (
+                    <>
+                      {field("chain", "Chain (optional)", { placeholder: "Your default, or e.g. TRON, ETH, BSC" })}
+                      {field("name", "Payer name (optional)")}
+                      <p className="text-xs text-muted-foreground">
+                        A {form.currency.toUpperCase()} deposit address is created in your Eversend account. Share it with the payer;
+                        the collection settles when the full amount arrives.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {field("payCurrency", "Coin (optional)", { placeholder: "Payer chooses, or e.g. usdttrc20, btc" })}
+                      {field("email", "Payer email (optional)", { type: "email" })}
+                      {field("returnUrl", "Return link after payment (optional)", { placeholder: "https://yourapp.com/thanks" })}
+                      <p className="text-xs text-muted-foreground">
+                        Priced in your currency; the payer pays in crypto on the processor&apos;s page and it settles to your own
+                        processor account. Set the currency to USDT or USDC for a stablecoin deposit address instead.
+                      </p>
+                    </>
+                  )}
                 </>
               )}
               {(form.partyType === "hosted" || form.partyType === "paypal") && (

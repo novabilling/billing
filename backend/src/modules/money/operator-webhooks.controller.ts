@@ -8,12 +8,13 @@ import { ProviderRegistryService } from './provider-registry.service';
 import { NowPaymentsAdapter, NowPaymentsNotification } from './adapters/nowpayments.adapter';
 import { toScaled } from '../ledger/ledger.money';
 
-const OPERATORS = new Set(['mtn_momo', 'airtel_money']);
+const OPERATORS = new Set(['mtn_momo', 'airtel_money', 'eversend']);
 
 /**
- * Callbacks from MTN MoMo and Airtel Money. Neither is signed, so a callback
- * is only a prompt: the outcome always comes from a status request to the
- * operator, which cannot be forged by whoever posts here.
+ * Callbacks from MTN MoMo, Airtel Money and Eversend. We do not rely on any
+ * signature from them, so a callback is only a prompt: the outcome always
+ * comes from a status request to the provider, which cannot be forged by
+ * whoever posts here.
  */
 @ApiExcludeController()
 @Public()
@@ -95,12 +96,12 @@ export class OperatorWebhooksController {
     const db = await this.tenantDb.getTenantClient(tenantId).catch(() => null);
     if (!db) return { status: 'ignored' };
 
-    const tx = (body.transaction ?? {}) as Record<string, unknown>;
-    const reference = String(provider === 'mtn_momo' ? (body.externalId ?? '') : (tx.id ?? ''));
-    const providerTxnId = String(provider === 'mtn_momo' ? (body.financialTransactionId ?? '') : (tx.airtel_money_id ?? ''));
-    const status = String(provider === 'mtn_momo' ? (body.status ?? '') : (tx.status_code ?? ''));
-
-    const intent = await this.money.findByProviderRef(db, provider, { reference: reference || undefined });
+    const { reference, providerTxnId, status } = callbackRefs(provider, body);
+    const intent = await this.money.findByProviderRef(db, provider, {
+      reference: reference || undefined,
+      // Eversend deposits are matched by the collection's own address.
+      ...(provider === 'eversend' && providerTxnId && { providerTxnId }),
+    });
     try {
       await db.providerEvent.create({
         data: {
@@ -128,4 +129,22 @@ export class OperatorWebhooksController {
     );
     return { status: 'ok' };
   }
+}
+
+/** Pull our reference, the provider's id and the status out of a callback body. */
+function callbackRefs(provider: string, body: Record<string, unknown>) {
+  if (provider === 'mtn_momo') {
+    return { reference: String(body.externalId ?? ''), providerTxnId: String(body.financialTransactionId ?? ''), status: String(body.status ?? '') };
+  }
+  if (provider === 'eversend') {
+    const data = (body.data ?? body) as Record<string, unknown>;
+    const address = data.address ?? data.cryptoAddress ?? data.walletAddress ?? data.destinationAddress ?? '';
+    return {
+      reference: String(data.destinationAddressDescription ?? ''),
+      providerTxnId: String(address),
+      status: String(data.status ?? body.eventType ?? body.event ?? ''),
+    };
+  }
+  const tx = (body.transaction ?? {}) as Record<string, unknown>;
+  return { reference: String(tx.id ?? ''), providerTxnId: String(tx.airtel_money_id ?? ''), status: String(tx.status_code ?? '') };
 }

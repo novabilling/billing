@@ -58,7 +58,17 @@ export function parseParty(raw: unknown, role: 'payer' | 'payee'): Party {
       if (payCurrency && !/^[a-z0-9]{2,20}$/i.test(payCurrency)) {
         throw new BadRequestException(`${role}.payCurrency must be a coin code such as "btc" or "usdttrc20"`);
       }
-      return { type: 'crypto', email: str(p.email) ? email() : undefined, name: optional('name'), payCurrency: payCurrency?.toLowerCase() };
+      const chain = optional('chain');
+      if (chain && !/^[a-z0-9 _-]{2,30}$/i.test(chain)) {
+        throw new BadRequestException(`${role}.chain must be a network name such as "TRON" or "ETH"`);
+      }
+      return {
+        type: 'crypto',
+        email: str(p.email) ? email() : undefined,
+        name: optional('name'),
+        payCurrency: payCurrency?.toLowerCase(),
+        chain: chain?.toUpperCase(),
+      };
     }
     default:
       throw new BadRequestException(`${role}.type must be one of mobile_money, bank, paypal, yo_account, hosted, crypto`);

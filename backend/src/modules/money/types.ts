@@ -12,9 +12,20 @@ export type Party =
   | { type: 'yo_account'; accountNumber: string; email: string; name?: string }
   // Hosted checkout: the payer chooses card, bank or mobile money on the provider's page.
   | { type: 'hosted'; email: string; name?: string }
-  // Hosted crypto checkout: priced in fiat, paid in the coin the payer picks
-  // (or `payCurrency`, e.g. "usdttrc20"), settled by the tenant's processor.
-  | { type: 'crypto'; email?: string; name?: string; payCurrency?: string };
+  // Crypto. NOWPayments: hosted checkout priced in fiat, paid in the coin the
+  // payer picks (or `payCurrency`, e.g. "usdttrc20"). Eversend: a deposit
+  // address for a USDT/USDC collection on `chain` (e.g. "TRON").
+  | { type: 'crypto'; email?: string; name?: string; payCurrency?: string; chain?: string };
+
+/** How the payer pays when it is not a redirect (e.g. a crypto deposit address). */
+export interface PaymentDetails {
+  kind: 'crypto_address';
+  coin: string;
+  chain: string;
+  address: string;
+  amount: string;
+  memo?: string;
+}
 
 export type ProviderState = 'pending' | 'succeeded' | 'failed';
 
@@ -24,6 +35,8 @@ export interface ProviderOutcome {
   providerTxnId?: string;
   /** Redirect the payer here to finish a hosted payment. */
   paymentUrl?: string;
+  /** Or show the payer these instructions. */
+  paymentDetails?: PaymentDetails;
   /** Provider-specific status text, kept for support. */
   providerStatus?: string;
   failureReason?: string;
@@ -79,7 +92,8 @@ export interface MoneyProvider {
   readonly name: string;
   readonly capabilities: Capabilities;
   collect?(request: CollectRequest): Promise<ProviderOutcome>;
-  getCollection?(reference: string, providerTxnId?: string | null): Promise<ProviderOutcome>;
+  /** `expected` is what the payer was asked for, for providers that only report deposits. */
+  getCollection?(reference: string, providerTxnId?: string | null, expected?: string): Promise<ProviderOutcome>;
   payout?(request: PayoutRequest): Promise<ProviderOutcome>;
   getPayout?(reference: string, providerTxnId: string | null | undefined, rail: Rail): Promise<ProviderOutcome>;
   /** Available balance per currency, in major units as decimal strings. */

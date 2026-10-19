@@ -41,6 +41,7 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   mtn_momo: { logo: "🟡", color: "bg-yellow-400" },
   airtel_money: { logo: "🔴", color: "bg-red-600" },
   nowpayments: { logo: "₿", color: "bg-sky-600" },
+  eversend: { logo: "💲", color: "bg-indigo-600" },
 };
 
 const credentialFields: Record<
@@ -115,6 +116,12 @@ const credentialFields: Record<
     { key: "ipnSecret", label: "IPN secret", placeholder: "Needed to verify payment notifications" },
     { key: "environment", label: "Environment", placeholder: "production or sandbox" },
   ],
+  eversend: [
+    { key: "clientId", label: "Client ID", placeholder: "From Eversend Business → Settings → API" },
+    { key: "clientSecret", label: "Client secret", placeholder: "" },
+    { key: "defaultChain", label: "Default chain (optional)", placeholder: "e.g. TRON", optional: true },
+    { key: "baseUrl", label: "API host (optional)", placeholder: "https://api.eversend.co/v1", optional: true },
+  ],
   airtel_money: [
     { key: "environment", label: "Environment", placeholder: "staging or production" },
     { key: "clientId", label: "Client ID", placeholder: "" },
@@ -144,6 +151,7 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   mtn_momo: { label: "MTN MoMo Developer", url: "https://momodeveloper.mtn.com" },
   airtel_money: { label: "Airtel Developer Portal", url: "https://developers.airtel.africa" },
   nowpayments: { label: "NOWPayments", url: "https://account.nowpayments.io" },
+  eversend: { label: "Eversend Business", url: "https://business.eversend.co" },
 };
 
 /**
@@ -192,6 +200,10 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
     method: "Status check",
     detail: "MTN callbacks are unsigned, so each one triggers a status request to MTN, which decides the outcome",
   },
+  eversend: {
+    method: "Status check",
+    detail: "Each notification triggers a check of the deposit address with Eversend, which decides the outcome",
+  },
   nowpayments: {
     method: "HMAC-SHA512",
     detail: "Verified with your IPN secret (x-nowpayments-sig header); underpayments are held for review",
@@ -225,7 +237,7 @@ function getApiBaseUrl(): string {
 function webhookUrlFor(code: string): string {
   const tenant = useAuthStore.getState().user?.tenantId;
   if (code === "yo") return `${getApiBaseUrl()}/webhooks/yo/${tenant ?? "{tenantId}"}/ipn`;
-  if (code === "mtn_momo" || code === "airtel_money" || code === "nowpayments") {
+  if (code === "mtn_momo" || code === "airtel_money" || code === "nowpayments" || code === "eversend") {
     return `${getApiBaseUrl()}/webhooks/${code}/${tenant ?? "{tenantId}"}/callback`;
   }
   if (autoIpnProviders.has(code)) return `${getApiBaseUrl()}/webhooks/${code}`;

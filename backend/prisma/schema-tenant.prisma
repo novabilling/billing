@@ -869,6 +869,8 @@ model MoneyIntent {
   providerTxnId     String?
   providerStatus    String?
   paymentUrl        String?
+  // Non-redirect payment instructions, e.g. a crypto deposit address.
+  paymentDetails    Json?
   failureReason     String?
   fee               Decimal?          @db.Decimal(19, 4)
   // Platform commission on this movement, when the tenant has a rule.
