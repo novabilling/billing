@@ -29,6 +29,7 @@ import { WalletsModule } from './modules/wallets/wallets.module';
 import { PaymentMethodsModule } from './modules/payment-methods/payment-methods.module';
 import { TaxesModule } from './modules/taxes/taxes.module';
 import { PlanOverridesModule } from './modules/plan-overrides/plan-overrides.module';
+import { LedgerModule } from './modules/ledger/ledger.module';
 import { QueuesModule } from './queues/queues.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -76,6 +77,7 @@ import { ServicesModule } from './services/services.module';
     PaymentMethodsModule,
     TaxesModule,
     PlanOverridesModule,
+    LedgerModule,
     QueuesModule,
   ],
   providers: [

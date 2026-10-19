@@ -672,3 +672,106 @@ model PlanOverride {
   @@index([customerId])
   @@index([planId])
 }
+
+// ============================================================
+// Ledger (double-entry)
+// ============================================================
+// Amounts are BigInt at a fixed scale of 4 decimal places (1 = 0.0001 of the
+// currency's major unit), matching the Decimal(19, 4) columns above so the
+// ledger mirrors existing rows exactly with no rounding. Lines are signed:
+// debits positive, credits negative; every entry's lines sum to zero per
+// currency. Entries are immutable — corrections are new reversing entries.
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum LedgerEntryType {
+  INVOICE_ISSUED
+  INVOICE_VOIDED
+  PAYMENT_CAPTURED
+  PAYMENT_REFUNDED
+  WALLET_CREDITED
+  WALLET_DEBITED
+  CREDIT_NOTE_ISSUED
+  CREDIT_NOTE_VOIDED
+  COLLECTION
+  PAYOUT
+  TRANSFER
+  FEE
+  ADJUSTMENT
+}
+
+model LedgerAccount {
+  id         String            @id @default(cuid())
+  // Stable chart-of-accounts code, e.g. "receivable", "provider_clearing:stripe",
+  // "customer_wallet:<walletId>". Unique together with the currency.
+  code       String
+  name       String
+  type       LedgerAccountType
+  currency   String
+  // Cached running balance (sum of this account's lines), updated in the same
+  // transaction as each posting under SELECT ... FOR UPDATE.
+  balance    BigInt            @default(0)
+  customerId String?
+  walletId   String?
+  provider   String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  lines LedgerLine[]
+
+  @@unique([code, currency])
+  @@index([type])
+  @@index([customerId])
+  @@index([walletId])
+}
+
+model LedgerEntry {
+  id          String          @id @default(cuid())
+  // Idempotency key for the posting, e.g. "payment:<id>:captured". Re-posting
+  // the same reference is a no-op.
+  reference   String          @unique
+  type        LedgerEntryType
+  description String
+  sourceType  String
+  sourceId    String
+  effectiveAt DateTime
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  lines LedgerLine[]
+
+  @@index([sourceType, sourceId])
+  @@index([type])
+  @@index([effectiveAt])
+}
+
+model LedgerLine {
+  id          String  @id @default(cuid())
+  entryId     String
+  accountId   String
+  amount      BigInt
+  currency    String
+  description String?
+
+  entry   LedgerEntry   @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  account LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([currency])
+}
+
+// Per-source high-water marks for the ledger projector, so each run only scans
+// rows changed since the last one (with an overlap window; postings are
+// idempotent by reference).
+model LedgerCursor {
+  source    String   @id
+  position  DateTime
+  updatedAt DateTime @updatedAt
+}

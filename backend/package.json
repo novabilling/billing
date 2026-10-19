@@ -26,6 +26,7 @@
     "prisma:migrate:deploy:central": "npx prisma migrate deploy --schema=./prisma/schema-central.prisma",
     "prisma:migrate:deploy:tenant": "npx prisma migrate deploy --schema=./prisma/schema-tenant.prisma",
     "migrate:all-tenants": "ts-node scripts/migrate-all-tenants.ts",
+    "schema:sync-tenants": "ts-node scripts/sync-tenant-schemas.ts",
     "health:check": "ts-node scripts/health-check-databases.ts",
     "seed:demo": "ts-node scripts/seed-demo-tenant.ts"
   },

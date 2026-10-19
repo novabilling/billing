@@ -29,6 +29,7 @@ model Tenant {
 
   databaseConnection DatabaseConnection?
   tenantBilling      TenantBilling?
+  ledgerStatus       TenantLedgerStatus?
   apiKeys            ApiKey[]
   webhookLogs        WebhookLog[]
 
@@ -99,4 +100,26 @@ model WebhookLog {
   @@index([tenantId])
   @@index([event])
   @@index([createdAt])
+}
+
+// Latest ledger sync and integrity result per tenant, written by the ledger
+// runner so the platform console can show ledger health without opening every
+// tenant database.
+model TenantLedgerStatus {
+  id             String    @id @default(cuid())
+  tenantId       String    @unique
+  lastSyncAt     DateTime?
+  lastCheckAt    DateTime?
+  balanced       Boolean   @default(true)
+  // Informational differences (e.g. wallet balance vs ledger) found by the last check.
+  warnings       Int       @default(0)
+  entriesPosted  Int       @default(0)
+  failedPostings Int       @default(0)
+  lastError      String?
+  checks         Json?
+  updatedAt      DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([balanced])
 }

@@ -38,4 +38,8 @@ export const validationSchema = Joi.object({
   CORS_ORIGINS: Joi.string().optional(),
 
   API_BASE_URL: Joi.string().optional().default('http://localhost:4000'),
+
+  // 'shadow' projects billing activity into the double-entry ledger alongside
+  // the existing tables (nothing reads from it yet); 'off' disables it.
+  LEDGER_MODE: Joi.string().valid('off', 'shadow').optional().default('shadow'),
 });
