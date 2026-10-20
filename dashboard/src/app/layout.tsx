@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Schibsted_Grotesk, Unbounded } from "next/font/google";
+// Fonts ship with the app (Fontsource) so builds never fetch from Google Fonts.
+import "@fontsource-variable/unbounded";
+import "@fontsource-variable/schibsted-grotesk";
+import "@fontsource-variable/jetbrains-mono";
 import "../styles/globals.css";
 import { Providers } from "./providers";
 import { brand } from "@/lib/brand";
-
-const sans = Schibsted_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-schibsted" });
-const display = Unbounded({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-unbounded" });
-const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
   title: { default: `${brand.name} Dashboard`, template: `%s · ${brand.name}` },
@@ -23,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${display.variable} ${mono.variable}`}>
+    <html lang="en" suppressHydrationWarning>
       {brand.primaryColor && (
         <head>
           <style>{`:root, .dark { --primary: ${brand.primaryColor}; --ring: ${brand.primaryColor}; }`}</style>
