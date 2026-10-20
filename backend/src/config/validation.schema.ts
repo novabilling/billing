@@ -43,6 +43,10 @@ export const validationSchema = Joi.object({
   // the existing tables (nothing reads from it yet); 'off' disables it.
   // Comma-separated tenant ids whose dashboard sessions may open the platform console.
   PLATFORM_ADMIN_TENANT_IDS: Joi.string().optional().allow(''),
+  // Managed payments subscription (private service); leave unset to offer only tenants' own providers.
+  MANAGED_PAYMENTS_URL: Joi.string().uri().optional().allow(''),
+  MANAGED_PAYMENTS_API_KEY: Joi.string().optional().allow(''),
+  MANAGED_PAYMENTS_WEBHOOK_SECRET: Joi.string().optional().allow(''),
 
   // Product branding (see src/config/brand.ts).
   BRAND_NAME: Joi.string().optional().allow(''),

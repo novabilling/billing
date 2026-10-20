@@ -27,8 +27,10 @@ import {
   VerifyPayeeDto,
   RequestOtpDto,
   AssignDepositDto,
+  OpenManagedAccountDto,
 } from './dto/money.dto';
 import { MoneyService } from './money.service';
+import { ManagedAccountsService } from './managed.service';
 
 const IDEMPOTENCY_HEADER = {
   name: 'Idempotency-Key',
@@ -191,7 +193,25 @@ export class TransfersController {
 @UseGuards(TenantGuard)
 @Controller('money')
 export class MoneySettingsController {
-  constructor(private readonly money: MoneyService) {}
+  constructor(
+    private readonly money: MoneyService,
+    private readonly managed: ManagedAccountsService,
+  ) {}
+
+  @Get('managed')
+  @ApiOperation({ summary: 'Whether managed payments are offered here, and this account\'s managed account if it has one' })
+  managedStatus(@TenantDb() db: PrismaClient) {
+    return this.managed.status(db);
+  }
+
+  @Post('managed')
+  @ApiOperation({
+    summary: 'Open a managed payments account (no provider account of your own needed)',
+    description: 'Payments settle to the bank account given here. The account takes payments once it has been reviewed.',
+  })
+  openManaged(@TenantDb() db: PrismaClient, @Req() req: RequestWithTenant, @Body() dto: OpenManagedAccountDto) {
+    return this.managed.open(db, req.tenant.id, dto);
+  }
 
   @Get('capabilities')
   @ApiOperation({ summary: 'Enabled features and what each configured provider can do' })

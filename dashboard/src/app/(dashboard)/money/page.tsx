@@ -36,6 +36,7 @@ import {
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateTime } from "@/lib/utils/date";
 import { CryptoDeposits } from "./crypto-deposits";
+import { ManagedPayments } from "./managed-payments";
 import type { Wallet } from "@/types";
 
 const AUTO = "auto";
@@ -116,7 +117,10 @@ export default function MoneyPage() {
           </TabsContent>
         )}
         <TabsContent value="settings" className="mt-4">
-          <SettingsPanel settings={settings} providers={providers} onSaved={setSettings} />
+          <div className="space-y-6">
+            <SettingsPanel settings={settings} providers={providers} onSaved={setSettings} />
+            <ManagedPayments onChanged={loadCapabilities} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

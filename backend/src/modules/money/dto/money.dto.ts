@@ -1,5 +1,6 @@
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDefined, IsObject, IsOptional, IsString, IsUrl, Length, MaxLength } from 'class-validator';
+import { IsBoolean, IsDefined, IsEmail, IsObject, IsOptional, IsString, IsUrl, Length, MaxLength, ValidateNested } from 'class-validator';
 
 const PARTY_DOC =
   'One of: { type: "mobile_money", msisdn, network?, name? } · { type: "bank", accountNumber, accountName, bankCode?, ' +
@@ -171,6 +172,55 @@ export class AssignDepositDto {
   @ApiProperty({ description: 'Open USDT on TRON collection this deposit pays' })
   @IsString()
   collectionId!: string;
+}
+
+export class ManagedBankDto {
+  @ApiProperty({ example: '044', description: 'Bank code from Flutterwave\'s bank list for the country' })
+  @IsString()
+  @Length(2, 20)
+  code!: string;
+
+  @ApiProperty({ example: '0690000031' })
+  @IsString()
+  @Length(5, 34)
+  accountNumber!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  accountName?: string;
+}
+
+export class OpenManagedAccountDto {
+  @ApiProperty({ example: 'Rapcio Ltd' })
+  @IsString()
+  @Length(2, 120)
+  businessName!: string;
+
+  @ApiProperty({ example: 'finance@rapcio.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({ example: '+256700000001' })
+  @IsString()
+  @Length(9, 16)
+  phone!: string;
+
+  @ApiProperty({ example: 'UG' })
+  @IsString()
+  @Length(2, 2)
+  country!: string;
+
+  @ApiProperty({ example: 'UGX', description: 'Currency the bank account settles in' })
+  @IsString()
+  @Length(3, 3)
+  currency!: string;
+
+  @ApiProperty({ type: ManagedBankDto })
+  @ValidateNested()
+  @Type(() => ManagedBankDto)
+  bank!: ManagedBankDto;
 }
 
 export class RequestOtpDto {

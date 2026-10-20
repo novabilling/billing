@@ -101,6 +101,27 @@ export interface CryptoDeposit {
   collectionId: string | null;
 }
 
+export interface ManagedAccount {
+  id: string;
+  status: "pending_review" | "active" | "rejected" | "suspended";
+  businessName: string;
+  country: string;
+  currency: string;
+  bankName?: string;
+  accountNumberLast4?: string;
+  fee?: { type: "percentage" | "flat"; value: number };
+  reason?: string;
+}
+
+export interface OpenManagedAccount {
+  businessName: string;
+  email: string;
+  phone: string;
+  country: string;
+  currency: string;
+  bank: { code: string; accountNumber: string; accountName?: string };
+}
+
 export interface ProviderCapabilities {
   provider: string;
   capabilities: { collect: string[]; payout: string[]; balance: boolean; verifyPayee: boolean };
@@ -148,6 +169,9 @@ export const moneyApi = {
   },
   assignDeposit: (id: string, collectionId: string) =>
     apiFetch<MoneyIntent>(`/money/crypto-deposits/${id}/assign`, { method: "POST", body: JSON.stringify({ collectionId }) }),
+  managedStatus: () => apiFetch<{ available: boolean; account: ManagedAccount | null }>("/money/managed"),
+  openManaged: (body: OpenManagedAccount) =>
+    apiFetch<ManagedAccount>("/money/managed", { method: "POST", body: JSON.stringify(body) }),
   requestOtp: (provider: string, phone: string) =>
     apiFetch<{ pinId: string }>(`/money/providers/${provider}/otp`, { method: "POST", body: JSON.stringify({ phone }) }),
   balance: (provider: string) =>

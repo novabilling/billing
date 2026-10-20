@@ -13,6 +13,7 @@ import { TronUsdtAdapter, TronUsdtCredentials } from './adapters/tron-usdt.adapt
 import { BscUsdtAdapter, EthUsdtAdapter, EthUsdtCredentials } from './adapters/eth-usdt.adapter';
 import { BINANCE_PAY_COINS, BinancePayAdapter, BinancePayCredentials } from './adapters/binance-pay.adapter';
 import { BtcAdapter, BtcCredentials } from './adapters/btc.adapter';
+import { ManagedAdapter, managedConfig, ManagedCredentials } from './adapters/managed.adapter';
 import { detectNetwork } from './msisdn';
 import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
@@ -28,6 +29,7 @@ export const MONEY_ONLY_PROVIDERS = [
   'eth_usdt',
   'bsc_usdt',
   'btc',
+  'managed',
 ];
 
 /** Watch-only providers: payments go straight to the merchant's own wallet; we read the chain. */
@@ -132,6 +134,9 @@ export class ProviderRegistryService {
     if (name === 'nowpayments') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
+    if (name === 'managed') {
+      return { collect: ['hosted'], payout: [], balance: false, verifyPayee: false };
+    }
     if (WATCH_ONLY_PROVIDERS.includes(name) || name === 'binance_pay') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
@@ -178,6 +183,11 @@ export class ProviderRegistryService {
     if (name === 'bsc_usdt') {
       if (!db) throw new Error('USDT on BNB Chain needs the tenant database');
       return new BscUsdtAdapter(credentials as unknown as EthUsdtCredentials, db);
+    }
+    if (name === 'managed') {
+      const config = managedConfig();
+      if (!config) throw new BadRequestException('Managed payments are not available on this deployment');
+      return new ManagedAdapter(credentials as unknown as ManagedCredentials, config);
     }
     if (name === 'binance_pay') {
       return new BinancePayAdapter(credentials as unknown as BinancePayCredentials);
