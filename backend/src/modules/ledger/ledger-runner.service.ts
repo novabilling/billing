@@ -17,7 +17,7 @@ export interface TenantLedgerSync {
 }
 
 const NOT_PROVISIONED =
-  'Ledger tables are missing in this tenant database. Run `npm run schema:sync-tenants` to add them.';
+  'Ledger tables are missing in this tenant database. Run `npm run migrate:tenants` to add them.';
 
 /**
  * Runs the shadow ledger for every tenant on a schedule and records the

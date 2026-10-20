@@ -132,6 +132,18 @@ export class EmailService {
     }
   }
 
+  /** Send ready-made HTML; false when neither the tenant nor the platform has SMTP set up. */
+  async sendHtml(to: string, subject: string, html: string, tenantId?: string): Promise<boolean> {
+    const { transporter, from } = await this.getTransporterForTenant(tenantId);
+    if (!transporter) {
+      this.logger.warn(`Email not configured. Would send to ${to}: ${subject}`);
+      return false;
+    }
+    await transporter.sendMail({ from, to, subject, html, text: this.stripHtml(html) });
+    this.logger.log(`Email sent to ${to}: ${subject}${tenantId ? ` (tenant: ${tenantId})` : ''}`);
+    return true;
+  }
+
   /** Invalidate cached transporter for a tenant (call after SMTP settings change) */
   invalidateTenantCache(tenantId: string): void {
     this.tenantTransporters.delete(tenantId);

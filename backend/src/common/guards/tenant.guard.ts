@@ -2,10 +2,13 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Reflector } from '@nestjs/core';
+import { can, Permission, PERMISSION_KEY } from '../auth/permissions';
 import { verify, JwtPayload } from 'jsonwebtoken';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
@@ -19,6 +22,7 @@ export class TenantGuard implements CanActivate {
     private readonly centralPrisma: CentralPrismaService,
     private readonly tenantDb: TenantDatabaseService,
     private readonly configService: ConfigService,
+    private readonly reflector: Reflector,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET')!;
   }
@@ -38,7 +42,8 @@ export class TenantGuard implements CanActivate {
     }
 
     // Try JWT first — dashboard sessions use this path
-    const sessionTenant = await this.resolveFromJwt(token);
+    const session = await this.resolveFromJwt(token);
+    const sessionTenant = session?.tenant ?? null;
     const tenant = sessionTenant ?? (await this.resolveFromApiKey(token));
 
     if (!tenant) {
@@ -54,22 +59,57 @@ export class TenantGuard implements CanActivate {
     request.tenant = tenant;
     request.tenantDb = tenantDbClient;
     request.authMethod = sessionTenant ? 'session' : 'api_key';
+    if (session) {
+      request.member = session.member;
+      this.authorize(context, request.method, session.member.role);
+    }
 
     return true;
   }
 
-  private async resolveFromJwt(token: string) {
-    try {
-      const payload = verify(token, this.jwtSecret) as JwtPayload;
-      if (!payload.sub) return null;
+  /**
+   * People act within their role. A route's own permission wins; otherwise
+   * reads need `read` and writes need the controller's permission, or
+   * `billing.write`. API keys are not people and keep full access.
+   */
+  private authorize(context: ExecutionContext, method: string, role: Parameters<typeof can>[0]) {
+    const own = this.reflector.get<Permission | undefined>(PERMISSION_KEY, context.getHandler());
+    const isRead = ['GET', 'HEAD', 'OPTIONS'].includes(method);
+    const needed: Permission = own ?? (isRead ? 'read' : (this.reflector.get<Permission | undefined>(PERMISSION_KEY, context.getClass()) ?? 'billing.write'));
+    if (!can(role, needed)) {
+      throw new ForbiddenException(`Your role (${role.toLowerCase()}) cannot do this. Ask an owner or admin.`);
+    }
+  }
 
-      return await this.centralPrisma.client.tenant.findUnique({
-        where: { id: payload.sub },
-      });
+  /**
+   * A dashboard session: the organisation, and the person with their current
+   * role, read fresh so a removed member or changed role takes effect at once.
+   * Sessions from before people had their own logins act as the owner.
+   */
+  private async resolveFromJwt(token: string) {
+    let payload: JwtPayload;
+    try {
+      payload = verify(token, this.jwtSecret) as JwtPayload;
     } catch {
       // Not a valid JWT — fall through to API key resolution
       return null;
     }
+    if (!payload.sub) return null;
+    const tenant = await this.centralPrisma.client.tenant.findUnique({ where: { id: payload.sub } });
+    if (!tenant) return null;
+
+    const membership = await this.centralPrisma.client.membership.findFirst({
+      where: payload.uid ? { tenantId: tenant.id, userId: String(payload.uid) } : { tenantId: tenant.id, role: 'OWNER' },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!membership || !membership.user.isActive) {
+      throw new UnauthorizedException('You are no longer a member of this organisation');
+    }
+    return {
+      tenant,
+      member: { userId: membership.userId, email: membership.user.email, name: membership.user.name, role: membership.role },
+    };
   }
 
   private async resolveFromApiKey(apiKey: string) {

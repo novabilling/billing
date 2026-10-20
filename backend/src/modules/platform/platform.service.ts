@@ -127,7 +127,7 @@ export class PlatformService {
         balanced: ledger.filter((l) => l.balanced && !l.lastError).length,
         unbalanced: ledger.filter((l) => !l.balanced).length,
         withWarnings: ledger.filter((l) => l.warnings > 0).length,
-        notProvisioned: ledger.filter((l) => l.lastError?.includes('schema:sync-tenants')).length,
+        notProvisioned: ledger.filter((l) => l.lastError?.includes('migrate:tenants')).length,
       },
       daily: daily.map((d) => ({
         day: d.day.toISOString().slice(0, 10),
@@ -372,7 +372,7 @@ export class PlatformService {
     if (requests >= 50 && toNumber(u?.serverErrors) / requests > 0.02) flags.push('high_error_rate');
     if (m && m.paymentsFailed30d >= 5 && m.paymentsFailed30d > m.paymentsSucceeded30d * 0.2) flags.push('payment_failures');
     if (l && !l.balanced) flags.push('ledger_unbalanced');
-    if (l?.lastError?.includes('schema:sync-tenants')) flags.push('ledger_not_provisioned');
+    if (l?.lastError?.includes('migrate:tenants')) flags.push('ledger_not_provisioned');
     if (((m?.moneyMovement30d ?? null) as MoneyMovementStats | null)?.stuck) flags.push('money_stuck');
     return flags;
   }

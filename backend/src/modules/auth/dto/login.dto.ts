@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEmail } from 'class-validator';
+import { IsString, IsNotEmpty, IsEmail, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
@@ -11,4 +11,35 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+}
+
+export class SwitchOrganisationDto {
+  @ApiProperty({ description: 'Organisation to switch to' })
+  @IsString()
+  @IsNotEmpty()
+  tenantId: string;
+}
+
+export class CreateOrganisationDto {
+  @ApiProperty({ example: 'Rapcio Ltd' })
+  @IsString()
+  @IsNotEmpty()
+  companyName: string;
+}
+
+export class AcceptInvitationDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+
+  @ApiProperty({ description: 'Your password: the existing one if you already have an account, else a new one' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+
+  @ApiProperty({ required: false, description: 'Required when you do not have an account yet' })
+  @IsOptional()
+  @IsString()
+  name?: string;
 }

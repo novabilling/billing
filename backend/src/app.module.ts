@@ -31,6 +31,7 @@ import { TaxesModule } from './modules/taxes/taxes.module';
 import { PlanOverridesModule } from './modules/plan-overrides/plan-overrides.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { PlatformModule } from './modules/platform/platform.module';
+import { TeamModule } from './modules/team/team.module';
 import { MoneyModule } from './modules/money/money.module';
 import { QueuesModule } from './queues/queues.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -81,6 +82,7 @@ import { ServicesModule } from './services/services.module';
     PlanOverridesModule,
     LedgerModule,
     PlatformModule,
+    TeamModule,
     MoneyModule,
     QueuesModule,
   ],

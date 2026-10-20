@@ -1,9 +1,12 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, Param, Req, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService, TokenPair } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import { AcceptInvitationDto, CreateOrganisationDto, LoginDto, SwitchOrganisationDto } from './dto/login.dto';
+import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RequirePermission } from '../../common/auth/permissions';
+import { RequestWithTenant } from '../../common/interfaces/request-with-tenant.interface';
 import { RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterResponse, LoginResponse, TokenPairResponse, MessageResponse } from './dto/auth-response.dto';
 
@@ -37,6 +40,54 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid email or password' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Public()
+  @UseGuards(TenantGuard)
+  @Get('session')
+  @ApiOperation({ summary: 'The signed-in person, their role in this organisation, and the organisations they belong to' })
+  session(@Req() req: RequestWithTenant) {
+    return this.authService.currentSession(req.tenant.id, this.member(req).userId);
+  }
+
+  @Public()
+  @UseGuards(TenantGuard)
+  @Post('switch')
+  @RequirePermission('read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Switch to another organisation you belong to; returns new tokens' })
+  switch(@Req() req: RequestWithTenant, @Body() dto: SwitchOrganisationDto) {
+    return this.authService.switchOrganisation(this.member(req).userId, dto.tenantId);
+  }
+
+  @Public()
+  @UseGuards(TenantGuard)
+  @Post('organisations')
+  @RequirePermission('read')
+  @ApiOperation({ summary: 'Create another organisation, owned by you; returns tokens for it' })
+  createOrganisation(@Req() req: RequestWithTenant, @Body() dto: CreateOrganisationDto) {
+    return this.authService.createAnotherOrganisation(this.member(req).userId, dto.companyName);
+  }
+
+  @Public()
+  @Get('invitations/:token')
+  @ApiOperation({ summary: 'What an invitation is for, before accepting it' })
+  describeInvitation(@Param('token') token: string) {
+    return this.authService.describeInvitation(token);
+  }
+
+  @Public()
+  @Post('invitations/accept')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept an invitation; returns tokens for that organisation' })
+  acceptInvitation(@Body() dto: AcceptInvitationDto) {
+    return this.authService.acceptInvitation(dto.token, dto.password, dto.name);
+  }
+
+  /** Only dashboard sessions belong to a person. */
+  private member(req: RequestWithTenant) {
+    if (!req.member) throw new ForbiddenException('This needs a signed-in person, not an API key');
+    return req.member;
   }
 
   @Public()

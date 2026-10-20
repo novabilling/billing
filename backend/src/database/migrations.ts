@@ -1,0 +1,68 @@
+import { execFileSync } from 'child_process';
+import { Client } from 'pg';
+
+/**
+ * Prisma migrations for the central database and for each tenant database.
+ *
+ * Databases created before migrations existed were built with `prisma db
+ * push` and have no migration history. For those, each migration whose
+ * tables are already there is marked as applied (Prisma's "baselining"),
+ * then the rest run normally. A database with history just gets
+ * `migrate deploy`.
+ */
+export type MigrationTarget = 'central' | 'tenant';
+
+const CONFIG: Record<MigrationTarget, string> = {
+  central: 'prisma.config.ts',
+  tenant: 'prisma.tenant.config.ts',
+};
+
+/** Each migration with a table it creates; the table's presence means the migration's changes are in place. */
+const MARKERS: Record<MigrationTarget, [migration: string, table: string][]> = {
+  central: [
+    ['0_init', 'Tenant'],
+    ['20261020000000_platform_console', 'ApiUsageHourly'],
+    ['20261020010000_team_access', 'Membership'],
+  ],
+  tenant: [
+    ['0_init', 'Customer'],
+    ['20261020000000_ledger_and_money_movement', 'CryptoAddressClaim'],
+  ],
+};
+
+export async function migrate(target: MigrationTarget, url: string, log: (line: string) => void = () => undefined): Promise<void> {
+  for (const migration of await baselineNeeded(target, url)) {
+    prisma(target, url, ['migrate', 'resolve', '--applied', migration]);
+    log(`baselined ${migration}`);
+  }
+  const output = prisma(target, url, ['migrate', 'deploy']);
+  log(output.trim().split('\n').pop() ?? 'done');
+}
+
+/** Migrations to mark as applied on a database that predates migration history. */
+export async function baselineNeeded(target: MigrationTarget, url: string): Promise<string[]> {
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const exists = async (table: string) =>
+      (await client.query<{ ok: boolean }>(`SELECT to_regclass($1) IS NOT NULL AS ok`, [`public."${table}"`])).rows[0].ok;
+    if (await exists('_prisma_migrations')) return [];
+    const applied: string[] = [];
+    for (const [migration, table] of MARKERS[target]) {
+      if (!(await exists(table))) break;
+      applied.push(migration);
+    }
+    return applied;
+  } finally {
+    await client.end();
+  }
+}
+
+function prisma(target: MigrationTarget, url: string, args: string[]): string {
+  return execFileSync('npx', ['prisma', ...args, '--config', CONFIG[target]], {
+    env: { ...process.env, DATABASE_URL: url, CENTRAL_DATABASE_URL: url },
+    timeout: 120_000,
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}

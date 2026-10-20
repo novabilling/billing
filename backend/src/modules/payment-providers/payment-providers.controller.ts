@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@n
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { PrismaClient } from '../../generated/prisma-tenant/client';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RequirePermission } from '../../common/auth/permissions';
 import { TenantDb } from '../../common/decorators/tenant-db.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { PaymentProvidersService } from './payment-providers.service';
@@ -13,6 +14,7 @@ import { PaymentProviderResponse, ProviderTestResponse } from './dto/provider-re
 @ApiBearerAuth('api-key')
 @Public()
 @UseGuards(TenantGuard)
+@RequirePermission('settings.providers')
 @Controller('payment-providers')
 export class PaymentProvidersController {
   constructor(private readonly paymentProvidersService: PaymentProvidersService) {}

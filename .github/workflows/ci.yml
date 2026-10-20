@@ -43,6 +43,54 @@ jobs:
         run: npx jest test/unit --no-coverage --forceExit
 
   # ──────────────────────────────────────────────
+  # Backend: migrations and integration tests on PostgreSQL
+  # ──────────────────────────────────────────────
+  backend-integration:
+    name: Backend Integration (PostgreSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG: postgresql://postgres:postgres@localhost:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma clients
+        run: |
+          npx prisma generate --schema=./prisma/schema-central.prisma
+          npx prisma generate --schema=./prisma/schema-tenant.prisma
+
+      - name: Create test databases and apply migrations
+        run: |
+          psql "$PG/postgres" -c 'CREATE DATABASE central_test' -c 'CREATE DATABASE tenant_test'
+          CENTRAL_DATABASE_URL=$PG/central_test npx prisma migrate deploy --config prisma.config.ts
+          DATABASE_URL=$PG/tenant_test npx prisma migrate deploy --config prisma.tenant.config.ts
+
+      - name: Integration tests
+        env:
+          CENTRAL_TEST_DATABASE_URL: ${{ env.PG }}/central_test
+          LEDGER_TEST_DATABASE_URL: ${{ env.PG }}/tenant_test
+          MIGRATION_TEST_ADMIN_URL: ${{ env.PG }}/postgres
+        run: npx jest test/integration --runInBand --no-coverage --forceExit
+
+  # ──────────────────────────────────────────────
   # Dashboard: type-check and build
   # ──────────────────────────────────────────────
   dashboard-build:

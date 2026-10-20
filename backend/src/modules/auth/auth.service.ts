@@ -1,22 +1,30 @@
-import {
-  Injectable,
-  Logger,
-  ConflictException,
-  UnauthorizedException,
-  BadRequestException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
+import { createHash } from 'crypto';
+import { MemberRole, Tenant, User } from '../../generated/prisma-central/client';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { EncryptionService } from '../../services/encryption.service';
+import { permissionsOf } from '../../common/auth/permissions';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+}
+
+/** Session tokens name the organisation (`sub`, as before) and the person (`uid`). */
+export interface SessionPayload {
+  sub: string;
+  uid?: string;
+  email: string;
+}
+
+export function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 @Injectable()
@@ -31,180 +39,233 @@ export class AuthService {
     private readonly encryptionService: EncryptionService,
   ) {}
 
+  private get db() {
+    return this.centralPrisma.client;
+  }
+
+  /** A new person and their first organisation, which they own. */
   async register(dto: RegisterDto) {
-    const existing = await this.centralPrisma.client.tenant.findUnique({
-      where: { email: dto.email },
-    });
-
-    if (existing) {
-      throw new ConflictException('Email already registered');
+    const email = dto.email.trim().toLowerCase();
+    if (await this.db.user.findUnique({ where: { email } })) {
+      throw new ConflictException('Email already registered. Sign in to create another organisation.');
     }
+    const password = await argon2.hash(dto.password);
+    const user = await this.db.user.create({ data: { email, name: dto.name, password } });
+    try {
+      const { tenant, apiKey } = await this.createOrganisation(user, dto.companyName);
+      return { ...this.session(user, tenant, 'OWNER'), apiKey, ...this.generateTokens(tenant.id, user) };
+    } catch (error) {
+      await this.db.user.delete({ where: { id: user.id } }).catch(() => undefined);
+      throw error;
+    }
+  }
 
-    let slug = dto.companyName
+  /** Another organisation for a signed-in person, who owns it. */
+  async createAnotherOrganisation(userId: string, companyName: string) {
+    const user = await this.activeUser(userId);
+    const { tenant, apiKey } = await this.createOrganisation(user, companyName);
+    return { ...this.session(user, tenant, 'OWNER'), apiKey, ...this.generateTokens(tenant.id, user) };
+  }
+
+  private async createOrganisation(user: User, companyName: string): Promise<{ tenant: Tenant; apiKey: string }> {
+    let slug = companyName
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .trim();
+    if (!slug || (await this.db.tenant.findUnique({ where: { slug } }))) slug = `${slug || 'org'}-${Date.now().toString(36)}`;
 
-    const existingSlug = await this.centralPrisma.client.tenant.findUnique({
-      where: { slug },
-    });
-
-    if (existingSlug) {
-      slug = `${slug}-${Date.now().toString(36)}`;
-    }
-
-    const hashedPassword = await argon2.hash(dto.password);
     const apiKey = this.encryptionService.generateApiKey();
-    const webhookSecret = this.encryptionService.generateWebhookSecret();
-
-    const tenant = await this.centralPrisma.client.tenant.create({
+    const tenant = await this.db.tenant.create({
       data: {
-        name: dto.companyName,
+        name: companyName,
         slug,
-        email: dto.email,
-        password: hashedPassword,
+        email: user.email,
         apiKey,
-        webhookSecret,
-        settings: { ownerName: dto.name },
+        webhookSecret: this.encryptionService.generateWebhookSecret(),
+        settings: { ownerName: user.name },
+        tenantBilling: { create: { status: 'active' } },
+        memberships: { create: { userId: user.id, role: 'OWNER' } },
       },
     });
-
-    await this.centralPrisma.client.tenantBilling.create({
-      data: {
-        tenantId: tenant.id,
-        status: 'active',
-      },
-    });
-
     try {
       await this.tenantDb.createTenantDatabase(tenant.id);
     } catch (error) {
-      this.logger.error(`Failed to create tenant database, cleaning up`, error);
-      await this.centralPrisma.client.tenant.delete({ where: { id: tenant.id } });
+      this.logger.error('Failed to create tenant database, cleaning up', error);
+      await this.db.tenant.delete({ where: { id: tenant.id } });
       throw error;
     }
-
-    const tokens = this.generateTokens(tenant.id, tenant.email);
-
-    const { password: _, ...tenantWithoutPassword } = tenant;
-
-    return {
-      tenant: tenantWithoutPassword,
-      apiKey,
-      ...tokens,
-    };
+    return { tenant, apiKey };
   }
 
-  async login(dto: LoginDto) {
-    const tenant = await this.centralPrisma.client.tenant.findUnique({
-      where: { email: dto.email },
+  /** Signs in to the organisation used last, or the one asked for. */
+  async login(dto: LoginDto & { tenantId?: string }) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.db.user.findUnique({
+      where: { email },
+      include: { memberships: { include: { tenant: true }, orderBy: { updatedAt: 'desc' } } },
     });
+    if (!user || !(await argon2.verify(user.password, dto.password))) throw new UnauthorizedException('Invalid credentials');
+    if (!user.isActive) throw new UnauthorizedException('Account is deactivated');
 
-    if (!tenant) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    const usable = user.memberships.filter((m) => m.tenant.isActive);
+    const membership = (dto.tenantId && usable.find((m) => m.tenantId === dto.tenantId)) || usable[0];
+    if (!membership) throw new UnauthorizedException('You are not a member of any active organisation');
 
-    const passwordValid = await argon2.verify(tenant.password, dto.password);
-    if (!passwordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (!tenant.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
-
-    await this.centralPrisma.client.tenant.update({
-      where: { id: tenant.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    const tokens = this.generateTokens(tenant.id, tenant.email);
-    const { password: _, ...tenantWithoutPassword } = tenant;
-
-    return {
-      tenant: tenantWithoutPassword,
-      ...tokens,
-    };
+    await this.db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await this.touch(membership.id);
+    return { ...this.session(user, membership.tenant, membership.role), ...this.generateTokens(membership.tenantId, user) };
   }
 
-  async refreshTokens(refreshToken: string) {
+  /** The signed-in person, their role here, and every organisation they can switch to. */
+  async currentSession(tenantId: string, userId: string) {
+    const user = await this.activeUser(userId);
+    const membership = await this.db.membership.findUnique({
+      where: { userId_tenantId: { userId, tenantId } },
+      include: { tenant: true },
+    });
+    if (!membership) throw new UnauthorizedException('No longer a member of this organisation');
+    return this.session(user, membership.tenant, membership.role, await this.organisations(userId));
+  }
+
+  async organisations(userId: string) {
+    const memberships = await this.db.membership.findMany({
+      where: { userId, tenant: { isActive: true } },
+      include: { tenant: { select: { id: true, name: true, slug: true } } },
+      orderBy: { tenant: { name: 'asc' } },
+    });
+    return memberships.map((m) => ({ id: m.tenant.id, name: m.tenant.name, slug: m.tenant.slug, role: m.role }));
+  }
+
+  async switchOrganisation(userId: string, tenantId: string) {
+    const user = await this.activeUser(userId);
+    const membership = await this.db.membership.findUnique({
+      where: { userId_tenantId: { userId, tenantId } },
+      include: { tenant: true },
+    });
+    if (!membership || !membership.tenant.isActive) throw new ForbiddenException('You are not a member of that organisation');
+    await this.touch(membership.id);
+    return { ...this.session(user, membership.tenant, membership.role), ...this.generateTokens(tenantId, user) };
+  }
+
+  async refreshTokens(refreshToken: string): Promise<TokenPair> {
+    let payload: SessionPayload;
     try {
-      const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      });
-
-      const tenant = await this.centralPrisma.client.tenant.findUnique({
-        where: { id: payload.sub },
-      });
-
-      if (!tenant || !tenant.isActive) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      return this.generateTokens(tenant.id, tenant.email);
+      payload = this.jwtService.verify(refreshToken, { secret: this.configService.get<string>('JWT_REFRESH_SECRET') });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+    // Sessions from before people had their own logins belong to the organisation's owner.
+    const userId = payload.uid ?? (await this.ownerOf(payload.sub))?.id;
+    if (!userId) throw new UnauthorizedException('Invalid refresh token');
+    const user = await this.db.user.findUnique({ where: { id: userId } });
+    const membership = await this.db.membership.findUnique({
+      where: { userId_tenantId: { userId, tenantId: payload.sub } },
+      include: { tenant: true },
+    });
+    if (!user?.isActive || !membership?.tenant.isActive) throw new UnauthorizedException('Invalid refresh token');
+    return this.generateTokens(payload.sub, user);
   }
 
-  async forgotPassword(email: string): Promise<void> {
-    const tenant = await this.centralPrisma.client.tenant.findUnique({
-      where: { email },
-    });
+  // --- Invitations ---
 
-    if (!tenant) {
-      // Don't reveal whether the email exists
-      return;
+  /** Join with an invitation: an existing person proves who they are with their password; a new one sets theirs. */
+  async acceptInvitation(token: string, password: string, name?: string) {
+    const invitation = await this.db.invitation.findUnique({ where: { tokenHash: hashToken(token) }, include: { tenant: true } });
+    if (!invitation || invitation.acceptedAt || invitation.expiresAt < new Date() || !invitation.tenant.isActive) {
+      throw new BadRequestException('This invitation is invalid or has expired');
     }
+    let user = await this.db.user.findUnique({ where: { email: invitation.email } });
+    if (user) {
+      if (!(await argon2.verify(user.password, password))) throw new UnauthorizedException('Wrong password for this email');
+    } else {
+      if (!name?.trim()) throw new BadRequestException('Your name is required');
+      if (password.length < 8) throw new BadRequestException('Password must be at least 8 characters');
+      user = await this.db.user.create({ data: { email: invitation.email, name: name.trim(), password: await argon2.hash(password) } });
+    }
+    const claimed = await this.db.invitation.updateMany({ where: { id: invitation.id, acceptedAt: null }, data: { acceptedAt: new Date() } });
+    if (claimed.count === 0) throw new BadRequestException('This invitation has already been used');
+    const membership = await this.db.membership.upsert({
+      where: { userId_tenantId: { userId: user.id, tenantId: invitation.tenantId } },
+      create: { userId: user.id, tenantId: invitation.tenantId, role: invitation.role },
+      update: {},
+    });
+    return { ...this.session(user, invitation.tenant, membership.role), ...this.generateTokens(invitation.tenantId, user) };
+  }
 
+  async describeInvitation(token: string) {
+    const invitation = await this.db.invitation.findUnique({ where: { tokenHash: hashToken(token) }, include: { tenant: true } });
+    if (!invitation || invitation.acceptedAt || invitation.expiresAt < new Date()) throw new NotFoundException('This invitation is invalid or has expired');
+    const existingUser = Boolean(await this.db.user.findUnique({ where: { email: invitation.email }, select: { id: true } }));
+    return { organisation: invitation.tenant.name, email: invitation.email, role: invitation.role, existingUser };
+  }
+
+  // --- Passwords ---
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    // Don't reveal whether the email exists
+    if (!user) return;
     const resetToken = this.jwtService.sign(
-      { sub: tenant.id, type: 'password-reset' },
-      {
-        secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: '1h',
-      },
+      { sub: user.id, type: 'password-reset' },
+      { secret: this.configService.get<string>('JWT_SECRET'), expiresIn: '1h' },
     );
-
-    this.logger.log(`Password reset token generated for tenant ${tenant.id}: ${resetToken}`);
+    this.logger.log(`Password reset token generated for user ${user.id}: ${resetToken}`);
     // In production, send email with reset link
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
+    let payload: { sub: string; type?: string };
     try {
-      const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
-
-      if (payload.type !== 'password-reset') {
-        throw new BadRequestException('Invalid reset token');
-      }
-
-      const hashedPassword = await argon2.hash(newPassword);
-
-      await this.centralPrisma.client.tenant.update({
-        where: { id: payload.sub },
-        data: { password: hashedPassword },
-      });
+      payload = this.jwtService.verify(token, { secret: this.configService.get<string>('JWT_SECRET') });
     } catch {
       throw new BadRequestException('Invalid or expired reset token');
     }
+    if (payload.type !== 'password-reset') throw new BadRequestException('Invalid reset token');
+    const updated = await this.db.user.updateMany({ where: { id: payload.sub }, data: { password: await argon2.hash(newPassword) } });
+    if (updated.count === 0) throw new BadRequestException('Invalid or expired reset token');
   }
 
-  private generateTokens(tenantId: string, email: string): TokenPair {
-    const payload = { sub: tenantId, email };
+  // --- Helpers ---
 
+  private session(user: User, tenant: Tenant, role: MemberRole, organisations?: Awaited<ReturnType<AuthService['organisations']>>) {
+    const { password: _password, ...org } = tenant;
+    return {
+      // Kept for older dashboards, which read the organisation from here.
+      tenant: org,
+      user: { id: user.id, name: user.name, email: user.email },
+      role,
+      permissions: permissionsOf(role),
+      ...(organisations && { organisations }),
+    };
+  }
+
+  private async activeUser(userId: string): Promise<User> {
+    const user = await this.db.user.findUnique({ where: { id: userId } });
+    if (!user?.isActive) throw new UnauthorizedException('Account is deactivated');
+    return user;
+  }
+
+  private ownerOf(tenantId: string) {
+    return this.db.user.findFirst({ where: { memberships: { some: { tenantId, role: 'OWNER' } } }, orderBy: { createdAt: 'asc' } });
+  }
+
+  /** Remember the organisation used last, so sign-in returns to it. */
+  private async touch(membershipId: string) {
+    await this.db.membership.update({ where: { id: membershipId }, data: { updatedAt: new Date() } });
+  }
+
+  private generateTokens(tenantId: string, user: Pick<User, 'id' | 'email'>): TokenPair {
+    const payload: SessionPayload = { sub: tenantId, uid: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_EXPIRATION', '1h') as any,
+      expiresIn: this.configService.get<string>('JWT_EXPIRATION', '1h') as never,
     });
-
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d') as any,
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d') as never,
     });
-
     return { accessToken, refreshToken };
   }
 }

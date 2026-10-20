@@ -17,6 +17,7 @@ import { PrismaClient } from '../../generated/prisma-tenant/client';
 import { Public } from '../../common/decorators/public.decorator';
 import { TenantDb } from '../../common/decorators/tenant-db.decorator';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RequirePermission } from '../../common/auth/permissions';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { RequestWithTenant } from '../../common/interfaces/request-with-tenant.interface';
 import {
@@ -51,6 +52,7 @@ const listQuery = (q: Record<string, string | undefined>) => ({
 @Public()
 @UseGuards(TenantGuard)
 @UseInterceptors(IdempotencyInterceptor)
+@RequirePermission('money.move')
 @Controller('collections')
 export class CollectionsController {
   constructor(private readonly money: MoneyService) {}
@@ -81,6 +83,7 @@ export class CollectionsController {
   }
 
   @Post(':id/refresh')
+  @RequirePermission('read')
   @HttpCode(200)
   @ApiOperation({ summary: 'Check the collection status with the provider now' })
   refresh(@TenantDb() db: PrismaClient, @Req() req: RequestWithTenant, @Param('id') id: string) {
@@ -100,6 +103,7 @@ export class CollectionsController {
 @Public()
 @UseGuards(TenantGuard)
 @UseInterceptors(IdempotencyInterceptor)
+@RequirePermission('money.move')
 @Controller('payouts')
 export class PayoutsController {
   constructor(private readonly money: MoneyService) {}
@@ -131,6 +135,7 @@ export class PayoutsController {
   }
 
   @Post(':id/approve')
+  @RequirePermission('money.approve')
   @HttpCode(200)
   @ApiOperation({
     summary: 'Approve a payout',
@@ -140,7 +145,7 @@ export class PayoutsController {
     if (req.authMethod !== 'session') {
       throw new ForbiddenException('Payouts are approved from the dashboard, not with an API key');
     }
-    return this.money.approvePayout(db, req.tenant, id, req.tenant.email);
+    return this.money.approvePayout(db, req.tenant, id, req.member?.email ?? req.tenant.email);
   }
 
   @Post(':id/cancel')
@@ -151,6 +156,7 @@ export class PayoutsController {
   }
 
   @Post(':id/refresh')
+  @RequirePermission('read')
   @HttpCode(200)
   @ApiOperation({ summary: 'Check the payout status with the provider now' })
   refresh(@TenantDb() db: PrismaClient, @Req() req: RequestWithTenant, @Param('id') id: string) {
@@ -163,6 +169,7 @@ export class PayoutsController {
 @Public()
 @UseGuards(TenantGuard)
 @UseInterceptors(IdempotencyInterceptor)
+@RequirePermission('money.move')
 @Controller('transfers')
 export class TransfersController {
   constructor(private readonly money: MoneyService) {}
@@ -191,6 +198,7 @@ export class TransfersController {
 @ApiBearerAuth('api-key')
 @Public()
 @UseGuards(TenantGuard)
+@RequirePermission('settings.providers')
 @Controller('money')
 export class MoneySettingsController {
   constructor(
@@ -246,6 +254,7 @@ export class MoneySettingsController {
   }
 
   @Post('crypto-deposits/:id/assign')
+  @RequirePermission('money.move')
   @HttpCode(200)
   @ApiOperation({ summary: 'Settle an open crypto collection with a deposit that did not match on its own' })
   assignDeposit(@TenantDb() db: PrismaClient, @Req() req: RequestWithTenant, @Param('id') id: string, @Body() dto: AssignDepositDto) {
@@ -253,6 +262,7 @@ export class MoneySettingsController {
   }
 
   @Post('providers/:provider/otp')
+  @RequirePermission('money.move')
   @HttpCode(200)
   @ApiOperation({
     summary: 'Text a payer the one-time code some providers need before a mobile money collection',
@@ -263,6 +273,7 @@ export class MoneySettingsController {
   }
 
     @Post('providers/:provider/verify-payee')
+  @RequirePermission('money.move')
   @HttpCode(200)
   @ApiOperation({ summary: 'Look up the name registered to a payee account before paying it' })
   verifyPayee(@TenantDb() db: PrismaClient, @Param('provider') provider: string, @Body() dto: VerifyPayeeDto) {

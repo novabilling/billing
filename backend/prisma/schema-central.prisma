@@ -12,12 +12,15 @@ enum DatabaseProvider {
   INTERNAL
 }
 
+// An organisation (merchant). People reach it through memberships; `email`
+// is its contact address and `password` is only the pre-membership login,
+// kept so older databases migrate cleanly.
 model Tenant {
   id           String   @id @default(cuid())
   name         String
   slug         String   @unique
-  email        String   @unique
-  password     String
+  email        String
+  password     String?
   apiKey       String   @unique @default(cuid())
   webhookUrl   String?
   webhookSecret String?
@@ -34,9 +37,71 @@ model Tenant {
   dailyMetrics       TenantMetricsDaily[]
   apiKeys            ApiKey[]
   webhookLogs        WebhookLog[]
+  memberships        Membership[]
+  invitations        Invitation[]
 
   @@index([apiKey])
   @@index([slug])
+  @@index([email])
+}
+
+// A person who signs in to the dashboard. One user can belong to several
+// organisations, with a role in each.
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  password    String
+  isActive    Boolean      @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+}
+
+// OWNER: everything, including other owners and deleting the organisation.
+// ADMIN: everything else, including team and payment providers.
+// FINANCE: customers, billing and money movement, including payout approval.
+// DEVELOPER: read everything; API keys and webhooks.
+// VIEWER: read only.
+enum MemberRole {
+  OWNER
+  ADMIN
+  FINANCE
+  DEVELOPER
+  VIEWER
+}
+
+model Membership {
+  id        String     @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      MemberRole
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
+// An invitation to join an organisation; the token is sent once and stored hashed.
+model Invitation {
+  id         String     @id @default(cuid())
+  tenantId   String
+  email      String
+  role       MemberRole
+  tokenHash  String     @unique
+  invitedBy  String
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
   @@index([email])
 }
 
