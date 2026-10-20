@@ -8,7 +8,11 @@ const PARTY_DOC =
   '{ type: "hosted", email, name? } (payer finishes on the provider\'s checkout page).';
 
 export class CreateCollectionDto {
-  @ApiProperty({ example: '50000', description: 'Amount in major units, e.g. "50000" UGX or "19.99" USD' })
+  @ApiProperty({
+    oneOf: [{ type: 'string' }, { type: 'number' }],
+    example: '50000',
+    description: 'Amount in major units, e.g. "50000" UGX or "19.99" USD',
+  })
   @IsDefined()
   amount!: string | number;
 
@@ -68,7 +72,7 @@ export class CreateCollectionDto {
 }
 
 export class CreatePayoutDto {
-  @ApiProperty({ example: '120000' })
+  @ApiProperty({ oneOf: [{ type: 'string' }, { type: 'number' }], example: '120000', description: 'Major units' })
   @IsDefined()
   amount!: string | number;
 
@@ -118,7 +122,7 @@ export class CreateTransferDto {
   @IsString()
   toWalletId!: string;
 
-  @ApiProperty({ example: '20000' })
+  @ApiProperty({ oneOf: [{ type: 'string' }, { type: 'number' }], example: '20000', description: 'Major units' })
   @IsDefined()
   amount!: string | number;
 

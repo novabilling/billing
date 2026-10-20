@@ -85,6 +85,10 @@ export class CollectionsController {
   @Get()
   @ApiOperation({ summary: 'List collections' })
   @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 20, at most 100' })
+  @ApiQuery({ name: 'customerId', required: false })
+  @ApiQuery({ name: 'walletId', required: false, description: 'Movements into or out of this wallet' })
   @ApiResponse({ status: 200, description: 'Newest first', type: PaginatedMoneyMovementResponse })
   list(@TenantDb() db: PrismaClient, @Query() q: Record<string, string>) {
     return this.money.list(db, 'COLLECTION', listQuery(q));
@@ -142,6 +146,10 @@ export class PayoutsController {
   @Get()
   @ApiOperation({ summary: 'List payouts' })
   @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 20, at most 100' })
+  @ApiQuery({ name: 'customerId', required: false })
+  @ApiQuery({ name: 'walletId', required: false, description: 'Movements into or out of this wallet' })
   @ApiResponse({ status: 200, description: 'Newest first', type: PaginatedMoneyMovementResponse })
   list(@TenantDb() db: PrismaClient, @Query() q: Record<string, string>) {
     return this.money.list(db, 'PAYOUT', listQuery(q));
@@ -207,6 +215,11 @@ export class TransfersController {
 
   @Get()
   @ApiOperation({ summary: 'List transfers' })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 20, at most 100' })
+  @ApiQuery({ name: 'customerId', required: false })
+  @ApiQuery({ name: 'walletId', required: false, description: 'Movements into or out of this wallet' })
   @ApiResponse({ status: 200, description: 'Newest first', type: PaginatedMoneyMovementResponse })
   list(@TenantDb() db: PrismaClient, @Query() q: Record<string, string>) {
     return this.money.list(db, 'TRANSFER', listQuery(q));
@@ -275,6 +288,9 @@ export class MoneySettingsController {
 
   @Get('crypto-deposits')
   @ApiOperation({ summary: 'Crypto transfers seen arriving at your own wallet address, matched or not' })
+  @ApiQuery({ name: 'status', required: false, enum: ['matched', 'unmatched', 'assigned', 'confirming'] })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Deposits, newest first', type: PaginatedCryptoDepositResponse })
   cryptoDeposits(
     @TenantDb() db: PrismaClient,

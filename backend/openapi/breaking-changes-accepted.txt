@@ -1,0 +1,22 @@
+# API changes oasdiff reports as breaking that were accepted on purpose,
+# passed to `oasdiff breaking --err-ignore` in CI. Each line names the
+# operation and the change. Add a line only for a change that cannot break a
+# real client (the request on the wire is the same), and say why above it.
+
+# Query values were always sent as text; the spec now gives their real types
+# and allowed values, so generated SDKs take numbers and enums.
+GET /api/ledger/entries for the `query` request parameter `limit`, the `type` was changed from `string` to `number`
+GET /api/ledger/entries for the `query` request parameter `page`, the `type` was changed from `string` to `number`
+POST /api/ledger/sync for the `query` request parameter `full`, the `type` was changed from `string` to `boolean`
+GET /api/money/crypto-deposits for the `query` request parameter `limit`, the `type` was changed from `string` to `number`
+GET /api/money/crypto-deposits for the `query` request parameter `page`, the `type` was changed from `string` to `number`
+GET /api/money/crypto-deposits the `query` request parameter `status` was restricted to a list of enum values
+GET /api/tenants/me/webhook-logs for the `query` request parameter `limit`, the `type` was changed from `string` to `number`
+GET /api/tenants/me/webhook-logs for the `query` request parameter `page`, the `type` was changed from `string` to `number`
+GET /api/tenants/me/webhook-logs the `query` request parameter `direction` was restricted to a list of enum values
+
+# `amount` was described as an object by mistake; the API has only ever
+# accepted a number or a numeric string.
+POST /api/collections request property `amount` list-of-types was narrowed by removing types `object` from media type `application/json`
+POST /api/payouts request property `amount` list-of-types was narrowed by removing types `object` from media type `application/json`
+POST /api/transfers request property `amount` list-of-types was narrowed by removing types `object` from media type `application/json`

@@ -96,7 +96,9 @@ jobs:
             "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
           echo "$OASDIFF_SHA256  $RUNNER_TEMP/oasdiff.tgz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/oasdiff.tgz" -C "$RUNNER_TEMP" oasdiff
-          if "$RUNNER_TEMP/oasdiff" breaking "$RUNNER_TEMP/base.json" openapi/openapi.json --fail-on ERR; then
+          # openapi/breaking-changes-accepted.txt lists reviewed changes that cannot break a client on the wire.
+          if "$RUNNER_TEMP/oasdiff" breaking "$RUNNER_TEMP/base.json" openapi/openapi.json --fail-on ERR \
+            --err-ignore openapi/breaking-changes-accepted.txt; then
             exit 0
           fi
           if [[ "$PR_TITLE" =~ ^[a-z]+(\([a-z0-9-]+\))?!: ]]; then

@@ -1099,7 +1099,14 @@
           "amount": {
             "description": "Amount in major units, e.g. \"50000\" UGX or \"19.99\" USD",
             "example": "50000",
-            "type": "object"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
           },
           "currency": {
             "example": "UGX",
@@ -1536,8 +1543,16 @@
       "CreatePayoutDto": {
         "properties": {
           "amount": {
+            "description": "Major units",
             "example": "120000",
-            "type": "object"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
           },
           "currency": {
             "example": "UGX",
@@ -1857,8 +1872,16 @@
       "CreateTransferDto": {
         "properties": {
           "amount": {
+            "description": "Major units",
             "example": "20000",
-            "type": "object"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
           },
           "description": {
             "type": "string"
@@ -2868,12 +2891,7 @@
             "type": "string"
           },
           "tenant": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TenantInfoResponse"
-              }
-            ],
-            "description": "The organisation"
+            "$ref": "#/components/schemas/TenantInfoResponse"
           },
           "user": {
             "$ref": "#/components/schemas/SessionUserResponse"
@@ -4753,12 +4771,7 @@
             "type": "string"
           },
           "tenant": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TenantInfoResponse"
-              }
-            ],
-            "description": "The organisation"
+            "$ref": "#/components/schemas/TenantInfoResponse"
           },
           "user": {
             "$ref": "#/components/schemas/SessionUserResponse"
@@ -4908,12 +4921,7 @@
             "type": "string"
           },
           "tenant": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TenantInfoResponse"
-              }
-            ],
-            "description": "The organisation"
+            "$ref": "#/components/schemas/TenantInfoResponse"
           },
           "user": {
             "$ref": "#/components/schemas/SessionUserResponse"
@@ -7820,6 +7828,36 @@
         "operationId": "CollectionsController_list",
         "parameters": [
           {
+            "description": "Movements into or out of this wallet",
+            "in": "query",
+            "name": "walletId",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "in": "query",
+            "name": "customerId",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "description": "Default 20, at most 100",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
             "in": "query",
             "name": "status",
             "required": false,
@@ -9840,7 +9878,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           },
           {
@@ -9848,7 +9886,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           },
           {
@@ -9942,11 +9980,12 @@
         "operationId": "LedgerController_sync",
         "parameters": [
           {
+            "description": "Rebuild from the beginning",
             "in": "query",
             "name": "full",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "boolean"
             }
           }
         ],
@@ -10007,25 +10046,31 @@
           {
             "in": "query",
             "name": "status",
-            "required": true,
+            "required": false,
             "schema": {
+              "enum": [
+                "matched",
+                "unmatched",
+                "assigned",
+                "confirming"
+              ],
               "type": "string"
             }
           },
           {
             "in": "query",
             "name": "page",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           },
           {
             "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           }
         ],
@@ -10971,6 +11016,36 @@
       "get": {
         "operationId": "PayoutsController_list",
         "parameters": [
+          {
+            "description": "Movements into or out of this wallet",
+            "in": "query",
+            "name": "walletId",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "in": "query",
+            "name": "customerId",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "description": "Default 20, at most 100",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
           {
             "in": "query",
             "name": "status",
@@ -13427,25 +13502,30 @@
           {
             "in": "query",
             "name": "direction",
-            "required": true,
+            "required": false,
             "schema": {
+              "enum": [
+                "inbound",
+                "outbound"
+              ],
               "type": "string"
             }
           },
           {
             "in": "query",
             "name": "page",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           },
           {
+            "description": "Default 50",
             "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           }
         ],
@@ -13475,7 +13555,44 @@
     "/api/transfers": {
       "get": {
         "operationId": "TransfersController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Movements into or out of this wallet",
+            "in": "query",
+            "name": "walletId",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "in": "query",
+            "name": "customerId",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "description": "Default 20, at most 100",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {}
+          }
+        ],
         "responses": {
           "200": {
             "content": {

@@ -1,5 +1,5 @@
 import { Controller, Get, Patch, Post, Delete, Body, Param, Req, UseGuards, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RequirePermission } from '../../common/auth/permissions';
 import { TenantsService } from './tenants.service';
@@ -108,6 +108,9 @@ export class TenantsController {
     description:
       'Retrieve inbound (received from payment providers) and outbound (sent to your webhook URL) event logs. Filter by direction to see each type.',
   })
+  @ApiQuery({ name: 'direction', required: false, enum: ['inbound', 'outbound'] })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 50' })
   @ApiResponse({ status: 200, description: 'Paginated list of webhook log entries', type: PaginatedWebhookLogResponse })
   async getWebhookLogs(
     @Req() req: TenantRequest,

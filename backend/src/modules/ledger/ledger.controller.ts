@@ -45,8 +45,8 @@ export class LedgerController {
 
   @Get('entries')
   @ApiOperation({ summary: 'List journal entries', description: 'Journal entries with their lines, newest first.' })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'type', required: false })
   @ApiQuery({ name: 'sourceType', required: false, description: 'invoice, payment, wallet_transaction, credit_note' })
   @ApiQuery({ name: 'sourceId', required: false })
@@ -89,7 +89,7 @@ export class LedgerController {
       'Project recent invoices, payments, wallet transactions and credit notes into the ledger, then run the checks. ' +
       'Pass full=true to rebuild from the beginning (safe: postings are idempotent).',
   })
-  @ApiQuery({ name: 'full', required: false })
+  @ApiQuery({ name: 'full', required: false, type: Boolean, description: 'Rebuild from the beginning' })
   @ApiResponse({ status: 201, description: 'Sync result', type: LedgerSyncResponse })
   async sync(@Req() req: RequestWithTenant, @Query('full') full?: string) {
     return this.runner.syncTenant(req.tenant.id, { fromScratch: full === 'true' });

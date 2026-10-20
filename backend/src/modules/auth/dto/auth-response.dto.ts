@@ -74,7 +74,8 @@ export class OrganisationResponse {
 
 /** The signed-in person in one organisation. */
 export class SessionResponse {
-  @ApiProperty({ type: TenantInfoResponse, description: 'The organisation' })
+  /** The organisation. */
+  @ApiProperty({ type: TenantInfoResponse })
   tenant: TenantInfoResponse;
 
   @ApiProperty({ type: SessionUserResponse })
