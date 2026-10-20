@@ -36,9 +36,9 @@
     --color-sidebar-ring: var(--sidebar-ring);
 
     /* Brand type: Schibsted Grotesk text, Unbounded display, JetBrains Mono figures */
-    --font-sans: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
-    --font-display: var(--font-unbounded), ui-sans-serif, system-ui, sans-serif;
-    --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-sans: "Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Unbounded Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
 
     /* Radius */
     --radius-sm: calc(var(--radius) - 4px);

@@ -14,6 +14,9 @@
   --bark-soft: #f6e4da;
   --on-teal: #ffffff;
   --code-bg: #0c1114;
+  --font-unbounded: "Unbounded Variable";
+  --font-schibsted: "Schibsted Grotesk Variable";
+  --font-jetbrains: "JetBrains Mono Variable";
   color-scheme: light;
 }
 

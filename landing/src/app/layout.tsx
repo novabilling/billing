@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Schibsted_Grotesk, Unbounded } from "next/font/google";
+// Fonts ship with the app (Fontsource) so builds never fetch from Google Fonts.
+import "@fontsource-variable/unbounded";
+import "@fontsource-variable/schibsted-grotesk";
+import "@fontsource-variable/jetbrains-mono";
 import { faq } from "./faq";
 import { keywords, site } from "@/lib/site";
 import "./globals.css";
-
-const display = Unbounded({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-unbounded", display: "swap" });
-const sans = Schibsted_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-schibsted", display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrains", display: "swap" });
 
 const title = `${site.name}: ${site.tagline}`;
 
@@ -84,7 +83,7 @@ const jsonLd = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+    <html lang="en">
       <body className="min-h-screen antialiased">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
         {children}
