@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { moneyApi, type CryptoDeposit, type MoneyIntent } from "@/lib/api/money";
 import { formatDateTime } from "@/lib/utils/date";
+import { BrandMark } from "@/components/brand-mark";
 
 const statusVariant: Record<CryptoDeposit["status"], "default" | "secondary" | "outline"> = {
   matched: "default",
@@ -102,7 +103,7 @@ export function CryptoDeposits() {
       <CardContent className="p-0">
         {rows === null ? (
           <div className="flex justify-center p-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <BrandMark animated className="h-8 w-8 text-primary" />
           </div>
         ) : rows.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">

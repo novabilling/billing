@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Zap, Github } from "lucide-react";
+import { Menu, X, Github } from "lucide-react";
 import clsx from "clsx";
 
 import { site } from "@/lib/site";
+import BrandMark from "@/components/brand-mark";
 
 const DASHBOARD_URL = site.dashboardUrl;
 const DOCS_URL = site.docsUrl;
@@ -32,7 +33,7 @@ export default function Header() {
           className="flex items-center gap-2 font-bold text-xl tracking-tight"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
-            <Zap className="h-5 w-5" />
+            <BrandMark className="h-5 w-5" />
           </span>
           <span>
             {site.name.slice(0, site.nameSplit)}

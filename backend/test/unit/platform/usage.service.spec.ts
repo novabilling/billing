@@ -2,8 +2,8 @@ import { detectClient, UsageService } from '../../../src/modules/platform/usage.
 
 describe('detectClient', () => {
   it('prefers Fern SDK headers', () => {
-    expect(detectClient({ 'x-fern-sdk-name': 'novabilling', 'x-fern-sdk-version': '1.4.0', 'user-agent': 'node' })).toBe(
-      'novabilling@1.4.0',
+    expect(detectClient({ 'x-fern-sdk-name': 'pimabill', 'x-fern-sdk-version': '1.4.0', 'user-agent': 'node' })).toBe(
+      'pimabill@1.4.0',
     );
   });
 

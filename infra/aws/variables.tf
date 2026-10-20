@@ -65,12 +65,12 @@ variable "email_password" {
 }
 
 variable "email_from" {
-  default = "noreply@novabilling.com"
+  default = "noreply@pimabill.com"
 }
 
 # ── Domain ──
 variable "domain" {
-  description = "Root domain (e.g. novabilling.com)"
+  description = "Root domain (e.g. pimabill.com)"
   type        = string
 }
 

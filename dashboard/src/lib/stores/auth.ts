@@ -4,7 +4,9 @@ import { apiClient, type SessionResult } from "@/lib/api/client";
 
 // Storage key for the cached profile. Deliberately not tied to the brand name:
 // renaming it would sign every user out.
-const SESSION_KEY = "novabilling_user";
+const SESSION_KEY = "pimabill_user";
+/** Key used before the rename; read once so nobody is signed out by it. */
+const LEGACY_SESSION_KEY = "novabilling_user";
 
 interface AuthState {
   user: User | null;
@@ -23,7 +25,7 @@ interface AuthState {
 function loadAuthState(): { user: User | null; isAuthenticated: boolean } {
   if (typeof window === "undefined")
     return { user: null, isAuthenticated: false };
-  const stored = localStorage.getItem(SESSION_KEY);
+  const stored = localStorage.getItem(SESSION_KEY) ?? localStorage.getItem(LEGACY_SESSION_KEY);
   if (stored) {
     try {
       return { user: JSON.parse(stored), isAuthenticated: true };
@@ -41,6 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   applySession: (session) => {
     // Only store display info — no tokens or API keys
     localStorage.setItem(SESSION_KEY, JSON.stringify(session.user));
+    localStorage.removeItem(LEGACY_SESSION_KEY);
     set((s) => ({ user: session.user, isAuthenticated: true, organisations: session.organisations ?? s.organisations }));
   },
 
@@ -52,6 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     apiClient.auth.logout().catch(() => {});
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(LEGACY_SESSION_KEY);
     set({ user: null, isAuthenticated: false, organisations: [] });
   },
 
@@ -77,6 +81,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       get().applySession(result);
     } else {
       localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(LEGACY_SESSION_KEY);
       set({ user: null, isAuthenticated: false, organisations: [] });
     }
   },

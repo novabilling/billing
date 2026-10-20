@@ -13,6 +13,7 @@ import { teamApi, type ApiRole, type Invitation, type Member } from "@/lib/api/t
 import { can, roleDescriptions, roleLabels } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/stores/auth";
 import { formatDateTime } from "@/lib/utils/date";
+import { BrandMark } from "@/components/brand-mark";
 
 const ROLES: ApiRole[] = ["OWNER", "ADMIN", "FINANCE", "DEVELOPER", "VIEWER"];
 const label = (role: string) => roleLabels[role.toLowerCase()] ?? role;
@@ -139,7 +140,7 @@ export default function TeamPage() {
         <CardContent className="p-0">
           {members === null ? (
             <div className="flex justify-center p-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <BrandMark animated className="h-8 w-8 text-primary" />
             </div>
           ) : (
             <div className="overflow-x-auto">

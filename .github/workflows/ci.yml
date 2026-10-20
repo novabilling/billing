@@ -248,4 +248,4 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build ${{ matrix.service }}
-        run: docker build -t novabilling/${{ matrix.service }}:ci ${{ matrix.context }}
+        run: docker build -t pimabill/${{ matrix.service }}:ci ${{ matrix.context }}

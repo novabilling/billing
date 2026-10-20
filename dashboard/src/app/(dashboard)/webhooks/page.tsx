@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
-  Loader2,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -19,6 +18,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import type { WebhookLog } from "@/types";
 import { toast } from "sonner";
 import { brand } from "@/lib/brand";
+import { BrandMark } from "@/components/brand-mark";
 
 const PROVIDER_LABELS: Record<string, string> = {
   stripe: "Stripe",
@@ -139,7 +139,7 @@ function LogTable({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <BrandMark animated className="h-8 w-8 text-primary" />
       </div>
     );
   }

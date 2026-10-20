@@ -51,7 +51,7 @@
     --card-foreground: hsl(222.2 84% 4.9%);
     --popover: hsl(0 0% 100%);
     --popover-foreground: hsl(222.2 84% 4.9%);
-    --primary: hsl(221.2 83.2% 53.3%);
+    --primary: hsl(178 77% 24%);
     --primary-foreground: hsl(210 40% 98%);
     --secondary: hsl(210 40% 96.1%);
     --secondary-foreground: hsl(222.2 47.4% 11.2%);
@@ -63,7 +63,7 @@
     --destructive-foreground: hsl(210 40% 98%);
     --border: hsl(214.3 31.8% 91.4%);
     --input: hsl(214.3 31.8% 91.4%);
-    --ring: hsl(221.2 83.2% 53.3%);
+    --ring: hsl(178 77% 24%);
     --chart-1: hsl(221.2 83.2% 53.3%);
     --chart-2: hsl(160 60% 45%);
     --chart-3: hsl(30 80% 55%);
@@ -86,7 +86,7 @@
     --card-foreground: hsl(210 40% 98%);
     --popover: hsl(224 71% 7%);
     --popover-foreground: hsl(210 40% 98%);
-    --primary: hsl(217.2 91.2% 59.8%);
+    --primary: hsl(175 48% 54%);
     --primary-foreground: hsl(222.2 47.4% 11.2%);
     --secondary: hsl(215 28% 17%);
     --secondary-foreground: hsl(210 40% 98%);
@@ -98,7 +98,7 @@
     --destructive-foreground: hsl(210 40% 98%);
     --border: hsl(215 28% 17%);
     --input: hsl(215 28% 22%);
-    --ring: hsl(224.3 76.3% 48%);
+    --ring: hsl(175 48% 54%);
     --chart-1: hsl(220 70% 50%);
     --chart-2: hsl(160 60% 45%);
     --chart-3: hsl(30 80% 55%);
@@ -220,4 +220,22 @@ body {
 
 .animate-count-up {
     animation: countUp 0.5s ease-out;
+}
+
+/* Brand loader: the second reading climbs from the first one's level, holds, and settles back. */
+@keyframes brand-mark-climb {
+  0%, 12% { transform: translateY(34px); }
+  45%, 78% { transform: translateY(0); }
+  100% { transform: translateY(34px); }
+}
+@keyframes brand-mark-tick {
+  0%, 100% { opacity: 0.55; }
+  10% { opacity: 1; }
+  30% { opacity: 0.55; }
+}
+.brand-mark-animated .brand-mark-high { animation: brand-mark-climb 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.brand-mark-animated .brand-mark-low { animation: brand-mark-tick 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark-animated .brand-mark-high { animation: none; }
+  .brand-mark-animated .brand-mark-low { animation-duration: 2.4s; }
 }

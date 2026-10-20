@@ -1,8 +1,8 @@
 {
-  "name": "novabilling-backend",
+  "name": "pimabill-backend",
   "version": "1.0.0",
-  "description": "NovaBilling - Multi-tenant billing service API",
-  "author": "NovaBilling",
+  "description": "PimaBill - Multi-tenant billing service API",
+  "author": "PimaBill",
   "private": true,
   "license": "MIT",
   "scripts": {

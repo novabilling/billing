@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     ...(site.twitter && { site: site.twitter, creator: site.twitter }),
   },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
-  icons: { icon: site.logo, apple: site.logo },
+  icons: { icon: site.logo, apple: "/logo.png" },
 };
 
 export const viewport: Viewport = {
@@ -42,7 +42,7 @@ const jsonLd = [
     "@type": "Organization",
     name: site.name,
     url: site.url,
-    logo: `${site.url}${site.logo}`,
+    logo: `${site.url}/logo.png`,
     sameAs: [site.githubUrl],
     email: site.contactEmail,
   },

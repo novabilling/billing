@@ -20,7 +20,7 @@ export const site = {
   apiRefUrl: env("NEXT_PUBLIC_API_REF_URL", "http://localhost:4000/api/reference"),
   contactEmail: env("NEXT_PUBLIC_CONTACT_EMAIL", "hello@pimabill.com"),
   twitter: env("NEXT_PUBLIC_TWITTER_HANDLE", ""),
-  logo: env("NEXT_PUBLIC_BRAND_LOGO", "/logo.png"),
+  logo: env("NEXT_PUBLIC_BRAND_LOGO", "/logo.svg"),
   license: "AGPL-3.0",
 };
 

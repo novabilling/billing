@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: `${brand.name} - Admin Dashboard`,
   description: brand.tagline,
+  icons: { icon: brand.logo, apple: "/logo.png" },
 };
 
 export default function RootLayout({

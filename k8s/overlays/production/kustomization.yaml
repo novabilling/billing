@@ -37,13 +37,13 @@ patches:
     patch: |
       - op: replace
         path: /spec/rules/0/host
-        value: api.novabilling.com
+        value: api.pimabill.com
       - op: replace
         path: /spec/rules/1/host
-        value: app.novabilling.com
+        value: app.pimabill.com
       - op: replace
         path: /spec/rules/2/host
-        value: novabilling.com
+        value: pimabill.com
       - op: replace
         path: /spec/rules/3/host
-        value: docs.novabilling.com
+        value: docs.pimabill.com

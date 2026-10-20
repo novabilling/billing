@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
 import { apiClient } from "@/lib/api/client";
 import { brand } from "@/lib/brand";
+import { BrandMark } from "@/components/brand-mark";
 
 function maskApiKey(key: string): string {
   if (!key || key.length < 12) return key;
@@ -247,7 +248,7 @@ export default function SettingsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BrandMark animated className="h-8 w-8 text-primary" />
       </div>
     );
   }

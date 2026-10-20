@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Customer, PaymentMethod } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 export default function CustomersPage() {
   const canWrite = useCan("billing.write");
@@ -388,7 +389,7 @@ export default function CustomersPage() {
           <div className="py-4 space-y-3">
             {pmLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <BrandMark animated className="h-8 w-8 text-primary" />
               </div>
             ) : paymentMethods.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">

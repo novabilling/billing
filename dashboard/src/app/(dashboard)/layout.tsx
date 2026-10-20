@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { useUIStore } from "@/lib/stores/ui";
 import { useAuthStore } from "@/lib/stores/auth";
 import { cn } from "@/lib/utils/cn";
+import { BrandLoader } from "@/components/brand-mark";
 
 export default function DashboardLayout({
   children,
@@ -31,7 +32,7 @@ export default function DashboardLayout({
   }, [isAuthenticated, router]);
 
   if (!isAuthenticated) {
-    return null;
+    return <BrandLoader className="h-screen" />;
   }
 
   return (

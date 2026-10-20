@@ -12,7 +12,6 @@ import {
   Github,
   Globe,
   Shield,
-  Zap,
   Code2,
   Users,
   Layers,
@@ -29,6 +28,7 @@ import {
   Star,
 } from "lucide-react";
 import Header from "@/components/header";
+import BrandMark from "@/components/brand-mark";
 
 import { site } from "@/lib/site";
 import { faq } from "./faq";
@@ -1137,7 +1137,7 @@ function Footer() {
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 font-bold text-lg">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
-                <Zap className="h-4 w-4" />
+                <BrandMark className="h-4 w-4" />
               </span>
               {site.name.slice(0, site.nameSplit)}
               <span className="text-[var(--primary)]">{site.name.slice(site.nameSplit)}</span>

@@ -31,6 +31,7 @@ import { apiClient } from "@/lib/api/client";
 import type { BillableMetric } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 const AGGREGATION_TYPES = [
   { value: "COUNT", label: "Count", description: "Number of events" },
@@ -186,7 +187,7 @@ export default function BillableMetricsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BrandMark animated className="h-8 w-8 text-primary" />
       </div>
     );
   }
