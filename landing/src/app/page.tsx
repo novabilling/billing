@@ -371,7 +371,7 @@ const tiers = [
   },
   {
     name: "Cloud",
-    price: "$49",
+    price: "$15",
     period: "/mo",
     description: "We host and run it. You focus on your product.",
     features: [

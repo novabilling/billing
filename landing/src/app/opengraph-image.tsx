@@ -7,7 +7,7 @@ export const contentType = "image/png";
 
 /** Social preview card, generated at build time from the brand settings. */
 export default function OpenGraphImage() {
-  const name = site.name.toLowerCase();
+  const name = site.name;
   return new ImageResponse(
     (
       <div
