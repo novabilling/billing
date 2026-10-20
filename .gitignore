@@ -44,3 +44,6 @@ coverage/
 .claude/
 CLAUDE.md
 
+
+# Local Redis snapshots
+dump.rdb
