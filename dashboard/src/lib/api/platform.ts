@@ -53,12 +53,30 @@ export interface LedgerSummary {
   lastCheckAt: string | null;
 }
 
+export type AccessMode = "FULL" | "READ_ONLY" | "SUSPENDED";
+
+export interface TenantAccess {
+  mode: AccessMode;
+  reason: string | null;
+  url: string | null;
+}
+
+export interface TenantBillingState {
+  status: string;
+  planId: string | null;
+  trialEndsAt: string | null;
+}
+
 export interface PlatformTenantRow {
   id: string;
   name: string;
   slug: string;
   email: string;
   isActive: boolean;
+  isPlatformOperator: boolean;
+  accessMode: AccessMode;
+  accessReason: string | null;
+  billing: TenantBillingState | null;
   createdAt: string;
   lastLoginAt: string | null;
   lastApiCall: string | null;
@@ -112,6 +130,9 @@ export interface PlatformTenantDetail {
     slug: string;
     email: string;
     isActive: boolean;
+    isPlatformOperator: boolean;
+    access: TenantAccess;
+    billing: TenantBillingState | null;
     createdAt: string;
     lastLoginAt: string | null;
     webhookConfigured: boolean;
@@ -155,7 +176,7 @@ export interface PlatformTenantDetail {
 }
 
 export const platformApi = {
-  me: () => apiFetch<{ isPlatformAdmin: boolean }>("/admin/me"),
+  me: () => apiFetch<{ isPlatformAdmin: boolean; access: TenantAccess }>("/admin/me"),
   overview: () => apiFetch<PlatformOverview>("/admin/overview"),
   tenants: (params: { search?: string; stage?: string; flag?: string; sort?: string } = {}) => {
     const query = new URLSearchParams(
@@ -167,6 +188,8 @@ export const platformApi = {
   refreshTenant: (id: string) =>
     apiFetch<{ refreshed: boolean }>(`/admin/tenants/${id}/refresh`, { method: "POST" }),
   refreshAll: () => apiFetch<{ started: boolean }>("/admin/metrics/refresh", { method: "POST" }),
+  updateAccess: (id: string, patch: { accessMode: AccessMode; accessReason?: string | null }) =>
+    apiFetch<unknown>(`/admin/tenants/${id}/access`, { method: "PATCH", body: JSON.stringify(patch) }),
   updateMoney: (id: string, patch: Partial<MoneySettings>) =>
     apiFetch<MoneySettings>(`/admin/tenants/${id}/money`, { method: "PATCH", body: JSON.stringify(patch) }),
 };

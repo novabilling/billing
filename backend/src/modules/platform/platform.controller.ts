@@ -6,12 +6,15 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RequestWithTenant } from '../../common/interfaces/request-with-tenant.interface';
 import { getBrand } from '../../config/brand';
 import { LedgerRunnerService } from '../ledger/ledger-runner.service';
-import { PlatformAdminGuard, platformAdminIds } from './platform-admin.guard';
+import { PlatformAdminGuard } from './platform-admin.guard';
+import { isPlatformOperator } from '../../common/platform-operator';
 import { PlatformService } from './platform.service';
 import { TenantMetricsService } from './tenant-metrics.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { MoneyService } from '../money/money.service';
 import { UpdateTenantMoneyDto } from './dto/update-tenant-money.dto';
+import { UpdateTenantAccessDto } from './dto/update-tenant-access.dto';
+import { TenantAccessService } from './tenant-access.service';
 
 /**
  * Platform console API for the operators of this deployment. Excluded from
@@ -29,6 +32,7 @@ export class PlatformController {
     private readonly config: ConfigService,
     private readonly money: MoneyService,
     private readonly centralPrisma: CentralPrismaService,
+    private readonly access: TenantAccessService,
   ) {}
 
   /** Lets the dashboard decide whether to show the platform section. */
@@ -36,7 +40,12 @@ export class PlatformController {
   @UseGuards(TenantGuard)
   me(@Req() req: RequestWithTenant) {
     return {
-      isPlatformAdmin: req.authMethod === 'session' && platformAdminIds(this.config).has(req.tenant.id),
+      isPlatformAdmin: req.authMethod === 'session' && isPlatformOperator(req.tenant, this.config),
+      access: {
+        mode: req.tenant.accessMode ?? 'FULL',
+        reason: req.tenant.accessReason ?? null,
+        url: req.tenant.accessUrl ?? null,
+      },
       brand: getBrand(),
     };
   }
@@ -80,6 +89,13 @@ export class PlatformController {
     const tenant = await this.centralPrisma.client.tenant.findUnique({ where: { id }, select: { id: true, settings: true } });
     if (!tenant) throw new NotFoundException('Tenant not found');
     return this.money.updateSettings({ id, settings: tenant.settings as Record<string, unknown> | null }, dto, true);
+  }
+
+  /** Make an organisation read-only or suspended (with a reason), or restore it. */
+  @Patch('tenants/:id/access')
+  @UseGuards(PlatformAdminGuard)
+  updateAccess(@Param('id') id: string, @Body() dto: UpdateTenantAccessDto, @Req() req: { platformAdminId?: string }) {
+    return this.access.update(id, dto, `operator ${req.platformAdminId}`);
   }
 
   /** Rebuilds every tenant's snapshot in the background; results appear on the next read. */

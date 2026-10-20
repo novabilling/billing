@@ -17,10 +17,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { PlatformGate } from "@/components/platform/platform-gate";
 import { CurrencyAmounts, Stat, compact, percent, plural } from "@/components/platform/bits";
-import { featureLabels, platformApi, type PlatformTenantDetail } from "@/lib/api/platform";
+import { featureLabels, platformApi, type AccessMode, type PlatformTenantDetail } from "@/lib/api/platform";
 import { formatDate, formatRelativeTime } from "@/lib/utils/date";
 
 const checkLabels: Record<string, string> = {
@@ -229,6 +230,7 @@ function TenantDetail() {
         </Card>
       </div>
 
+      <AccessControls tenantId={tenant.id} data={data} onChange={load} />
       <MoneyControls tenantId={tenant.id} data={data} onChange={load} />
       <CommissionEditor tenantId={tenant.id} rules={data.money.commission ?? {}} onSaved={load} />
 
@@ -291,6 +293,75 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right">{value}</span>
     </div>
+  );
+}
+
+const accessOptions: { mode: AccessMode; label: string; help: string }[] = [
+  { mode: "FULL", label: "Full access", help: "Everything works." },
+  { mode: "READ_ONLY", label: "Read-only", help: "Dashboard and API can read; nothing can be created or changed." },
+  { mode: "SUSPENDED", label: "Suspended", help: "Nothing works until restored. They only see the reason." },
+];
+
+function AccessControls({ tenantId, data, onChange }: { tenantId: string; data: PlatformTenantDetail; onChange: () => void }) {
+  const { access, billing, isPlatformOperator } = data.tenant;
+  const [mode, setMode] = useState<AccessMode>(access.mode);
+  const [reason, setReason] = useState(access.reason ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await platformApi.updateAccess(tenantId, { accessMode: mode, accessReason: mode === "FULL" ? null : reason.trim() || null });
+      toast.success("Access updated");
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update access");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Access</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-6 lg:grid-cols-2 text-sm">
+        {isPlatformOperator ? (
+          <p className="text-muted-foreground">This is a platform operator organisation; its access cannot be limited.</p>
+        ) : (
+          <div className="space-y-3">
+            {accessOptions.map((o) => (
+              <label key={o.mode} className="flex items-start gap-3">
+                <input type="radio" name="access" className="mt-1" checked={mode === o.mode} onChange={() => setMode(o.mode)} />
+                <span>
+                  <span className="font-medium">{o.label}</span>
+                  <span className="block text-muted-foreground">{o.help}</span>
+                </span>
+              </label>
+            ))}
+            {mode !== "FULL" && (
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={500}
+                placeholder="Reason shown to the organisation"
+                aria-label="Reason shown to the organisation"
+              />
+            )}
+            <Button size="sm" onClick={save} disabled={saving || (mode === access.mode && (reason || null) === (access.reason || null))}>
+              Save
+            </Button>
+          </div>
+        )}
+        <div className="space-y-3">
+          <Row label="Billing" value={billing ? billing.status.replace("_", " ") : "—"} />
+          <Row label="Plan" value={billing?.planId ?? "—"} />
+          <Row label="Trial ends" value={billing?.trialEndsAt ? formatDate(billing.trialEndsAt) : "—"} />
+          {access.url && <Row label="Resolve link" value={<a className="underline" href={access.url}>Open</a>} />}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Search } from "lucide-react";
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PlatformGate } from "@/components/platform/platform-gate";
-import { CurrencyAmounts, FlagBadges, LedgerBadge, StageBadge, compact, lastCallLabel, plural } from "@/components/platform/bits";
+import { AccessBadge, BillingBadge, CurrencyAmounts, FlagBadges, LedgerBadge, StageBadge, compact, lastCallLabel, plural } from "@/components/platform/bits";
 import {
   featureLabels,
   flagLabels,
@@ -154,6 +155,11 @@ function TenantList() {
                       </Link>
                       <p className="text-xs text-muted-foreground">{t.email}</p>
                       <p className="text-xs text-muted-foreground">Joined {formatRelativeTime(t.createdAt)}</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {t.isPlatformOperator && <Badge variant="outline">Operator</Badge>}
+                        <BillingBadge billing={t.billing} />
+                        <AccessBadge mode={t.accessMode} />
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <StageBadge stage={t.stage} />
