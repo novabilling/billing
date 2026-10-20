@@ -1,8 +1,10 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CentralPrismaService } from '../../database/central-prisma.service';
+import { Prisma } from '../../generated/prisma-central/client';
 import { isPlatformOperator } from '../../common/platform-operator';
 import { UpdateTenantAccessDto } from './dto/update-tenant-access.dto';
+import { forgetPlan, parseLimits } from '../../common/guards/plan-limits';
 
 const SELECT = {
   id: true,
@@ -14,7 +16,7 @@ const SELECT = {
   accessReason: true,
   accessUrl: true,
   createdAt: true,
-  tenantBilling: { select: { status: true, planId: true, trialEndsAt: true } },
+  tenantBilling: { select: { status: true, planId: true, trialEndsAt: true, planName: true, limits: true, manageUrl: true } },
 } as const;
 
 /** Organisation access and billing state, for the platform console and the service API. */
@@ -72,6 +74,9 @@ export class TenantAccessService {
       ...(dto.billingStatus !== undefined && { status: dto.billingStatus }),
       ...(dto.billingPlanId !== undefined && { planId: dto.billingPlanId }),
       ...(dto.trialEndsAt !== undefined && { trialEndsAt: dto.trialEndsAt ? new Date(dto.trialEndsAt) : null }),
+      ...(dto.planName !== undefined && { planName: dto.planName }),
+      ...(dto.manageUrl !== undefined && { manageUrl: dto.manageUrl }),
+      ...(dto.limits !== undefined && { limits: (parseLimits(dto.limits) ?? Prisma.DbNull) as Prisma.InputJsonValue }),
     };
 
     await this.db.$transaction(async (tx) => {
@@ -80,6 +85,7 @@ export class TenantAccessService {
         await tx.tenantBilling.upsert({ where: { tenantId: id }, create: { tenantId: id, ...billing }, update: billing });
       }
     });
+    forgetPlan(id);
     this.logger.log(`${actor} updated tenant ${id}: ${JSON.stringify({ ...access, ...billing })}`);
     return this.get(id);
   }
@@ -94,7 +100,7 @@ export class TenantAccessService {
     accessReason: string | null;
     accessUrl: string | null;
     createdAt: Date;
-    tenantBilling: { status: string; planId: string | null; trialEndsAt: Date | null } | null;
+    tenantBilling: { status: string; planId: string | null; trialEndsAt: Date | null; planName: string | null; limits: unknown; manageUrl: string | null } | null;
   }) {
     return {
       id: t.id,
@@ -106,7 +112,7 @@ export class TenantAccessService {
       accessReason: t.accessReason,
       accessUrl: t.accessUrl,
       createdAt: t.createdAt,
-      billing: t.tenantBilling,
+      billing: t.tenantBilling && { ...t.tenantBilling, limits: parseLimits(t.tenantBilling.limits) },
     };
   }
 }

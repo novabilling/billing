@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useUIStore } from "@/lib/stores/ui";
 import { useEffect, useState } from "react";
 import { NotificationsDropdown } from "./notifications-dropdown";
+import { PlanPill } from "./plan-pill";
 
 export function Topbar() {
   const { setTheme, theme } = useTheme();
@@ -46,6 +47,7 @@ export function Topbar() {
 
       <div className="flex items-center gap-2">
         {/* Notifications */}
+        <PlanPill />
         <NotificationsDropdown />
 
         {/* Theme Toggle */}

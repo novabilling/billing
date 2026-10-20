@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { platformApi, type TenantAccess } from "@/lib/api/platform";
+import { platformApi, type TenantAccess, type TenantPlan } from "@/lib/api/platform";
 
 type Me = Awaited<ReturnType<typeof platformApi.me>>;
 let cached: Promise<Me | null> | null = null;
@@ -31,6 +31,11 @@ export function usePlatformAccess(): boolean | null {
 /** This organisation's access mode, set by the platform operator. */
 export function useTenantAccess(): TenantAccess | null {
   return useMe()?.access ?? null;
+}
+
+/** The plan the operator has put this organisation on, if any. */
+export function useTenantPlan(): TenantPlan | null {
+  return useMe()?.plan ?? null;
 }
 
 export function PlatformGate({ children }: { children: React.ReactNode }) {

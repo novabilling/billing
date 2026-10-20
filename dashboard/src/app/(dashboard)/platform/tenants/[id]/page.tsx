@@ -356,7 +356,17 @@ function AccessControls({ tenantId, data, onChange }: { tenantId: string; data: 
         )}
         <div className="space-y-3">
           <Row label="Billing" value={billing ? billing.status.replace("_", " ") : "—"} />
-          <Row label="Plan" value={billing?.planId ?? "—"} />
+          <Row label="Plan" value={billing?.planName ?? billing?.planId ?? "—"} />
+          <Row
+            label="Limits"
+            value={
+              billing?.limits
+                ? Object.entries(billing.limits)
+                    .map(([k, v]) => (Array.isArray(v) ? `without ${v.join(", ").replace(/_/g, " ")}` : `${v} ${k.replace(/([A-Z])/g, " $1").toLowerCase()}`))
+                    .join(" · ")
+                : "None"
+            }
+          />
           <Row label="Trial ends" value={billing?.trialEndsAt ? formatDate(billing.trialEndsAt) : "—"} />
           {access.url && <Row label="Resolve link" value={<a className="underline" href={access.url}>Open</a>} />}
         </div>
