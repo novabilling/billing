@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, MoreHorizontal, Loader2, ArrowRightLeft } from "lucide-react";
+import { Plus, MoreHorizontal, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ import { formatDate, getDaysUntil } from "@/lib/utils/date";
 import type { Subscription, Customer, Plan } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 const statusColors = {
   active: "success",
@@ -527,7 +528,7 @@ export default function SubscriptionsPage() {
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               Create Subscription
             </Button>
           </DialogFooter>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { brand } from "@/lib/brand";
 import { moneyApi, type ManagedAccount } from "@/lib/api/money";
+import { BrandMark } from "@/components/brand-mark";
 
 const statusText: Record<ManagedAccount["status"], { label: string; variant: "success" | "warning" | "error"; hint: string }> = {
   pending_review: { label: "In review", variant: "warning", hint: "We are checking your business and bank details. Checkout links start working once it is approved." },
@@ -125,7 +126,7 @@ export function ManagedPayments({ onChanged }: { onChanged: () => void }) {
             {field("accountName", "Account name (optional)")}
             <div className="flex items-end">
               <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
                 Request managed payments
               </Button>
             </div>

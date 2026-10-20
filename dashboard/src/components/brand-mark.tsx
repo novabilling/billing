@@ -5,9 +5,10 @@ import { brand } from "@/lib/brand";
  * The PimaBill mark: two readings, the second higher than the first. Drawn
  * in currentColor so it follows the surrounding text colour.
  */
-export function BrandMark({ className, animated = false }: { className?: string; animated?: boolean }) {
+export function BrandMark({ className, animated = false, tight = false }: { className?: string; animated?: boolean; tight?: boolean }) {
+  // tight crops the margin around the readings (keeping room for the climb), for inline sizes like a button's 16px.
   return (
-    <svg viewBox="0 0 120 120" aria-hidden className={cn("h-6 w-6", animated && "brand-mark-animated", className)}>
+    <svg viewBox={tight ? "20 20 80 80" : "0 0 120 120"} aria-hidden className={cn("h-6 w-6", animated && "brand-mark-animated", className)}>
       <rect className="brand-mark-low" x="24" y="62" width="30" height="30" rx="6" fill="currentColor" fillOpacity={0.55} />
       <rect className="brand-mark-high" x="66" y="28" width="30" height="30" rx="6" fill="currentColor" />
     </svg>

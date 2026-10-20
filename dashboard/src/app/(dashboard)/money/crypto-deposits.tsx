@@ -103,7 +103,7 @@ export function CryptoDeposits() {
       <CardContent className="p-0">
         {rows === null ? (
           <div className="flex justify-center p-8">
-            <BrandMark animated className="h-8 w-8 text-primary" />
+            <BrandMark animated tight className="h-8 w-8 text-primary" />
           </div>
         ) : rows.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">

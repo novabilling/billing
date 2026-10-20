@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Calculator, Edit, Trash2, Loader2 } from "lucide-react";
+import { Plus, Calculator, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import type { Tax } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 interface TaxForm {
   name: string;
@@ -409,7 +410,7 @@ export default function TaxesPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               {editingTax ? "Save Changes" : "Create Tax"}
             </Button>
           </DialogFooter>

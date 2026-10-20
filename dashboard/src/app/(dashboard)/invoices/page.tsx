@@ -5,7 +5,6 @@ import {
   Plus,
   Download,
   MoreHorizontal,
-  Loader2,
   X as XIcon,
   ExternalLink,
   FileText,
@@ -44,6 +43,7 @@ import { formatDate, isOverdue } from "@/lib/utils/date";
 import type { Invoice, Customer, PaymentProvider } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 const statusColors = {
   draft: "secondary",
@@ -632,7 +632,7 @@ export default function InvoicesPage() {
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               Create Invoice
             </Button>
           </DialogFooter>
@@ -673,7 +673,7 @@ export default function InvoicesPage() {
             </Button>
             <Button onClick={handleSendEmail} disabled={isSendingEmail}>
               {isSendingEmail && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <BrandMark animated tight className="mr-2 h-4 w-4" />
               )}
               <Mail className="mr-2 h-4 w-4" />
               Send Email
@@ -727,7 +727,7 @@ export default function InvoicesPage() {
             </Button>
             <Button onClick={handleMarkPaid} disabled={isMarkingPaid}>
               {isMarkingPaid && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <BrandMark animated tight className="mr-2 h-4 w-4" />
               )}
               <CheckCircle className="mr-2 h-4 w-4" />
               Confirm Payment
@@ -786,7 +786,7 @@ export default function InvoicesPage() {
                 onClick={() => checkoutInvoice && runCheckout(checkoutInvoice, selectedProvider || undefined)}
                 disabled={isGeneratingCheckout || !selectedProvider}
               >
-                {isGeneratingCheckout && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isGeneratingCheckout && <BrandMark animated tight className="mr-2 h-4 w-4" />}
                 Generate URL
               </Button>
             )}

@@ -7,7 +7,6 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Trash2,
-  Loader2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,6 +40,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import type { Wallet, WalletTransaction, Customer } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 interface WalletForm {
   customerId: string;
@@ -536,7 +536,7 @@ export default function WalletsPage() {
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               Create Wallet
             </Button>
           </DialogFooter>
@@ -604,7 +604,7 @@ export default function WalletsPage() {
               Cancel
             </Button>
             <Button onClick={handleTopUp} disabled={isTopping}>
-              {isTopping && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isTopping && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               Apply
             </Button>
           </DialogFooter>

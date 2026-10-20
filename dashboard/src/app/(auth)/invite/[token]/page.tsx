@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api/client";
 import { roleLabels } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/stores/auth";
+import { BrandMark } from "@/components/brand-mark";
 
 type Invite = Awaited<ReturnType<typeof apiClient.auth.describeInvitation>>;
 
@@ -78,7 +79,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
                 )}
               </div>
               <Button type="submit" className="w-full" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
                 Join {invite.organisation}
               </Button>
             </form>

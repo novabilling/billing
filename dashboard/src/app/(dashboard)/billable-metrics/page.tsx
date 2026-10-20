@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, X, Loader2, Activity } from "lucide-react";
+import { Plus, Edit, Trash2, X, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -187,7 +187,7 @@ export default function BillableMetricsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <BrandMark animated className="h-8 w-8 text-primary" />
+        <BrandMark animated tight className="h-8 w-8 text-primary" />
       </div>
     );
   }
@@ -422,7 +422,7 @@ export default function BillableMetricsPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="h-4 w-4 mr-2" />}
               {editingMetric ? "Update" : "Create"}
             </Button>
           </DialogFooter>

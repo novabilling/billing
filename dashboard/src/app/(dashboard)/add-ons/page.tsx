@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, X, Loader2, PuzzleIcon } from "lucide-react";
+import { Plus, Edit, Trash2, X, PuzzleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import type { AddOn } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 const CURRENCIES = [
   "USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "UGX",
@@ -491,7 +492,7 @@ export default function AddOnsPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               {editingAddOn ? "Save Changes" : "Create Add-on"}
             </Button>
           </DialogFooter>
@@ -524,7 +525,7 @@ export default function AddOnsPage() {
               disabled={isDeleting}
             >
               {isDeleting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <BrandMark animated tight className="mr-2 h-4 w-4" />
               )}
               Delete
             </Button>
