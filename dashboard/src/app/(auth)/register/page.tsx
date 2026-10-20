@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,10 +50,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <Image src={brand.logo} alt={brand.name} width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
+    <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader className="space-y-1 px-0">
           <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 mb-2">
             Free during beta
           </div>
@@ -63,7 +60,7 @@ export default function RegisterPage() {
             Get started with {brand.name} for free — no credit card required
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
@@ -127,12 +124,11 @@ export default function RegisterPage() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <a href="/login" className="text-blue-600 hover:underline">
+            <a href="/login" className="font-medium text-primary hover:underline">
               Sign in
             </a>
           </div>
         </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api/client";
-import { brand } from "@/lib/brand";
 import { roleLabels } from "@/lib/permissions";
 import { useAuthStore } from "@/lib/stores/auth";
 
@@ -46,10 +44,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <Image src={brand.logo} alt={brand.name} width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
+    <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader className="space-y-1 px-0">
           <CardTitle className="text-2xl">{invite ? `Join ${invite.organisation}` : "Invitation"}</CardTitle>
           <CardDescription>
             {invite
@@ -58,7 +54,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
           </CardDescription>
         </CardHeader>
         {invite && (
-          <CardContent>
+          <CardContent className="px-0">
             <form onSubmit={submit} className="space-y-4">
               {!invite.existingUser && (
                 <div className="space-y-2">
@@ -88,7 +84,6 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
             </form>
           </CardContent>
         )}
-      </Card>
-    </div>
+    </Card>
   );
 }
