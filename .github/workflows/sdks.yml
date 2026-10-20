@@ -1,12 +1,16 @@
 name: SDKs
 
-# SDKs are generated from the committed OpenAPI spec on releases, or on
-# request, never in pull-request CI. Generated code is uploaded as build
-# artifacts; publishing to npm, PyPI and Packagist is added once the SDK
-# repositories and registry names are set up.
+# SDKs are generated from the committed OpenAPI spec when a release is cut
+# (called from release.yml), or on request, never in pull-request CI. They
+# carry the system version and the MIT licence. Generated code is uploaded as
+# build artifacts; publishing to npm, PyPI and Packagist is added once the
+# SDK repositories and registry names are set up.
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      group: { type: string, required: true }
+      ref: { type: string, required: true }
+      version: { type: string, required: true }
   workflow_dispatch:
     inputs:
       group:
@@ -15,29 +19,43 @@ on:
         default: tier1
         type: choice
         options: [tier1, tier2]
+      ref:
+        description: "Release tag to build from, e.g. v1.4.0"
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   generate:
-    name: Generate ${{ inputs.group || 'tier1' }} SDKs
+    name: Generate ${{ inputs.group }} SDKs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
+      # The spec's info.version is the release version; dispatch runs read it from the tag.
+      - name: Resolve version
+        id: version
+        env:
+          GIVEN: ${{ inputs.version }}
+        run: echo "value=${GIVEN:-$(node -p "require('./backend/openapi/openapi.json').info.version")}" >> "$GITHUB_OUTPUT"
+
       - name: Generate
         env:
           FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
-        run: npx --yes fern-api generate --local --group ${{ inputs.group || 'tier1' }} --log-level info
+          GROUP: ${{ inputs.group }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: npx --yes fern-api generate --local --group "$GROUP" --version "$VERSION" --log-level info
         working-directory: fern
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sdks-${{ inputs.group || 'tier1' }}-${{ github.event.release.tag_name || github.sha }}
+          name: sdks-${{ inputs.group }}-${{ steps.version.outputs.value }}
           path: sdks/
           retention-days: 30

@@ -210,4 +210,4 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## License
 
-PimaBill is licensed under [AGPL-3.0](LICENSE).
+PimaBill is licensed under [AGPL-3.0](LICENSE). The generated SDKs are MIT-licensed, so they can be used in any project.

@@ -77,6 +77,54 @@ jobs:
             exit 1
           }
 
+      # A breaking API change is allowed only when the PR title marks it as
+      # one (feat!: or fix!:), which makes the next release a major version.
+      - name: Check for breaking API changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          OASDIFF_VERSION: 1.33.0
+          OASDIFF_SHA256: 43a4e328e2d13ba1552d760aa68d2485c75c5621f309f6ff64ae895188345247
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          if ! git show "origin/$BASE_REF:backend/openapi/openapi.json" > "$RUNNER_TEMP/base.json" 2>/dev/null; then
+            echo "No committed spec on $BASE_REF yet; nothing to compare."
+            exit 0
+          fi
+          curl -sSfL -o "$RUNNER_TEMP/oasdiff.tgz" \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          echo "$OASDIFF_SHA256  $RUNNER_TEMP/oasdiff.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/oasdiff.tgz" -C "$RUNNER_TEMP" oasdiff
+          if "$RUNNER_TEMP/oasdiff" breaking "$RUNNER_TEMP/base.json" openapi/openapi.json --fail-on ERR; then
+            exit 0
+          fi
+          if [[ "$PR_TITLE" =~ ^[a-z]+(\([a-z0-9-]+\))?!: ]]; then
+            echo "::warning::Breaking API changes, marked in the PR title; the next release will be a major version."
+            exit 0
+          fi
+          echo "::error::This PR breaks the API for existing clients (see above). Make it backwards compatible, or mark the PR title as breaking (feat!: ...) so the release is a major version."
+          exit 1
+
+  # Squash-merged PR titles become the commits release-please reads, so
+  # they must say what kind of change they are.
+  pr-title:
+    name: PR Title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check the title follows Conventional Commits
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [[ "$PR_TITLE" =~ ^(feat|fix|perf|refactor|docs|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?:\ .+ ]]; then
+            echo "OK: $PR_TITLE"
+          else
+            echo "::error::PR title must look like 'feat: add payouts', 'fix(ledger): ...' or 'feat!: ...' for breaking changes. fix → patch, feat → minor, ! → major."
+            exit 1
+          fi
+
   # ──────────────────────────────────────────────
   # Backend: migrations and integration tests on PostgreSQL
   # ──────────────────────────────────────────────

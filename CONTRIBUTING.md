@@ -147,7 +147,16 @@ fix: correct tax hierarchy resolution order
 docs: add webhook retry configuration guide
 ```
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/) loosely — prefix with `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, or `chore:`.
+PRs are squash-merged, so the **PR title** becomes the commit and sets the next version. CI checks it follows [Conventional Commits](https://www.conventionalcommits.org/):
+
+| Title | Release |
+|---|---|
+| `fix: ...` | patch (1.4.0 → 1.4.1) |
+| `feat: ...` | minor (1.4.0 → 1.5.0) |
+| `feat!: ...` or `fix!: ...` | major (1.4.0 → 2.0.0) |
+| `docs:`, `refactor:`, `test:`, `chore:`, `ci:`, `build:`, `perf:` | no release on their own |
+
+A PR that removes or changes anything existing API clients rely on fails CI unless its title is marked breaking with `!`.
 
 ### Code Style
 
@@ -189,7 +198,7 @@ If you modify Prisma schemas:
 2. Make your changes with tests where applicable
 3. Ensure `npx tsc --noEmit` passes with no errors
 4. Ensure all existing tests still pass
-5. Open a PR with a clear title and description
+5. Open a PR with a Conventional Commits title (see [Commit Messages](#commit-messages)) and a clear description
 6. Link any related issues
 
 ### PR Description Template
