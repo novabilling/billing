@@ -1,8 +1,0 @@
-{
-  "cliVersion": "3.78.0",
-  "generatorName": "fernapi/fern-php-sdk",
-  "generatorVersion": "2.0.0",
-  "generatorConfig": {
-    "namespace": "NovaBilling"
-  }
-}

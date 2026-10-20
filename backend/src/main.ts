@@ -1,13 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { validationPipe } from './common/pipes/validation.pipe';
 import { getBrand } from './config/brand';
+import { buildOpenApiDocument, GLOBAL_PREFIX_EXCLUDE } from './openapi';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -49,43 +49,11 @@ async function bootstrap() {
   app.useGlobalPipes(validationPipe);
 
   // API prefix
-  app.setGlobalPrefix('api', {
-    exclude: ['health', 'webhooks/{*splat}', 'api/reference', 'api/openapi.json'],
-  });
+  app.setGlobalPrefix('api', { exclude: GLOBAL_PREFIX_EXCLUDE });
 
   // OpenAPI document
   const brand = getBrand();
-  const config = new DocumentBuilder()
-    .setTitle(`${brand.name} API`)
-    .setDescription(
-      `${brand.name} is a multi-tenant billing and subscription management API. ` +
-        'It supports African and global payment providers including Stripe, Paystack, Flutterwave, and M-Pesa.\n\n' +
-        '## Authentication\n' +
-        '- **JWT (Bearer)**: Used for tenant management endpoints (`/api/tenants/me/*`, `/api/auth/*`). Obtain tokens via `/api/auth/login`.\n' +
-        '- **API Key**: Used for all billing resource endpoints (customers, plans, subscriptions, invoices, payments, analytics). ' +
-        'Pass your API key in the `Authorization` header as `Bearer sk_live_...`.\n\n' +
-        '## Webhooks\n' +
-        'Payment provider webhooks are received at `/webhooks/{provider}` (no `/api` prefix). ' +
-        'Configure your provider dashboard to point to these URLs.\n' +
-        `${brand.name} also forwards billing events to your application via the webhook URL configured in your tenant settings.`,
-    )
-    .setVersion('1.0')
-    .addServer(process.env.API_BASE_URL || 'http://localhost:4000', 'API Server')
-    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'JWT')
-    .addApiKey({ type: 'apiKey', name: 'Authorization', in: 'header' }, 'api-key')
-    .addTag('Auth', 'Authentication endpoints')
-    .addTag('Tenants', 'Tenant management')
-    .addTag('Customers', 'Customer management')
-    .addTag('Plans', 'Plan management')
-    .addTag('Subscriptions', 'Subscription management')
-    .addTag('Invoices', 'Invoice management')
-    .addTag('Payments', 'Payment management')
-    .addTag('Payment Providers', 'Payment provider configuration')
-    .addTag('Webhooks', 'Webhook endpoints')
-    .addTag('Analytics', 'Analytics and reporting')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
+  const document = buildOpenApiDocument(app);
 
   // Serve raw OpenAPI JSON spec
   const expressApp = app.getHttpAdapter().getInstance();

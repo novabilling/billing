@@ -1,0 +1,43 @@
+name: SDKs
+
+# SDKs are generated from the committed OpenAPI spec on releases, or on
+# request, never in pull-request CI. Generated code is uploaded as build
+# artifacts; publishing to npm, PyPI and Packagist is added once the SDK
+# repositories and registry names are set up.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      group:
+        description: "tier1 (TypeScript, Python, PHP) or tier2 (Go, Java, Ruby, C#)"
+        required: true
+        default: tier1
+        type: choice
+        options: [tier1, tier2]
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Generate ${{ inputs.group || 'tier1' }} SDKs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate
+        env:
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
+        run: npx --yes fern-api generate --local --group ${{ inputs.group || 'tier1' }} --log-level info
+        working-directory: fern
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdks-${{ inputs.group || 'tier1' }}-${{ github.event.release.tag_name || github.sha }}
+          path: sdks/
+          retention-days: 30

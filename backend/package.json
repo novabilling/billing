@@ -24,6 +24,7 @@
     "prisma:migrate:central": "npx prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:tenant": "npx prisma migrate dev --config prisma.tenant.config.ts",
     "migrate:central": "ts-node src/cli/migrate.ts central",
+    "openapi:export": "ts-node --transpile-only src/cli/export-openapi.ts",
     "migrate:tenants": "ts-node src/cli/migrate.ts tenants",
     "migrate:all-tenants": "ts-node src/cli/migrate.ts tenants",
     "schema:sync-tenants": "ts-node src/cli/migrate.ts tenants",

@@ -43,6 +43,41 @@ jobs:
         run: npx jest test/unit --no-coverage --forceExit
 
   # ──────────────────────────────────────────────
+  # OpenAPI: the committed spec must match the code (SDKs and docs are built from it)
+  # ──────────────────────────────────────────────
+  openapi-check:
+    name: OpenAPI Spec
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma clients
+        run: |
+          npx prisma generate --schema=./prisma/schema-central.prisma
+          npx prisma generate --schema=./prisma/schema-tenant.prisma
+
+      - name: Export the spec and compare with the committed one
+        run: |
+          npm run -s openapi:export
+          git diff --exit-code -- openapi/openapi.json || {
+            echo "::error::backend/openapi/openapi.json is out of date. Run 'npm run openapi:export' in backend/ and commit the result."
+            exit 1
+          }
+
+  # ──────────────────────────────────────────────
   # Backend: migrations and integration tests on PostgreSQL
   # ──────────────────────────────────────────────
   backend-integration:
