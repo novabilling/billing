@@ -13,9 +13,9 @@ export default function BrandMark({ className = "h-5 w-5", animated = false }: {
   );
 }
 
-/** Mark and name: "pima" in ink, "bill" in teal. */
+/** Mark and name: "Pima" in ink, "Bill" in teal. */
 export function BrandLockup({ className = "" }: { className?: string }) {
-  const name = site.name.toLowerCase();
+  const name = site.name;
   return (
     <span className={`inline-flex items-center gap-2 font-display text-lg font-semibold tracking-tight ${className}`}>
       <BrandMark className="h-7 w-7 text-teal" />

@@ -25,9 +25,9 @@ export function BrandLoader({ label = "Loading", className }: { label?: string; 
   );
 }
 
-/** Mark and name: "pima" in the text colour, "bill" in the accent. */
+/** Mark and name: "Pima" in the text colour, "Bill" in the accent. */
 export function BrandLockup({ className, accent = "text-primary" }: { className?: string; accent?: string }) {
-  const name = brand.name.toLowerCase();
+  const name = brand.name;
   return (
     <span className={cn("inline-flex items-center gap-2 font-display text-lg font-semibold tracking-tight", className)}>
       <BrandMark className={cn("h-7 w-7", accent)} />
