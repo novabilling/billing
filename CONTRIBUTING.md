@@ -84,7 +84,7 @@ Interested? Open an issue or comment on an existing one to say you're working on
    npm ci
    npx prisma generate --schema=./prisma/schema-central.prisma
    npx prisma generate --schema=./prisma/schema-tenant.prisma
-   npx prisma db push --schema=./prisma/schema-central.prisma
+   npm run migrate:central
    ```
 
 5. **Start the API**
@@ -178,8 +178,10 @@ If you modify Prisma schemas:
 
 1. Edit `backend/prisma/schema-central.prisma` or `backend/prisma/schema-tenant.prisma`
 2. Regenerate clients: `npx prisma generate --schema=./prisma/schema-<name>.prisma`
-3. Push changes: `npx prisma db push --schema=./prisma/schema-<name>.prisma`
-4. Document the schema change in your PR description
+3. Create a migration: `npm run prisma:migrate:central -- --name <change>` or `npm run prisma:migrate:tenant -- --name <change>`
+   (central and tenant migrations live in `prisma/migrations/central` and `prisma/migrations/tenant`)
+4. Apply to existing tenant databases: `npm run migrate:tenants`
+5. Document the schema change in your PR description
 
 ## Pull Requests
 

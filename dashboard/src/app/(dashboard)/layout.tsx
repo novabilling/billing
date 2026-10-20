@@ -15,8 +15,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { sidebarCollapsed } = useUIStore();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, checkSession } = useAuthStore();
   const router = useRouter();
+
+  // Refresh role, permissions and organisations from the API on each visit.
+  useEffect(() => {
+    if (isAuthenticated) checkSession().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {

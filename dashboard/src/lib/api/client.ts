@@ -19,6 +19,8 @@ import type {
   Tax,
   PlanOverride,
   WebhookLog,
+  User,
+  Organisation,
 } from "@/types";
 
 // All calls go to the dashboard's own API routes (same origin).
@@ -56,8 +58,9 @@ export async function apiFetch<T>(
     throw new Error(body.message || `API error ${res.status}`);
   }
 
-  const json = await res.json();
-  return json;
+  // DELETEs answer 204 with no body.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 // --- Mappers: API response -> Dashboard types ---
@@ -259,48 +262,41 @@ function mapProvider(p: any): PaymentProvider {
 
 // --- API Client ---
 
+export interface SessionResult {
+  user: User;
+  organisations?: Organisation[];
+  apiKey?: string;
+}
+
+/** Auth calls go to the Next.js route handlers, which keep the tokens in http-only cookies. */
+async function sessionCall(path: string, body: unknown): Promise<SessionResult> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.message || "Request failed");
+  return json;
+}
+
 export const apiClient = {
   // Auth (calls Next.js API routes directly, not the proxy)
   auth: {
-    async login(
-      email: string,
-      password: string,
-    ): Promise<{
-      user: { id: string; name: string; email: string; tenantId: string };
-    }> {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Login failed");
-      }
-      return res.json();
-    },
+    login: (email: string, password: string, tenantId?: string) => sessionCall("/api/auth/login", { email, password, tenantId }),
+    register: (data: { name: string; email: string; password: string; companyName: string }) =>
+      sessionCall("/api/auth/register", data),
+    switchOrganisation: (tenantId: string) => sessionCall("/api/auth/switch", { tenantId }),
+    createOrganisation: (companyName: string) => sessionCall("/api/auth/organisations", { companyName }),
+    acceptInvitation: (token: string, password: string, name?: string) =>
+      sessionCall("/api/auth/invitations/accept", { token, password, name }),
 
-    async register(data: {
-      name: string;
-      email: string;
-      password: string;
-      companyName: string;
-    }): Promise<{
-      user: { id: string; name: string; email: string; tenantId: string };
-      apiKey: string;
-    }> {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Registration failed");
-      }
-      return res.json();
+    async describeInvitation(token: string): Promise<{ organisation: string; email: string; role: string; existingUser: boolean }> {
+      const res = await fetch(`/api/auth/invitations/${encodeURIComponent(token)}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || "This invitation is invalid or has expired");
+      return body;
     },
 
     async logout(): Promise<void> {
@@ -310,9 +306,7 @@ export const apiClient = {
       });
     },
 
-    async me(): Promise<{
-      user: { id: string; name: string; email: string; tenantId: string };
-    } | null> {
+    async me(): Promise<SessionResult | null> {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (!res.ok) return null;
       return res.json();

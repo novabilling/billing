@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { User } from "@/types";
-import { apiClient } from "@/lib/api/client";
+import type { Organisation, User } from "@/types";
+import { apiClient, type SessionResult } from "@/lib/api/client";
 
 // Storage key for the cached profile. Deliberately not tied to the brand name:
 // renaming it would sign every user out.
@@ -8,10 +8,15 @@ const SESSION_KEY = "novabilling_user";
 
 interface AuthState {
   user: User | null;
+  organisations: Organisation[];
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   setUser: (user: User) => void;
+  /** Apply a session returned by sign-in, registration, switching or accepting an invitation. */
+  applySession: (session: SessionResult) => void;
+  switchOrganisation: (tenantId: string) => Promise<void>;
+  createOrganisation: (name: string) => Promise<SessionResult>;
   checkSession: () => Promise<void>;
 }
 
@@ -29,29 +34,25 @@ function loadAuthState(): { user: User | null; isAuthenticated: boolean } {
   return { user: null, isAuthenticated: false };
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   ...loadAuthState(),
+  organisations: [],
+
+  applySession: (session) => {
+    // Only store display info — no tokens or API keys
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session.user));
+    set((s) => ({ user: session.user, isAuthenticated: true, organisations: session.organisations ?? s.organisations }));
+  },
 
   login: async (email: string, password: string) => {
-    const result = await apiClient.auth.login(email, password);
-
-    const user: User = {
-      id: result.user.id,
-      name: result.user.name,
-      email: result.user.email,
-      role: "owner",
-      tenantId: result.user.tenantId,
-    };
-
-    // Only store display info — no tokens or API keys
-    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    set({ user, isAuthenticated: true });
+    get().applySession(await apiClient.auth.login(email, password));
+    await get().checkSession();
   },
 
   logout: () => {
     apiClient.auth.logout().catch(() => {});
     localStorage.removeItem(SESSION_KEY);
-    set({ user: null, isAuthenticated: false });
+    set({ user: null, isAuthenticated: false, organisations: [] });
   },
 
   setUser: (user: User) => {
@@ -59,21 +60,24 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user });
   },
 
+  switchOrganisation: async (tenantId: string) => {
+    get().applySession(await apiClient.auth.switchOrganisation(tenantId));
+  },
+
+  createOrganisation: async (name: string) => {
+    const session = await apiClient.auth.createOrganisation(name);
+    get().applySession(session);
+    await get().checkSession();
+    return session;
+  },
+
   checkSession: async () => {
     const result = await apiClient.auth.me();
     if (result) {
-      const user: User = {
-        id: result.user.id,
-        name: result.user.name,
-        email: result.user.email,
-        role: "owner",
-        tenantId: result.user.tenantId,
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-      set({ user, isAuthenticated: true });
+      get().applySession(result);
     } else {
       localStorage.removeItem(SESSION_KEY);
-      set({ user: null, isAuthenticated: false });
+      set({ user: null, isAuthenticated: false, organisations: [] });
     }
   },
 }));

@@ -28,6 +28,9 @@ import {
   Building2,
   ArrowLeftRight,
   BookOpenCheck,
+  UsersRound,
+  Check,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useUIStore } from "@/lib/stores/ui";
@@ -43,6 +46,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { brand } from "@/lib/brand";
+import { roleLabels } from "@/lib/permissions";
+import { NewOrganisationDialog } from "@/components/dashboard/new-organisation-dialog";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface NavItem {
   name: string;
@@ -107,6 +114,7 @@ const navigation: NavGroup[] = [
   {
     label: "Admin",
     items: [
+      { name: "Team", href: "/team", icon: UsersRound },
       { name: "Settings", href: "/settings", icon: Settings },
     ],
   },
@@ -126,7 +134,19 @@ const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { user, logout } = useAuthStore();
+  const { user, logout, organisations, switchOrganisation } = useAuthStore();
+  const [creatingOrg, setCreatingOrg] = useState(false);
+  const otherOrgs = organisations.filter((o) => o.id !== user?.tenantId);
+
+  const switchTo = async (tenantId: string) => {
+    try {
+      await switchOrganisation(tenantId);
+      // Every page's data belongs to the organisation, so start fresh.
+      window.location.href = "/dashboard";
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not switch organisation");
+    }
+  };
   const isPlatformAdmin = usePlatformAccess();
   const groups = isPlatformAdmin ? [platformGroup, ...navigation] : navigation;
   // The most specific matching link wins, so /platform/tenants does not also light up /platform.
@@ -212,15 +232,36 @@ export function Sidebar() {
             >
               <Avatar name={user?.name || "User"} size="sm" />
               {!sidebarCollapsed && (
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-medium truncate">{user?.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.tenantName ?? user?.email}
+                    {user?.role && ` · ${roleLabels[user.role] ?? user.role}`}
+                  </p>
                 </div>
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="font-normal">
+              <p className="text-sm font-medium">{user?.name}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Organisations</DropdownMenuLabel>
+            <DropdownMenuItem disabled className="justify-between opacity-100">
+              <span className="truncate">{user?.tenantName ?? "Current organisation"}</span>
+              <Check className="h-4 w-4" />
+            </DropdownMenuItem>
+            {otherOrgs.map((org) => (
+              <DropdownMenuItem key={org.id} onClick={() => switchTo(org.id)} className="justify-between">
+                <span className="truncate">{org.name}</span>
+                <span className="text-xs text-muted-foreground">{roleLabels[org.role] ?? org.role}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem onClick={() => setCreatingOrg(true)}>
+              <Plus className="mr-2 h-4 w-4" /> New organisation
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <Link href="/settings">Settings</Link>
@@ -229,6 +270,8 @@ export function Sidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <NewOrganisationDialog open={creatingOrg} onOpenChange={setCreatingOrg} />
 
       {/* Collapse Toggle */}
       <button

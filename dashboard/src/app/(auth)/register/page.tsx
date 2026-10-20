@@ -20,7 +20,7 @@ import { brand } from "@/lib/brand";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const { applySession } = useAuthStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,13 +39,7 @@ export default function RegisterPage() {
         companyName,
       });
 
-      setUser({
-        id: result.user.id,
-        name: result.user.name,
-        email: result.user.email,
-        role: "owner",
-        tenantId: result.user.tenantId,
-      });
+      applySession(result);
 
       toast.success("Account created! Redirecting...");
       router.push("/dashboard");

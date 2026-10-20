@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:4000";
+import { BACKEND_URL, browserSession } from "@/lib/server/session";
 
 async function fetchMe(token: string) {
-  return fetch(`${BACKEND_URL}/api/tenants/me`, {
+  return fetch(`${BACKEND_URL}/api/auth/session`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -72,17 +72,7 @@ export async function GET() {
       }
     }
 
-    const json = await res.json();
-    const tenant = json;
-
-    return NextResponse.json({
-      user: {
-        id: tenant.id,
-        name: tenant.name,
-        email: tenant.email,
-        tenantId: tenant.id,
-      },
-    });
+    return NextResponse.json(browserSession(await res.json()));
   } catch {
     return NextResponse.json(
       { message: "Internal server error" },

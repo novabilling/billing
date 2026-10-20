@@ -144,8 +144,20 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
-  role: "owner" | "admin" | "developer" | "viewer";
+  role: MemberRole;
   tenantId: string;
+  /** The organisation signed in to. */
+  tenantName?: string;
+  permissions?: string[];
+}
+
+export type MemberRole = "owner" | "admin" | "finance" | "developer" | "viewer";
+
+export interface Organisation {
+  id: string;
+  name: string;
+  slug: string;
+  role: MemberRole;
 }
 
 export interface Tenant {

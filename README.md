@@ -107,7 +107,7 @@ cd backend
 npm ci
 npx prisma generate --schema=./prisma/schema-central.prisma
 npx prisma generate --schema=./prisma/schema-tenant.prisma
-npx prisma db push --schema=./prisma/schema-central.prisma
+npm run migrate:central   # tenant databases are migrated when created
 npm run start:dev
 
 # Dashboard (separate terminal)
