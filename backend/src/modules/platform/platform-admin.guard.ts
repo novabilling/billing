@@ -2,23 +2,14 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Unauthor
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload, verify } from 'jsonwebtoken';
 import { CentralPrismaService } from '../../database/central-prisma.service';
+import { isPlatformOperator } from '../../common/platform-operator';
+
 
 /**
- * Platform operators are tenant accounts whose ids are listed in
- * PLATFORM_ADMIN_TENANT_IDS. Ids rather than emails, because ids are generated
- * at registration and cannot be claimed by signing up with someone's address.
- * Only dashboard sessions qualify; API keys never grant platform access. Of
- * that organisation's people, only owners and admins are operators.
+ * Only dashboard sessions of a platform operator organisation qualify (see
+ * common/platform-operator); API keys never grant platform access. Of that
+ * organisation's people, only owners and admins are operators.
  */
-export function platformAdminIds(config: ConfigService): Set<string> {
-  return new Set(
-    (config.get<string>('PLATFORM_ADMIN_TENANT_IDS') ?? '')
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean),
-  );
-}
-
 @Injectable()
 export class PlatformAdminGuard implements CanActivate {
   constructor(
@@ -39,20 +30,23 @@ export class PlatformAdminGuard implements CanActivate {
       throw new UnauthorizedException('Platform access requires a dashboard session');
     }
 
-    if (!payload.sub || !platformAdminIds(this.config).has(payload.sub)) {
+    const tenant = payload.sub
+      ? await this.centralPrisma.client.tenant.findUnique({ where: { id: String(payload.sub) }, select: { id: true, isPlatformOperator: true } })
+      : null;
+    if (!tenant || !isPlatformOperator(tenant, this.config)) {
       throw new ForbiddenException('This account does not have platform access');
     }
     // Sessions from before people had their own logins belong to the owner.
     if (payload.uid) {
       const membership = await this.centralPrisma.client.membership.findUnique({
-        where: { userId_tenantId: { userId: String(payload.uid), tenantId: payload.sub } },
+        where: { userId_tenantId: { userId: String(payload.uid), tenantId: tenant.id } },
         include: { user: { select: { isActive: true } } },
       });
       if (!membership?.user.isActive || !['OWNER', 'ADMIN'].includes(membership.role)) {
         throw new ForbiddenException('Platform access needs an owner or admin of the operator organisation');
       }
     }
-    request.platformAdminId = payload.sub;
+    request.platformAdminId = tenant.id;
     return true;
   }
 }

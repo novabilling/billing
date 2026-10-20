@@ -3,25 +3,34 @@
 import { useEffect, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { platformApi } from "@/lib/api/platform";
+import { platformApi, type TenantAccess } from "@/lib/api/platform";
 
-let cached: Promise<boolean> | null = null;
+type Me = Awaited<ReturnType<typeof platformApi.me>>;
+let cached: Promise<Me | null> | null = null;
 
-/** Whether the signed-in account may open the platform console (checked once per page load). */
-export function usePlatformAccess(): boolean | null {
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+/** /admin/me, fetched once per page load and shared. */
+function useMe(): Me | null | undefined {
+  const [me, setMe] = useState<Me | null | undefined>(undefined);
   useEffect(() => {
-    cached ??= platformApi
-      .me()
-      .then((r) => r.isPlatformAdmin)
-      .catch(() => false);
+    cached ??= platformApi.me().catch(() => null);
     let live = true;
-    cached.then((v) => live && setAllowed(v));
+    cached.then((v) => live && setMe(v));
     return () => {
       live = false;
     };
   }, []);
-  return allowed;
+  return me;
+}
+
+/** Whether the signed-in account may open the platform console (checked once per page load). */
+export function usePlatformAccess(): boolean | null {
+  const me = useMe();
+  return me === undefined ? null : Boolean(me?.isPlatformAdmin);
+}
+
+/** This organisation's access mode, set by the platform operator. */
+export function useTenantAccess(): TenantAccess | null {
+  return useMe()?.access ?? null;
 }
 
 export function PlatformGate({ children }: { children: React.ReactNode }) {

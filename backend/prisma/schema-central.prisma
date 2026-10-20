@@ -12,6 +12,14 @@ enum DatabaseProvider {
   INTERNAL
 }
 
+// What an organisation may do. Set by the platform operator, or by a control
+// plane through the service API; the operator organisation is never limited.
+enum TenantAccess {
+  FULL
+  READ_ONLY
+  SUSPENDED
+}
+
 // An organisation (merchant). People reach it through memberships; `email`
 // is its contact address and `password` is only the pre-membership login,
 // kept so older databases migrate cleanly.
@@ -27,6 +35,12 @@ model Tenant {
   isActive     Boolean  @default(true)
   settings     Json?
   lastLoginAt  DateTime?
+  // Owners and admins of an operator organisation run the platform console.
+  isPlatformOperator Boolean      @default(false)
+  accessMode         TenantAccess @default(FULL)
+  // Shown to the organisation while access is limited, with where to fix it.
+  accessReason       String?
+  accessUrl          String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
+import { AccessBanner } from "@/components/dashboard/access-banner";
 import { CommandPalette } from "@/components/command-palette";
 import { useUIStore } from "@/lib/stores/ui";
 import { useAuthStore } from "@/lib/stores/auth";
@@ -42,6 +43,7 @@ export default function DashboardLayout({
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Topbar />
+          <AccessBanner />
           <main
             className={cn(
               "flex-1 overflow-y-auto bg-muted",

@@ -1,6 +1,6 @@
 import { Request } from 'express';
 import { PrismaClient } from '../../generated/prisma-tenant/client';
-import type { MemberRole } from '../../generated/prisma-central/client';
+import type { MemberRole, TenantAccess } from '../../generated/prisma-central/client';
 
 export interface TenantInfo {
   id: string;
@@ -12,6 +12,10 @@ export interface TenantInfo {
   webhookUrl: string | null;
   webhookSecret: string | null;
   settings: Record<string, unknown> | null;
+  isPlatformOperator?: boolean;
+  accessMode?: TenantAccess;
+  accessReason?: string | null;
+  accessUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

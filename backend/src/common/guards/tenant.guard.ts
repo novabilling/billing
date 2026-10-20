@@ -12,6 +12,8 @@ import { can, Permission, PERMISSION_KEY } from '../auth/permissions';
 import { verify, JwtPayload } from 'jsonwebtoken';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
+import { isPlatformOperator } from '../platform-operator';
+import { assertTenantAccess } from './tenant-access';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -52,6 +54,10 @@ export class TenantGuard implements CanActivate {
 
     if (!tenant.isActive) {
       throw new UnauthorizedException('Tenant account is deactivated');
+    }
+
+    if (!isPlatformOperator(tenant, this.configService)) {
+      assertTenantAccess(tenant, request.method, request.originalUrl ?? request.url ?? '');
     }
 
     const tenantDbClient = await this.tenantDb.getTenantClient(tenant.id);

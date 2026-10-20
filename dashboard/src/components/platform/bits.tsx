@@ -6,11 +6,28 @@ import { cn } from "@/lib/utils/cn";
 import {
   flagLabels,
   stageLabels,
+  type AccessMode,
   type CurrencyMap,
+  type TenantBillingState,
   type HealthFlag,
   type LedgerSummary,
   type TenantStage,
 } from "@/lib/api/platform";
+
+const accessLabels: Record<AccessMode, string> = { FULL: "Full access", READ_ONLY: "Read-only", SUSPENDED: "Suspended" };
+
+export function AccessBadge({ mode }: { mode: AccessMode }) {
+  if (mode === "FULL") return null;
+  return <Badge variant={mode === "SUSPENDED" ? "error" : "warning"}>{accessLabels[mode]}</Badge>;
+}
+
+const billingLabels: Record<string, string> = { trialing: "Trial", active: "Paid", past_due: "Past due", canceled: "Canceled" };
+
+export function BillingBadge({ billing }: { billing: TenantBillingState | null }) {
+  if (!billing) return null;
+  const variant = billing.status === "past_due" || billing.status === "canceled" ? "warning" : "outline";
+  return <Badge variant={variant}>{billingLabels[billing.status] ?? billing.status}</Badge>;
+}
 
 export function StageBadge({ stage }: { stage: TenantStage }) {
   const variant = stage === "active" ? "success" : stage === "registered" ? "outline" : "default";
