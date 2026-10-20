@@ -2,7 +2,7 @@
 # Usage: docker compose -f docker-compose.prod.yml up -d
 #
 # Required env vars (set in .env or export):
-#   GHCR_OWNER          — GitHub org/user (default: novabilling)
+#   GHCR_OWNER          — GitHub org/user (default: pimabill)
 #   JWT_SECRET           — JWT signing secret
 #   JWT_REFRESH_SECRET   — JWT refresh signing secret
 #   ENCRYPTION_KEY       — 64-char hex key for encrypting provider credentials
@@ -53,7 +53,7 @@ services:
   # ─── Backend API ───────────────────────────────────────────────
 
   api:
-    image: ghcr.io/${GHCR_OWNER:-novabilling}/api:latest
+    image: ghcr.io/${GHCR_OWNER:-pimabill}/api:latest
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -62,6 +62,12 @@ services:
       INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      BRAND_NAME: ${BRAND_NAME:-}
+      BRAND_SLUG: ${BRAND_SLUG:-}
+      BRAND_SUPPORT_EMAIL: ${BRAND_SUPPORT_EMAIL:-}
+      BRAND_WEBSITE: ${BRAND_WEBSITE:-}
+      PLATFORM_ADMIN_TENANT_IDS: ${PLATFORM_ADMIN_TENANT_IDS:-}
+      LEDGER_MODE: ${LEDGER_MODE:-shadow}
       JWT_EXPIRATION: 1h
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
       JWT_REFRESH_EXPIRATION: 7d
@@ -88,13 +94,19 @@ services:
 
   # BullMQ Worker
   worker:
-    image: ghcr.io/${GHCR_OWNER:-novabilling}/api:latest
+    image: ghcr.io/${GHCR_OWNER:-pimabill}/api:latest
     environment:
       NODE_ENV: production
       CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:-centralpass}@central-db:5432/central
       INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      BRAND_NAME: ${BRAND_NAME:-}
+      BRAND_SLUG: ${BRAND_SLUG:-}
+      BRAND_SUPPORT_EMAIL: ${BRAND_SUPPORT_EMAIL:-}
+      BRAND_WEBSITE: ${BRAND_WEBSITE:-}
+      PLATFORM_ADMIN_TENANT_IDS: ${PLATFORM_ADMIN_TENANT_IDS:-}
+      LEDGER_MODE: ${LEDGER_MODE:-shadow}
       JWT_EXPIRATION: 1h
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
       JWT_REFRESH_EXPIRATION: 7d
@@ -117,7 +129,7 @@ services:
   # ─── Frontend Apps ─────────────────────────────────────────────
 
   landing:
-    image: ghcr.io/${GHCR_OWNER:-novabilling}/landing:latest
+    image: ghcr.io/${GHCR_OWNER:-pimabill}/landing:latest
     ports:
       - "${LANDING_PORT:-4001}:4001"
     environment:
@@ -127,7 +139,7 @@ services:
     restart: unless-stopped
 
   dashboard:
-    image: ghcr.io/${GHCR_OWNER:-novabilling}/dashboard:latest
+    image: ghcr.io/${GHCR_OWNER:-pimabill}/dashboard:latest
     ports:
       - "${DASHBOARD_PORT:-4002}:4002"
     environment:
@@ -140,7 +152,7 @@ services:
   # ─── Documentation ─────────────────────────────────────────────
 
   docs:
-    image: ghcr.io/${GHCR_OWNER:-novabilling}/docs:latest
+    image: ghcr.io/${GHCR_OWNER:-pimabill}/docs:latest
     ports:
       - "${DOCS_PORT:-4003}:4003"
     restart: unless-stopped

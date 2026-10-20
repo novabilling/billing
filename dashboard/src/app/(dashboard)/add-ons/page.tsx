@@ -31,6 +31,7 @@ import { apiClient } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { AddOn } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 const CURRENCIES = [
   "USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "UGX",
@@ -55,6 +56,7 @@ const emptyForm: AddOnForm = {
 };
 
 export default function AddOnsPage() {
+  const canWrite = useCan("billing.write");
   const [addOns, setAddOns] = useState<AddOn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -221,11 +223,16 @@ export default function AddOnsPage() {
           <p className="text-muted-foreground">
             Manage one-time charge add-ons for your customers
           </p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Add-on
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Add-on
+          </Button>
+        )}
       </div>
 
       {/* Add-ons Table */}
@@ -240,10 +247,12 @@ export default function AddOnsPage() {
               Create your first add-on to apply one-time charges to customer
               subscriptions or invoices.
             </p>
-            <Button className="mt-6" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Add-on
-            </Button>
+            {canWrite && (
+              <Button className="mt-6" onClick={openCreateDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Add-on
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -326,22 +335,24 @@ export default function AddOnsPage() {
                         </div>
                       </td>
                       <td className="py-4 text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(addOn)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => confirmDelete(addOn)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
+                        {canWrite && (
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(addOn)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => confirmDelete(addOn)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

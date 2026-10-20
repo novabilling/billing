@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaClient } from '../../generated/prisma-tenant/client';
 import { EncryptionService } from '../../services/encryption.service';
-import { ProviderFactory } from '../../providers/provider.factory';
+import { CHECKOUT_PROVIDER_NAMES, ProviderFactory } from '../../providers/provider.factory';
 
 @Injectable()
 export class PortalService {
@@ -153,7 +153,7 @@ export class PortalService {
     if (invoice.status === 'CANCELED') throw new BadRequestException('Invoice has been voided');
 
     const providerConfig = await db.paymentProvider.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, providerName: { in: CHECKOUT_PROVIDER_NAMES } },
       orderBy: { priority: 'asc' },
     });
 

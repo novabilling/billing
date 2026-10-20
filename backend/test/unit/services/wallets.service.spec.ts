@@ -20,6 +20,9 @@ describe('WalletsService', () => {
 
     service = module.get<WalletsService>(WalletsService);
     db = createMockPrisma();
+    // Credits move inside a locked transaction; run it against the same mocks.
+    (db as unknown as Record<string, unknown>).$queryRaw = jest.fn().mockResolvedValue([]);
+    db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(db));
   });
 
   describe('create', () => {

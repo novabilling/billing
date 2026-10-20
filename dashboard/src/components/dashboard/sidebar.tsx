@@ -24,11 +24,19 @@ import {
   Calculator,
   SlidersHorizontal,
   Webhook,
+  Globe,
+  Building2,
+  ArrowLeftRight,
+  BookOpenCheck,
+  UsersRound,
+  Check,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useUIStore } from "@/lib/stores/ui";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/stores/auth";
+import { usePlatformAccess } from "@/components/platform/platform-gate";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +45,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { brand } from "@/lib/brand";
+import { roleLabels } from "@/lib/permissions";
+import { NewOrganisationDialog } from "@/components/dashboard/new-organisation-dialog";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface NavItem {
   name: string;
@@ -74,6 +87,13 @@ const navigation: NavGroup[] = [
     ],
   },
   {
+    label: "Money",
+    items: [
+      { name: "Money movement", href: "/money", icon: ArrowLeftRight },
+      { name: "Ledger", href: "/ledger", icon: BookOpenCheck },
+    ],
+  },
+  {
     label: "Products",
     items: [
       { name: "Plans", href: "/plans", icon: Package },
@@ -94,17 +114,46 @@ const navigation: NavGroup[] = [
   {
     label: "Admin",
     items: [
+      { name: "Team", href: "/team", icon: UsersRound },
       { name: "Settings", href: "/settings", icon: Settings },
     ],
   },
 ];
+
+// Shown only to operator accounts (see PLATFORM_ADMIN_TENANT_IDS on the API).
+const platformGroup: NavGroup = {
+  label: "Platform",
+  items: [
+    { name: "Platform overview", href: "/platform", icon: Globe },
+    { name: "Tenants", href: "/platform/tenants", icon: Building2 },
+  ],
+};
 
 const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { user, logout } = useAuthStore();
+  const { user, logout, organisations, switchOrganisation } = useAuthStore();
+  const [creatingOrg, setCreatingOrg] = useState(false);
+  const otherOrgs = organisations.filter((o) => o.id !== user?.tenantId);
+
+  const switchTo = async (tenantId: string) => {
+    try {
+      await switchOrganisation(tenantId);
+      // Every page's data belongs to the organisation, so start fresh.
+      window.location.href = "/dashboard";
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not switch organisation");
+    }
+  };
+  const isPlatformAdmin = usePlatformAccess();
+  const groups = isPlatformAdmin ? [platformGroup, ...navigation] : navigation;
+  // The most specific matching link wins, so /platform/tenants does not also light up /platform.
+  const activeHref = groups
+    .flatMap((g) => g.items.map((i) => i.href))
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
 
   return (
     <div
@@ -116,16 +165,16 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Image src="/logo.png" alt="NovaBilling" width={32} height={32} className="h-8 w-8 rounded-lg" />
+          <Image src={brand.logo} alt={brand.name} width={32} height={32} className="h-8 w-8 rounded-lg" />
           {!sidebarCollapsed && (
-            <span className="font-semibold text-lg">NovaBilling</span>
+            <span className="font-semibold text-lg">{brand.name}</span>
           )}
         </Link>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-4">
-        {navigation.map((group) => (
+        {groups.map((group) => (
           <div key={group.label}>
             {!sidebarCollapsed && (
               <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -134,9 +183,7 @@ export function Sidebar() {
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/" && pathname.startsWith(item.href));
+                const isActive = item.href === activeHref;
                 return (
                   <Link
                     key={item.name}
@@ -185,15 +232,36 @@ export function Sidebar() {
             >
               <Avatar name={user?.name || "User"} size="sm" />
               {!sidebarCollapsed && (
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-medium truncate">{user?.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.tenantName ?? user?.email}
+                    {user?.role && ` · ${roleLabels[user.role] ?? user.role}`}
+                  </p>
                 </div>
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="font-normal">
+              <p className="text-sm font-medium">{user?.name}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Organisations</DropdownMenuLabel>
+            <DropdownMenuItem disabled className="justify-between opacity-100">
+              <span className="truncate">{user?.tenantName ?? "Current organisation"}</span>
+              <Check className="h-4 w-4" />
+            </DropdownMenuItem>
+            {otherOrgs.map((org) => (
+              <DropdownMenuItem key={org.id} onClick={() => switchTo(org.id)} className="justify-between">
+                <span className="truncate">{org.name}</span>
+                <span className="text-xs text-muted-foreground">{roleLabels[org.role] ?? org.role}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem onClick={() => setCreatingOrg(true)}>
+              <Plus className="mr-2 h-4 w-4" /> New organisation
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <Link href="/settings">Settings</Link>
@@ -202,6 +270,8 @@ export function Sidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <NewOrganisationDialog open={creatingOrg} onOpenChange={setCreatingOrg} />
 
       {/* Collapse Toggle */}
       <button

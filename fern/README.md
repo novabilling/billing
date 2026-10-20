@@ -1,33 +1,29 @@
-# NovaBilling SDK Generation (Fern)
+# SDK generation (Fern)
 
-This directory contains the [Fern](https://buildwithfern.com/) configuration for generating TypeScript and Python SDKs from the NovaBilling OpenAPI spec.
+SDKs are generated from the committed OpenAPI spec, `backend/openapi/openapi.json`.
+Pull-request CI only checks that the spec matches the code; SDKs are built on
+releases and on request by the **SDKs** workflow (`.github/workflows/sdks.yml`).
 
-## Prerequisites
+| Group | Languages | When |
+|---|---|---|
+| `tier1` | TypeScript, Python, PHP | Every release |
+| `tier2` | Go, Java, Ruby, C# | On request (workflow dispatch) |
 
-Install the Fern CLI globally:
+There is no Dart, Swift or browser SDK: billing calls need the secret API key,
+which must stay on a server. Mobile and web apps call their own backend.
+
+## After changing the API
 
 ```bash
-npm install -g fern-api
+cd backend
+npm run openapi:export   # rewrites openapi/openapi.json; commit it with your change
 ```
 
-## Usage
+## Generate locally
 
-### 1. Export the OpenAPI spec
-
-Make sure the backend is running, then Down:
-
-### 2. Generate SDKs locally
-
-This outputs the TypeScript SDK to `../sdks/typescript` and the Python SDK to `../sdks/python`:
+Needs Docker and a `FERN_TOKEN`:
 
 ```bash
-fern generate --group local
-```
-
-### 3. Publish to package registries
-
-To publish the SDKs to npm and PyPI, set the `NPM_TOKEN` and `PYPI_TOKEN` environment variables, then run:
-
-```bash
-fern generate --group publish
+cd fern
+npx fern-api generate --local --group tier1   # output in ../sdks/ (not committed)
 ```

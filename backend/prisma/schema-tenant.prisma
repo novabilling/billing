@@ -508,6 +508,10 @@ enum WalletTransactionKind {
   GRANTED   // Free/promotional credits
   VOIDED    // Credits manually voided or expired
   INVOICED  // Credits auto-deducted from invoice
+  WITHDRAWN         // Paid out of the wallet through a payout
+  PAYOUT_REVERSED   // A failed payout returned to the wallet
+  TRANSFERRED_OUT   // Moved to another wallet
+  TRANSFERRED_IN    // Received from another wallet
 }
 
 model Wallet {
@@ -671,4 +675,289 @@ model PlanOverride {
   @@unique([customerId, planId])
   @@index([customerId])
   @@index([planId])
+}
+
+// ============================================================
+// Ledger (double-entry)
+// ============================================================
+// Amounts are BigInt at a fixed scale of 4 decimal places (1 = 0.0001 of the
+// currency's major unit), matching the Decimal(19, 4) columns above so the
+// ledger mirrors existing rows exactly with no rounding. Lines are signed:
+// debits positive, credits negative; every entry's lines sum to zero per
+// currency. Entries are immutable — corrections are new reversing entries.
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum LedgerEntryType {
+  INVOICE_ISSUED
+  INVOICE_VOIDED
+  PAYMENT_CAPTURED
+  PAYMENT_REFUNDED
+  WALLET_CREDITED
+  WALLET_DEBITED
+  CREDIT_NOTE_ISSUED
+  CREDIT_NOTE_VOIDED
+  COLLECTION
+  PAYOUT
+  TRANSFER
+  FEE
+  ADJUSTMENT
+}
+
+model LedgerAccount {
+  id         String            @id @default(cuid())
+  // Stable chart-of-accounts code, e.g. "receivable", "provider_clearing:stripe",
+  // "customer_wallet:<walletId>". Unique together with the currency.
+  code       String
+  name       String
+  type       LedgerAccountType
+  currency   String
+  // Cached running balance (sum of this account's lines), updated in the same
+  // transaction as each posting under SELECT ... FOR UPDATE.
+  balance    BigInt            @default(0)
+  customerId String?
+  walletId   String?
+  provider   String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  lines LedgerLine[]
+
+  @@unique([code, currency])
+  @@index([type])
+  @@index([customerId])
+  @@index([walletId])
+}
+
+model LedgerEntry {
+  id          String          @id @default(cuid())
+  // Idempotency key for the posting, e.g. "payment:<id>:captured". Re-posting
+  // the same reference is a no-op.
+  reference   String          @unique
+  type        LedgerEntryType
+  description String
+  sourceType  String
+  sourceId    String
+  effectiveAt DateTime
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  lines LedgerLine[]
+
+  @@index([sourceType, sourceId])
+  @@index([type])
+  @@index([effectiveAt])
+}
+
+model LedgerLine {
+  id          String  @id @default(cuid())
+  entryId     String
+  accountId   String
+  amount      BigInt
+  currency    String
+  description String?
+
+  entry   LedgerEntry   @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  account LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([currency])
+}
+
+// Per-source high-water marks for the ledger projector, so each run only scans
+// rows changed since the last one (with an overlap window; postings are
+// idempotent by reference).
+model LedgerCursor {
+  source    String   @id
+  position  DateTime
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// Inbound provider events (webhook inbox)
+// ============================================================
+
+enum ProviderEventStatus {
+  PROCESSED
+  DUPLICATE
+  IGNORED
+  FAILED
+}
+
+// One row per verified provider notification that matched this tenant.
+// `eventKey` identifies the notification (provider event id, or transaction id
+// plus status when the provider sends none), so a redelivered notification is
+// recorded once and never re-runs its side effects.
+model ProviderEvent {
+  id          String              @id @default(cuid())
+  provider    String
+  eventKey    String
+  eventType   String?
+  status      ProviderEventStatus
+  // Which route delivered it: "tenant" (per-tenant URL) or "shared" (legacy URL).
+  route       String
+  paymentId   String?
+  intentId    String?
+  amount      String?
+  currency    String?
+  // Set when the provider reported an amount or currency different from ours.
+  mismatch    String?
+  error       String?
+  payload     Json
+  receivedAt  DateTime            @default(now())
+
+  @@unique([provider, eventKey])
+  @@index([receivedAt])
+  @@index([status])
+  @@index([paymentId])
+  @@index([intentId])
+}
+
+// ============================================================
+// Money movement: one-time collections, payouts, transfers
+// ============================================================
+
+enum MoneyIntentType {
+  COLLECTION
+  PAYOUT
+  TRANSFER
+}
+
+enum MoneyIntentStatus {
+  REQUIRES_APPROVAL
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  // The provider's answer is unknown (timeout, indeterminate). Never resent;
+  // resolved by status checks or by an operator.
+  STUCK
+  CANCELED
+}
+
+model MoneyIntent {
+  id                String            @id @default(cuid())
+  type              MoneyIntentType
+  status            MoneyIntentStatus @default(PENDING)
+  amount            Decimal           @db.Decimal(19, 4)
+  currency          String
+  // Provider that moves the money; null for internal transfers.
+  provider          String?
+  // card, bank, mobile_money, paypal, yo_account, wallet, hosted
+  rail              String
+  // Payer (collections) or payee (payouts): see Party in money/types.ts.
+  party             Json?
+  description       String?
+  // Caller's own reference, unique per type, for safe retries.
+  clientReference   String?
+  customerId        String?
+  // Collections: credit this wallet when paid. Payouts: pay out of this wallet.
+  // Transfers: source wallet.
+  walletId          String?
+  // Transfers: destination wallet.
+  toWalletId        String?
+  // Reference sent to the provider (stable across status checks).
+  providerReference String?           @unique
+  // The provider's own transaction id, once known.
+  providerTxnId     String?
+  providerStatus    String?
+  paymentUrl        String?
+  // Non-redirect payment instructions, e.g. a crypto deposit address.
+  paymentDetails    Json?
+  failureReason     String?
+  fee               Decimal?          @db.Decimal(19, 4)
+  // Platform commission on this movement, when the tenant has a rule.
+  commission        Decimal?          @db.Decimal(19, 4)
+  // "tenant" or "payer" (payer: added to what the payer was asked to pay).
+  commissionChargeTo String?
+  // Amount actually requested from the payer / sent to the provider when it
+  // differs from `amount` (commission passed to the payer).
+  chargedAmount     Decimal?          @db.Decimal(19, 4)
+  approvedAt        DateTime?
+  approvedBy        String?
+  lastCheckedAt     DateTime?
+  completedAt       DateTime?
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([type, clientReference])
+  @@index([type, status])
+  @@index([status, lastCheckedAt])
+  @@index([customerId])
+  @@index([walletId])
+  @@index([createdAt])
+}
+
+// Watch-only crypto collections (tron_usdt): each open collection reserves a
+// unique amount at the merchant's own address, so a deposit of exactly that
+// amount identifies the collection. A slot is reusable a day after it expires.
+model CryptoAmountClaim {
+  id         String   @id @default(cuid())
+  address    String
+  // What the payer is asked to send: the amount plus a unique 0.0001-0.0099 tail.
+  amount     Decimal  @db.Decimal(19, 4)
+  // The amount before the tail, for deposits that leave it off.
+  baseAmount Decimal  @db.Decimal(19, 4)
+  // MoneyIntent.providerReference of the collection.
+  reference  String   @unique
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@unique([address, amount])
+  @@index([address, expiresAt])
+}
+
+// Every confirmed token transfer seen arriving at a watched address.
+model CryptoDeposit {
+  id          String   @id @default(cuid())
+  chain       String
+  token       String
+  address     String
+  txHash      String   @unique
+  fromAddress String?
+  amount      Decimal  @db.Decimal(28, 6)
+  // Exact amount in the coin's base units (satoshis for BTC), when amount is rounded.
+  rawAmount   String?
+  decimals    Int?
+  blockTime   DateTime
+  // MATCHED (to a collection automatically), ASSIGNED (by a person), UNMATCHED,
+  // CONFIRMING (seen, not yet deep enough; Bitcoin).
+  status      String
+  // MoneyIntent.providerReference of the collection it paid, when known.
+  reference   String?
+  createdAt   DateTime @default(now())
+
+  @@index([address, blockTime])
+  @@index([status])
+  @@index([reference])
+}
+
+// Watch-only Bitcoin: one address per collection, derived from the
+// merchant's extended public key. An address that expired unpaid is handed
+// out again after a week, to keep the merchant's wallet within its gap limit.
+model CryptoAddressClaim {
+  id          String   @id @default(cuid())
+  // Fingerprint of the extended public key the address comes from.
+  keyId       String
+  index       Int
+  address     String   @unique
+  // MoneyIntent.providerReference of the collection currently using it.
+  reference   String?  @unique
+  // What the payer is asked to send, in satoshis, and the quote behind it.
+  amountSats  BigInt
+  rate        String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([keyId, index])
+  @@index([keyId, expiresAt])
 }

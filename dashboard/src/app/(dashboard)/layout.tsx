@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { useUIStore } from "@/lib/stores/ui";
 import { useAuthStore } from "@/lib/stores/auth";
 import { cn } from "@/lib/utils/cn";
+import { BrandLoader } from "@/components/brand-mark";
 
 export default function DashboardLayout({
   children,
@@ -15,8 +16,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { sidebarCollapsed } = useUIStore();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, checkSession } = useAuthStore();
   const router = useRouter();
+
+  // Refresh role, permissions and organisations from the API on each visit.
+  useEffect(() => {
+    if (isAuthenticated) checkSession().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -25,7 +32,7 @@ export default function DashboardLayout({
   }, [isAuthenticated, router]);
 
   if (!isAuthenticated) {
-    return null;
+    return <BrandLoader className="h-screen" />;
   }
 
   return (

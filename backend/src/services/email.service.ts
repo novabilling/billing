@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { CentralPrismaService } from '../database/central-prisma.service';
+import { getBrand } from '../config/brand';
 
 export interface SmtpSettings {
   host: string;
@@ -43,8 +44,8 @@ export class EmailService {
    * Uses tenant SMTP settings if configured, otherwise falls back to system SMTP.
    */
   private async getTransporterForTenant(tenantId?: string): Promise<{ transporter: nodemailer.Transporter | null; from: string }> {
-    const systemFromEmail = this.configService.get<string>('EMAIL_FROM', 'noreply@novabilling.com');
-    const systemFromName = this.configService.get<string>('EMAIL_FROM_NAME', 'Nova Billing');
+    const systemFromEmail = this.configService.get<string>('EMAIL_FROM', getBrand().supportEmail);
+    const systemFromName = this.configService.get<string>('EMAIL_FROM_NAME', process.env.BRAND_NAME?.trim() || 'PimaBill');
     const systemFrom = `"${systemFromName}" <${systemFromEmail}>`;
 
     if (!tenantId) {
@@ -131,6 +132,18 @@ export class EmailService {
     }
   }
 
+  /** Send ready-made HTML; false when neither the tenant nor the platform has SMTP set up. */
+  async sendHtml(to: string, subject: string, html: string, tenantId?: string): Promise<boolean> {
+    const { transporter, from } = await this.getTransporterForTenant(tenantId);
+    if (!transporter) {
+      this.logger.warn(`Email not configured. Would send to ${to}: ${subject}`);
+      return false;
+    }
+    await transporter.sendMail({ from, to, subject, html, text: this.stripHtml(html) });
+    this.logger.log(`Email sent to ${to}: ${subject}${tenantId ? ` (tenant: ${tenantId})` : ''}`);
+    return true;
+  }
+
   /** Invalidate cached transporter for a tenant (call after SMTP settings change) */
   invalidateTenantCache(tenantId: string): void {
     this.tenantTransporters.delete(tenantId);
@@ -214,7 +227,7 @@ ${body}
 <tr><td style="padding:20px 32px;border-top:1px solid #e4e4e7;background-color:#fafafa;">
 <p style="margin:0;font-size:12px;color:#a1a1aa;text-align:center;">
 This email was sent by ${tenantName}.<br>
-Powered by <span style="color:${accentColor};font-weight:600;">NovaBilling</span>
+Powered by <span style="color:${accentColor};font-weight:600;">${getBrand().name}</span>
 </p>
 </td></tr>
 

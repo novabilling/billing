@@ -1,6 +1,6 @@
 ---
 seo:
-  title: NovaBilling Docs - Borderless Billing for Africa & Beyond
+  title: PimaBill Docs - Borderless Billing for Africa & Beyond
   description: One unified API for subscriptions, invoices, and payments. Connect Stripe, Flutterwave, Paystack, and M-Pesa through a single integration.
 navigation: false
 ---
@@ -10,7 +10,7 @@ navigation: false
 One API. Every payment provider. :br Billing without borders.
 
 #description
-NovaBilling is an open billing platform inspired by Stripe's developer experience and Lago's flexibility -- purpose-built for Africa and the world. Connect Stripe, Flutterwave, Paystack, and M-Pesa through a single, unified API. Manage customers, subscriptions, invoices, and payments across 17 currencies.
+PimaBill is an open billing platform inspired by Stripe's developer experience and Lago's flexibility -- purpose-built for Africa and the world. Connect Stripe, Flutterwave, Paystack, and M-Pesa through a single, unified API. Manage customers, subscriptions, invoices, and payments across 17 currencies.
 
 #links
   :::u-button
@@ -36,7 +36,7 @@ NovaBilling is an open billing platform inspired by Stripe's developer experienc
 
 ::u-page-section
 #title
-Why NovaBilling?
+Why PimaBill?
 
 #default
   :::card-group
@@ -134,11 +134,11 @@ Install an SDK and create your first subscription.
   :::code-group{sync="pkg"}
 
   ```bash [npm]
-  npm install novabilling
+  npm install pimabill
   ```
 
   ```bash [pip]
-  pip install novabilling
+  pip install pimabill
   ```
 
   :::
@@ -146,14 +146,14 @@ Install an SDK and create your first subscription.
   :::code-group{sync="lang"}
 
   ```typescript [TypeScript]
-  import { NovaBillingClient } from 'novabilling';
+  import { PimaBillClient } from 'pimabill';
 
-  const nova = new NovaBillingClient({
-    token: process.env.NOVA_API_KEY,
+  const pima = new PimaBillClient({
+    token: process.env.PIMABILL_API_KEY,
   });
 
   // Create a customer
-  const customer = await nova.customers.create({
+  const customer = await pima.customers.create({
     externalId: 'usr_001',
     email: 'amina@kampaltech.ug',
     name: 'Amina Nakato',
@@ -161,7 +161,7 @@ Install an SDK and create your first subscription.
   });
 
   // Subscribe them to a plan
-  const sub = await nova.subscriptions.create({
+  const sub = await pima.subscriptions.create({
     customerId: customer.id,
     planId: 'plan_growth',
     currency: 'UGX',
@@ -172,12 +172,12 @@ Install an SDK and create your first subscription.
 
   ```python [Python]
   import os
-  from novabilling import NovaBilling
+  from pimabill import PimaBill
 
-  nova = NovaBilling(token=os.environ["NOVA_API_KEY"])
+  pima = PimaBill(token=os.environ["PIMABILL_API_KEY"])
 
   # Create a customer
-  customer = nova.customers.create(
+  customer = pima.customers.create(
       external_id="usr_001",
       email="amina@kampaltech.ug",
       name="Amina Nakato",
@@ -185,7 +185,7 @@ Install an SDK and create your first subscription.
   )
 
   # Subscribe them to a plan
-  sub = nova.subscriptions.create(
+  sub = pima.subscriptions.create(
       customer_id=customer.id,
       plan_id="plan_growth",
       currency="UGX",
@@ -229,7 +229,7 @@ Install an SDK and create your first subscription.
 Supported Currencies
 
 #description
-NovaBilling supports **17 currencies** across Africa and internationally.
+PimaBill supports **17 currencies** across Africa and internationally.
 
 #default
   | Region | Currencies |
@@ -272,7 +272,7 @@ Explore the Docs
     title: TypeScript SDK
     to: /sdks/typescript
     ---
-    Full reference for the NovaBillingClient with type-safe methods for every resource.
+    Full reference for the PimaBillClient with type-safe methods for every resource.
     ::::
 
     ::::card

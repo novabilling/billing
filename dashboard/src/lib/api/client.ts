@@ -19,12 +19,14 @@ import type {
   Tax,
   PlanOverride,
   WebhookLog,
+  User,
+  Organisation,
 } from "@/types";
 
 // All calls go to the dashboard's own API routes (same origin).
 // The server-side proxy adds auth headers and forwards to the backend.
 
-async function apiFetch<T>(
+export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
@@ -56,8 +58,9 @@ async function apiFetch<T>(
     throw new Error(body.message || `API error ${res.status}`);
   }
 
-  const json = await res.json();
-  return json;
+  // DELETEs answer 204 with no body.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 // --- Mappers: API response -> Dashboard types ---
@@ -212,6 +215,16 @@ const providerDescriptions: Record<string, string> = {
   payu: "Payment gateway for South Africa supporting credit cards, EFT, and instant payments",
   pesapal: "East African payment platform for mobile money, cards, and bank transfers",
   paypal: "Global digital payments platform supporting cards, PayPal balance, and Buy Now Pay Later",
+  yo: "Uganda mobile money collections, and payouts to mobile money, registered bank accounts and Yo accounts",
+  mtn_momo: "MTN Mobile Money direct: collections (request to pay) and disbursements for MTN subscribers",
+  airtel_money: "Airtel Money direct: USSD-push collections and disbursements for Airtel subscribers",
+  nowpayments: "Crypto collections on a hosted page (BTC, USDT, ETH and more), priced in your currency",
+  eversend: "Mobile money and stablecoin (USDT, USDC) collections, and mobile money and bank payouts across Africa",
+  tron_usdt: "USDT on TRON straight to your own wallet address. We only watch the chain; no processor, no custody",
+  eth_usdt: "USDT on Ethereum straight to your own wallet address. We only watch the chain; no processor, no custody",
+  bsc_usdt: "USDT on BNB Smart Chain straight to your own wallet address. We only watch the chain; no processor, no custody",
+  binance_pay: "Payers pay from their Binance account (app, QR or link): no network fee, settles instantly to your Binance Pay balance",
+  btc: "Bitcoin straight to your own wallet: a fresh address per payment from your wallet's public key, priced in your currency",
 };
 
 const providerDisplayNames: Record<string, string> = {
@@ -222,6 +235,16 @@ const providerDisplayNames: Record<string, string> = {
   payu: "PayU",
   pesapal: "Pesapal",
   paypal: "PayPal",
+  yo: "Yo! Payments",
+  mtn_momo: "MTN MoMo",
+  airtel_money: "Airtel Money",
+  nowpayments: "NOWPayments (crypto)",
+  eversend: "Eversend",
+  tron_usdt: "USDT on TRON (own wallet)",
+  eth_usdt: "USDT on Ethereum (own wallet)",
+  bsc_usdt: "USDT on BNB Chain (own wallet)",
+  binance_pay: "Binance Pay",
+  btc: "Bitcoin (own wallet)",
 };
 
 function mapProvider(p: any): PaymentProvider {
@@ -239,48 +262,41 @@ function mapProvider(p: any): PaymentProvider {
 
 // --- API Client ---
 
+export interface SessionResult {
+  user: User;
+  organisations?: Organisation[];
+  apiKey?: string;
+}
+
+/** Auth calls go to the Next.js route handlers, which keep the tokens in http-only cookies. */
+async function sessionCall(path: string, body: unknown): Promise<SessionResult> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.message || "Request failed");
+  return json;
+}
+
 export const apiClient = {
   // Auth (calls Next.js API routes directly, not the proxy)
   auth: {
-    async login(
-      email: string,
-      password: string,
-    ): Promise<{
-      user: { id: string; name: string; email: string; tenantId: string };
-    }> {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Login failed");
-      }
-      return res.json();
-    },
+    login: (email: string, password: string, tenantId?: string) => sessionCall("/api/auth/login", { email, password, tenantId }),
+    register: (data: { name: string; email: string; password: string; companyName: string }) =>
+      sessionCall("/api/auth/register", data),
+    switchOrganisation: (tenantId: string) => sessionCall("/api/auth/switch", { tenantId }),
+    createOrganisation: (companyName: string) => sessionCall("/api/auth/organisations", { companyName }),
+    acceptInvitation: (token: string, password: string, name?: string) =>
+      sessionCall("/api/auth/invitations/accept", { token, password, name }),
 
-    async register(data: {
-      name: string;
-      email: string;
-      password: string;
-      companyName: string;
-    }): Promise<{
-      user: { id: string; name: string; email: string; tenantId: string };
-      apiKey: string;
-    }> {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Registration failed");
-      }
-      return res.json();
+    async describeInvitation(token: string): Promise<{ organisation: string; email: string; role: string; existingUser: boolean }> {
+      const res = await fetch(`/api/auth/invitations/${encodeURIComponent(token)}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || "This invitation is invalid or has expired");
+      return body;
     },
 
     async logout(): Promise<void> {
@@ -290,9 +306,7 @@ export const apiClient = {
       });
     },
 
-    async me(): Promise<{
-      user: { id: string; name: string; email: string; tenantId: string };
-    } | null> {
+    async me(): Promise<SessionResult | null> {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (!res.ok) return null;
       return res.json();
@@ -699,7 +713,7 @@ export const apiClient = {
 
     async refund(
       id: string,
-      data?: { amount?: number; reason?: string },
+      data?: { amount?: number; reason?: string; recordOnly?: boolean },
     ): Promise<Payment> {
       const result = await apiFetch<any>(`/payments/${id}/refund`, {
         method: "POST",
@@ -776,6 +790,96 @@ export const apiClient = {
           isConfigured: false,
           isActive: false,
           priority: 7,
+        },
+        {
+          id: "default_yo",
+          name: "Yo! Payments",
+          code: "yo" as const,
+          description: providerDescriptions.yo,
+          isConfigured: false,
+          isActive: false,
+          priority: 8,
+        },
+        {
+          id: "default_mtn_momo",
+          name: "MTN MoMo",
+          code: "mtn_momo" as const,
+          description: providerDescriptions.mtn_momo,
+          isConfigured: false,
+          isActive: false,
+          priority: 9,
+        },
+        {
+          id: "default_airtel_money",
+          name: "Airtel Money",
+          code: "airtel_money" as const,
+          description: providerDescriptions.airtel_money,
+          isConfigured: false,
+          isActive: false,
+          priority: 10,
+        },
+        {
+          id: "default_nowpayments",
+          name: "NOWPayments (crypto)",
+          code: "nowpayments" as const,
+          description: providerDescriptions.nowpayments,
+          isConfigured: false,
+          isActive: false,
+          priority: 11,
+        },
+        {
+          id: "default_eversend",
+          name: "Eversend",
+          code: "eversend" as const,
+          description: providerDescriptions.eversend,
+          isConfigured: false,
+          isActive: false,
+          priority: 12,
+        },
+        {
+          id: "default_tron_usdt",
+          name: "USDT on TRON (own wallet)",
+          code: "tron_usdt" as const,
+          description: providerDescriptions.tron_usdt,
+          isConfigured: false,
+          isActive: false,
+          priority: 13,
+        },
+        {
+          id: "default_eth_usdt",
+          name: "USDT on Ethereum (own wallet)",
+          code: "eth_usdt" as const,
+          description: providerDescriptions.eth_usdt,
+          isConfigured: false,
+          isActive: false,
+          priority: 14,
+        },
+        {
+          id: "default_btc",
+          name: "Bitcoin (own wallet)",
+          code: "btc" as const,
+          description: providerDescriptions.btc,
+          isConfigured: false,
+          isActive: false,
+          priority: 15,
+        },
+        {
+          id: "default_bsc_usdt",
+          name: "USDT on BNB Chain (own wallet)",
+          code: "bsc_usdt" as const,
+          description: providerDescriptions.bsc_usdt,
+          isConfigured: false,
+          isActive: false,
+          priority: 16,
+        },
+        {
+          id: "default_binance_pay",
+          name: "Binance Pay",
+          code: "binance_pay" as const,
+          description: providerDescriptions.binance_pay,
+          isConfigured: false,
+          isActive: false,
+          priority: 17,
         },
       ];
 

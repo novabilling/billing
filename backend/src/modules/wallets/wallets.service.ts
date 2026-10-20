@@ -1,7 +1,11 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { PrismaClient } from '../../generated/prisma-tenant/client';
+import { Prisma, PrismaClient, WalletTransactionKind } from '../../generated/prisma-tenant/client';
+
+type WalletTx = Prisma.TransactionClient;
+
+const INBOUND_KINDS = new Set<WalletTransactionKind>(['PURCHASED', 'GRANTED', 'PAYOUT_REVERSED', 'TRANSFERRED_IN']);
 import { CreateWalletDto, UpdateWalletDto, TopUpWalletDto } from './dto/create-wallet.dto';
 import { WEBHOOK_QUEUE, WebhookJobType } from '../../queues/billing.queue';
 
@@ -221,6 +225,11 @@ export class WalletsService {
 
   // --- Balance helpers ---
 
+  /**
+   * Credit and debit run in one transaction with the wallet row locked, so the
+   * transaction history and the stored balances can never disagree and two
+   * concurrent debits cannot take the balance below zero.
+   */
   private async addCredits(
     db: PrismaClient,
     walletId: string,
@@ -229,34 +238,7 @@ export class WalletsService {
     tenantId: string,
     metadata?: Record<string, unknown>,
   ) {
-    const wallet = await db.wallet.findUnique({ where: { id: walletId } });
-    if (!wallet) throw new NotFoundException('Wallet not found');
-
-    const amount = this.creditsToAmount(credits, Number(wallet.rateAmount));
-    const now = new Date();
-
-    const txn = await db.walletTransaction.create({
-      data: {
-        walletId,
-        transactionType: 'INBOUND',
-        status: 'SETTLED',
-        transactionStatus: kind,
-        creditAmount: credits,
-        amount,
-        settledAt: now,
-        metadata: metadata as any,
-      },
-    });
-
-    await db.wallet.update({
-      where: { id: walletId },
-      data: {
-        creditsBalance: { increment: credits },
-        balance: { increment: amount },
-      },
-    });
-
-    return txn;
+    return db.$transaction((tx) => this.applyChange(tx, walletId, { credits, kind, metadata }));
   }
 
   private async removeCredits(
@@ -268,35 +250,76 @@ export class WalletsService {
     invoiceId?: string,
     metadata?: Record<string, unknown>,
   ) {
-    const wallet = await db.wallet.findUnique({ where: { id: walletId } });
+    return db.$transaction((tx) => this.applyChange(tx, walletId, { credits, kind, invoiceId, metadata }));
+  }
+
+  /**
+   * Move money in or out of a wallet inside the caller's transaction, by
+   * monetary amount (converted to credits at the wallet's rate). Used by
+   * payouts, collections and transfers so the wallet change commits together
+   * with the status change that caused it.
+   */
+  async applyAmountInTransaction(
+    tx: WalletTx,
+    walletId: string,
+    amount: number,
+    kind: WalletTransactionKind,
+    metadata?: Record<string, unknown>,
+  ) {
+    await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${walletId} FOR UPDATE`;
+    const wallet = await tx.wallet.findUnique({ where: { id: walletId } });
+    if (!wallet) throw new NotFoundException('Wallet not found');
+    const credits = this.amountToCredits(amount, Number(wallet.rateAmount));
+    return this.applyChange(tx, walletId, { credits, kind, metadata }, true);
+  }
+
+  private async applyChange(
+    tx: WalletTx,
+    walletId: string,
+    change: { credits: number; kind: WalletTransactionKind; invoiceId?: string; metadata?: Record<string, unknown> },
+    alreadyLocked = false,
+  ) {
+    if (!alreadyLocked) {
+      await tx.$queryRaw`SELECT id FROM "Wallet" WHERE id = ${walletId} FOR UPDATE`;
+    }
+    const wallet = await tx.wallet.findUnique({ where: { id: walletId } });
     if (!wallet) throw new NotFoundException('Wallet not found');
 
-    const amount = this.creditsToAmount(credits, Number(wallet.rateAmount));
-    const now = new Date();
+    const inbound = INBOUND_KINDS.has(change.kind);
+    const { credits } = change;
+    if (!inbound && credits > Number(wallet.creditsBalance) + 1e-9) {
+      throw new BadRequestException(
+        `Wallet ${walletId} has ${wallet.creditsBalance} credits; cannot remove ${credits}`,
+      );
+    }
 
-    const txn = await db.walletTransaction.create({
+    const amount = this.creditsToAmount(credits, Number(wallet.rateAmount));
+    const txn = await tx.walletTransaction.create({
       data: {
         walletId,
-        transactionType: 'OUTBOUND',
+        transactionType: inbound ? 'INBOUND' : 'OUTBOUND',
         status: 'SETTLED',
-        transactionStatus: kind,
+        transactionStatus: change.kind,
         creditAmount: credits,
         amount,
-        invoiceId,
-        settledAt: now,
-        metadata: metadata as any,
+        invoiceId: change.invoiceId,
+        settledAt: new Date(),
+        metadata: change.metadata as any,
       },
     });
 
-    await db.wallet.update({
+    // Consumption counts only what customers actually used (invoices, expiry),
+    // not money moved out by payouts or transfers.
+    const consumed = change.kind === 'INVOICED' || change.kind === 'VOIDED';
+    await tx.wallet.update({
       where: { id: walletId },
-      data: {
-        creditsBalance: { decrement: credits },
-        balance: { decrement: amount },
-        consumedCredits: { increment: credits },
-        consumedAmount: { increment: amount },
-        ...(kind === 'INVOICED' ? {} : {}),
-      },
+      data: inbound
+        ? { creditsBalance: { increment: credits }, balance: { increment: amount } }
+        : {
+            creditsBalance: { decrement: credits },
+            balance: { decrement: amount },
+            ...(consumed && { consumedCredits: { increment: credits }, consumedAmount: { increment: amount } }),
+          },
     });
 
     return txn;

@@ -16,6 +16,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuthStore } from "@/lib/stores/auth";
 import { toast } from "sonner";
+import { brand } from "@/lib/brand";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,8 +45,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <Image src="/logo.png" alt="NovaBilling" width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
-          <CardTitle className="text-2xl">Welcome to NovaBilling</CardTitle>
+          <Image src={brand.logo} alt={brand.name} width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
+          <CardTitle className="text-2xl">Welcome to {brand.name}</CardTitle>
           <CardDescription>Sign in to your account to continue</CardDescription>
         </CardHeader>
         <CardContent>
@@ -55,7 +56,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@novabilling.com"
+                placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

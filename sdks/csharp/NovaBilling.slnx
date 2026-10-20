@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="src/NovaBilling.Test/NovaBilling.Test.csproj" />
-  <Project Path="src/NovaBilling/NovaBilling.csproj" />
-</Solution>

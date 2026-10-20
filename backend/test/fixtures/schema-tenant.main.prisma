@@ -1,0 +1,674 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma-tenant"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BillingInterval {
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// ============================================================
+// Billable Metrics & Usage-Based Billing Enums
+// ============================================================
+
+enum AggregationType {
+  COUNT
+  SUM
+  MAX
+  UNIQUE_COUNT
+  LATEST
+  WEIGHTED_SUM
+}
+
+enum ChargeModel {
+  STANDARD
+  GRADUATED
+  VOLUME
+  PACKAGE
+  PERCENTAGE
+}
+
+enum BillingTiming {
+  IN_ADVANCE
+  IN_ARREARS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  PAUSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model Customer {
+  id              String   @id @default(cuid())
+  externalId      String   @unique
+  email           String
+  name            String?
+  country         String?
+  currency        String   @default("USD")
+  netPaymentTerms Int?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions   Subscription[]
+  invoices        Invoice[]
+  appliedCoupons  AppliedCoupon[]
+  appliedAddOns   AppliedAddOn[]
+  creditNotes     CreditNote[]
+  wallets         Wallet[]
+  paymentMethods  PaymentMethod[]
+  customerTaxes   CustomerTax[]
+  planOverrides   PlanOverride[]
+
+  @@index([email])
+  @@index([externalId])
+}
+
+model Plan {
+  id                          String          @id @default(cuid())
+  name                        String
+  code                        String          @unique
+  description                 String?
+  billingInterval             BillingInterval
+  features                    Json?
+  isActive                    Boolean         @default(true)
+  billingTiming               BillingTiming   @default(IN_ARREARS)
+  minimumCommitment           Decimal?        @db.Decimal(19, 4)
+  netPaymentTerms             Int?
+  invoiceGracePeriodDays      Int?            @default(0)
+  progressiveBillingThreshold Decimal?        @db.Decimal(19, 4)
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+
+  prices        PlanPrice[]
+  subscriptions Subscription[]
+  charges       Charge[]
+  planTaxes     PlanTax[]
+  planOverrides PlanOverride[]
+}
+
+model PlanPrice {
+  id        String   @id @default(cuid())
+  planId    String
+  currency  String
+  amount    Decimal  @db.Decimal(19, 4)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, currency])
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  externalId         String?            @unique
+  customerId         String
+  planId             String
+  previousPlanId     String?
+  paymentMethodId    String? // Saved payment method for automatic renewals
+  status             SubscriptionStatus @default(ACTIVE)
+  currency           String
+  billingTiming      BillingTiming      @default(IN_ARREARS)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAt           DateTime?
+  canceledAt         DateTime?
+  trialStart         DateTime?
+  trialEnd           DateTime?
+  startedAt          DateTime           @default(now())
+  metadata                Json?
+  lastProgressiveBillingAt DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  plan           Plan            @relation(fields: [planId], references: [id])
+  paymentMethod  PaymentMethod?  @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  invoices       Invoice[]
+  usageEvents    UsageEvent[]
+  paymentRetries PaymentRetry[]
+
+  @@index([customerId])
+  @@index([planId])
+  @@index([status])
+  @@index([externalId])
+  @@index([paymentMethodId])
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  invoiceNumber  String        @unique
+  subscriptionId String?
+  customerId     String
+  amount         Decimal       @db.Decimal(19, 4)
+  currency       String
+  status         InvoiceStatus @default(DRAFT)
+  dueDate        DateTime
+  paidAt         DateTime?
+  pdfUrl         String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  subscription  Subscription?  @relation(fields: [subscriptionId], references: [id])
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payments      Payment[]
+  creditNotes   CreditNote[]
+  paymentRetries PaymentRetry[]
+
+  @@index([customerId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  invoiceId             String
+  provider              String
+  providerTransactionId String?
+  amount                Decimal       @db.Decimal(19, 4)
+  currency              String
+  status                PaymentStatus @default(PENDING)
+  failureReason         String?
+  metadata              Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([provider, providerTransactionId])
+}
+
+model PaymentRetry {
+  id             String   @id @default(cuid())
+  invoiceId      String
+  subscriptionId String?
+  attemptNumber  Int      @default(1)
+  maxAttempts    Int      @default(3)
+  nextRetryAt    DateTime
+  lastError      String?
+  status         String   @default("PENDING") // PENDING, SUCCESS, FAILED, EXHAUSTED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  invoice      Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([nextRetryAt, status])
+  @@index([subscriptionId])
+}
+
+model PaymentProvider {
+  id           String   @id @default(cuid())
+  providerName String   @unique
+  credentials  String
+  isActive     Boolean  @default(true)
+  priority     Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
+// Coupons & Discounts
+// ============================================================
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Coupon {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  name            String
+  description     String?
+  discountType    DiscountType
+  discountValue   Decimal      @db.Decimal(19, 4)
+  currency        String?      // Required for FIXED_AMOUNT
+  maxRedemptions  Int?         // null = unlimited
+  redemptionCount Int          @default(0)
+  appliesToPlanIds String[]    // empty = all plans
+  isActive        Boolean      @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  appliedCoupons AppliedCoupon[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model AppliedCoupon {
+  id             String   @id @default(cuid())
+  couponId       String
+  customerId     String
+  subscriptionId String?
+  amountOff      Decimal? @db.Decimal(19, 4)
+  usesRemaining  Int?     // For recurring: billing cycles left
+  createdAt      DateTime @default(now())
+
+  coupon   Coupon   @relation(fields: [couponId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([subscriptionId])
+}
+
+// ============================================================
+// Add-ons (one-time charges)
+// ============================================================
+
+model AddOn {
+  id                 String   @id @default(cuid())
+  name               String
+  code               String   @unique
+  description        String?
+  invoiceDisplayName String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  prices AddOnPrice[]
+
+  @@index([code])
+}
+
+model AddOnPrice {
+  id       String  @id @default(cuid())
+  addOnId  String
+  currency String
+  amount   Decimal @db.Decimal(19, 4)
+
+  addOn AddOn @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+
+  @@unique([addOnId, currency])
+}
+
+model AppliedAddOn {
+  id             String   @id @default(cuid())
+  addOnId        String
+  customerId     String
+  subscriptionId String?
+  amount         Decimal  @db.Decimal(19, 4)
+  currency       String
+  invoiceId      String?  // Set once invoiced
+  createdAt      DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([invoiceId])
+}
+
+// ============================================================
+// Credit Notes
+// ============================================================
+
+enum CreditNoteReason {
+  DUPLICATE
+  PRODUCT_UNSATISFACTORY
+  ORDER_CHANGE
+  OTHER
+}
+
+enum CreditNoteStatus {
+  DRAFT
+  FINALIZED
+  VOIDED
+}
+
+model CreditNote {
+  id         String           @id @default(cuid())
+  invoiceId  String
+  customerId String
+  amount     Decimal          @db.Decimal(19, 4)
+  currency   String
+  reason     CreditNoteReason
+  status     CreditNoteStatus @default(DRAFT)
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([invoiceId])
+  @@index([customerId])
+}
+
+// ============================================================
+// Billable Metrics (Usage-Based Billing)
+// ============================================================
+
+model BillableMetric {
+  id              String          @id @default(cuid())
+  name            String
+  code            String          @unique
+  description     String?
+  aggregationType AggregationType
+  fieldName       String?         // The property key to aggregate (required for SUM, MAX, etc.)
+  recurring       Boolean         @default(false) // If true, value carries forward across periods
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  filters BillableMetricFilter[]
+  charges Charge[]
+
+  @@index([code])
+}
+
+model BillableMetricFilter {
+  id               String @id @default(cuid())
+  billableMetricId String
+  key              String // Property key to filter on (e.g., "region", "product_type")
+  values           String[] // Allowed values for the filter
+
+  billableMetric BillableMetric @relation(fields: [billableMetricId], references: [id], onDelete: Cascade)
+
+  @@unique([billableMetricId, key])
+  @@index([billableMetricId])
+}
+
+// ============================================================
+// Usage Events
+// ============================================================
+
+model UsageEvent {
+  id             String   @id @default(cuid())
+  transactionId  String   @unique // Idempotency key
+  subscriptionId String
+  code           String   // Matches BillableMetric.code
+  timestamp      DateTime @default(now())
+  properties     Json?    // Key-value pairs (e.g., { "tokens": 1500, "region": "us-east" })
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, code, timestamp])
+  @@index([code, timestamp])
+  @@index([transactionId])
+}
+
+// ============================================================
+// Charges (Usage-Based Pricing Models)
+// ============================================================
+
+model Charge {
+  id               String      @id @default(cuid())
+  planId           String
+  billableMetricId String
+  chargeModel      ChargeModel
+  billingTiming    BillingTiming @default(IN_ARREARS)
+  invoiceDisplayName String?
+  minAmountCents   Int?        // Minimum charge amount in cents
+  prorated         Boolean     @default(false)
+  properties       Json?       // Model-specific config (see below)
+  // Standard:    { "amount": "0.10", "currency": "USD" }
+  // Package:     { "amount": "1.00", "packageSize": 1000, "currency": "USD" }
+  // Percentage:  { "rate": "2.5", "fixedAmount": "0.30", "freeUnitsPerEvent": 0, "freeUnitsPerTotalAggregation": 0 }
+  // For Graduated/Volume, ranges are stored in ChargeGraduatedRange
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  plan           Plan                  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  billableMetric BillableMetric        @relation(fields: [billableMetricId], references: [id])
+  graduatedRanges ChargeGraduatedRange[]
+  filters        ChargeFilter[]
+  chargeTaxes    ChargeTax[]
+
+  @@unique([planId, billableMetricId])
+  @@index([planId])
+  @@index([billableMetricId])
+}
+
+model ChargeGraduatedRange {
+  id            String  @id @default(cuid())
+  chargeId      String
+  fromValue     Int     // Start of range (inclusive)
+  toValue       Int?    // End of range (inclusive), null = infinity
+  perUnitAmount Decimal @db.Decimal(19, 4) // Price per unit in this range
+  flatAmount    Decimal @default(0) @db.Decimal(19, 4) // Flat fee for entering this range
+  order         Int     @default(0) // Sort order
+
+  charge Charge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@index([chargeId])
+  @@index([chargeId, order])
+}
+
+model ChargeFilter {
+  id        String   @id @default(cuid())
+  chargeId  String
+  key       String   // Filter key (must match BillableMetricFilter.key)
+  values    String[] // Subset of allowed values
+  properties Json?   // Override charge properties for this filter combination
+
+  charge Charge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@unique([chargeId, key])
+  @@index([chargeId])
+}
+
+// ============================================================
+// Wallets / Prepaid Credits
+// ============================================================
+
+enum WalletStatus {
+  ACTIVE
+  TERMINATED
+}
+
+enum WalletTransactionType {
+  INBOUND   // Top-up (purchased or granted)
+  OUTBOUND  // Deduction (invoice payment or void)
+}
+
+enum WalletTransactionStatus {
+  PENDING
+  SETTLED
+  FAILED
+}
+
+enum WalletTransactionKind {
+  PURCHASED // Paid credits
+  GRANTED   // Free/promotional credits
+  VOIDED    // Credits manually voided or expired
+  INVOICED  // Credits auto-deducted from invoice
+}
+
+model Wallet {
+  id              String       @id @default(cuid())
+  customerId      String
+  name            String?
+  currency        String
+  rateAmount      Decimal      @default(1) @db.Decimal(19, 4) // 1 credit = rateAmount in currency
+  creditsBalance  Decimal      @default(0) @db.Decimal(19, 4) // Current available credits
+  balance         Decimal      @default(0) @db.Decimal(19, 4) // Current available amount (credits * rate)
+  consumedCredits Decimal      @default(0) @db.Decimal(19, 4) // Lifetime consumed credits
+  consumedAmount  Decimal      @default(0) @db.Decimal(19, 4) // Lifetime consumed amount
+  status          WalletStatus @default(ACTIVE)
+  expirationAt    DateTime?
+  terminatedAt    DateTime?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  customer     Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@index([customerId])
+  @@index([customerId, status])
+  @@index([expirationAt])
+}
+
+model WalletTransaction {
+  id                String                  @id @default(cuid())
+  walletId          String
+  transactionType   WalletTransactionType
+  status            WalletTransactionStatus @default(PENDING)
+  transactionStatus WalletTransactionKind
+  creditAmount      Decimal                 @db.Decimal(19, 4) // Credits added or deducted
+  amount            Decimal                 @db.Decimal(19, 4) // Monetary equivalent
+  invoiceId         String?
+  settledAt         DateTime?
+  metadata          Json?
+  createdAt         DateTime                @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([walletId, createdAt])
+  @@index([invoiceId])
+}
+
+// ============================================================
+// Payment Methods / Card Tokenization
+// ============================================================
+
+enum PaymentMethodType {
+  CARD
+  BANK_ACCOUNT
+  WALLET
+}
+
+model PaymentMethod {
+  id          String            @id @default(cuid())
+  customerId  String
+  provider    String // stripe, paystack, flutterwave, dpo, payu, pesapal
+  type        PaymentMethodType @default(CARD)
+  tokenId     String // Provider-specific token/payment method ID
+  isDefault   Boolean           @default(false)
+  // Card details (for display only - never store raw card data)
+  last4       String?
+  brand       String? // visa, mastercard, amex, etc.
+  expMonth    Int?
+  expYear     Int?
+  cardholderName String?
+  country     String?
+  // Metadata for provider-specific data
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+
+  @@unique([provider, tokenId])
+  @@index([customerId])
+  @@index([customerId, isDefault])
+}
+
+// ============================================================
+// Taxes
+// ============================================================
+
+model Tax {
+  id               String   @id @default(cuid())
+  name             String
+  code             String   @unique
+  rate             Decimal  @db.Decimal(19, 4)
+  description      String?
+  appliedByDefault Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  customerTaxes CustomerTax[]
+  planTaxes     PlanTax[]
+  chargeTaxes   ChargeTax[]
+
+  @@index([code])
+  @@index([appliedByDefault])
+}
+
+model CustomerTax {
+  id         String @id @default(cuid())
+  customerId String
+  taxId      String
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tax      Tax      @relation(fields: [taxId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, taxId])
+  @@index([customerId])
+}
+
+model PlanTax {
+  id     String @id @default(cuid())
+  planId String
+  taxId  String
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tax  Tax  @relation(fields: [taxId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, taxId])
+  @@index([planId])
+}
+
+model ChargeTax {
+  id       String @id @default(cuid())
+  chargeId String
+  taxId    String
+
+  charge Charge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  tax    Tax    @relation(fields: [taxId], references: [id], onDelete: Cascade)
+
+  @@unique([chargeId, taxId])
+  @@index([chargeId])
+}
+
+// ============================================================
+// Plan Overrides (Customer-Specific Pricing)
+// ============================================================
+
+model PlanOverride {
+  id                          String   @id @default(cuid())
+  customerId                  String
+  planId                      String
+  overriddenPrices            Json?
+  overriddenMinimumCommitment Decimal? @db.Decimal(19, 4)
+  overriddenCharges           Json?
+  metadata                    Json?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  plan     Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, planId])
+  @@index([customerId])
+  @@index([planId])
+}

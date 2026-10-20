@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma/
-COPY prisma.config.ts ./
+COPY prisma.config.ts prisma.tenant.config.ts ./
 
 RUN npm ci
 
@@ -24,7 +24,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma/
-COPY prisma.config.ts ./
+COPY prisma.config.ts prisma.tenant.config.ts ./
 
 RUN npm ci --omit=dev
 
@@ -41,7 +41,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./
+COPY --from=builder /app/prisma.config.ts /app/prisma.tenant.config.ts ./
 COPY --from=builder /app/src/generated ./dist/generated
 
 # Create uploads directory for invoice PDFs
@@ -49,4 +49,5 @@ RUN mkdir -p /app/uploads/invoices
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma db push --schema=./prisma/schema-central.prisma --accept-data-loss && node dist/main"]
+# Migrations, not db push: central first, then every tenant database, then the API.
+CMD ["sh", "-c", "node dist/cli/migrate.js all && node dist/main"]

@@ -115,6 +115,12 @@ jobs:
             LANDING_URL=${{ vars.LANDING_URL }}
             DASHBOARD_URL=${{ vars.DASHBOARD_URL }}
             API_REF_URL=${{ vars.API_URL }}/api/reference
+            NEXT_PUBLIC_BRAND_NAME=${{ vars.BRAND_NAME || '' }}
+            NEXT_PUBLIC_BRAND_LOGO=${{ vars.BRAND_LOGO || '' }}
+            NEXT_PUBLIC_BRAND_TAGLINE=${{ vars.BRAND_TAGLINE || '' }}
+            NEXT_PUBLIC_BRAND_PRIMARY=${{ vars.BRAND_PRIMARY || '' }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.LANDING_URL || '' }}
+            NEXT_PUBLIC_CONTACT_EMAIL=${{ vars.CONTACT_EMAIL || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

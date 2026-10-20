@@ -1,20 +1,20 @@
-# Contributing to NovaBilling
+# Contributing to PimaBill
 
-Thanks for your interest in contributing to NovaBilling! This guide will help you get started.
+Thanks for your interest in contributing to PimaBill! This guide will help you get started.
 
 ## We're Looking for Contributors & Testers
 
-NovaBilling is in its early stages and we need help from the community. Whether you're an experienced developer or just getting started, there's a way to contribute.
+PimaBill is in its early stages and we need help from the community. Whether you're an experienced developer or just getting started, there's a way to contribute.
 
 ### Alpha Testers
 
-We need people to deploy NovaBilling and put it through its paces:
+We need people to deploy PimaBill and put it through its paces:
 
 - **Self-host it** with Docker and report any setup issues
 - **Test the billing flows** — create customers, plans, subscriptions, generate invoices
 - **Try the payment providers** — Stripe, Paystack, Flutterwave, DPO, PayU, PesaPal
 - **Break things** — edge cases, error handling, unexpected inputs
-- **Report bugs** via [GitHub Issues](https://github.com/novabilling/billing/issues) with steps to reproduce
+- **Report bugs** via [GitHub Issues](https://github.com/pimabill/billing/issues) with steps to reproduce
 
 No code required. Just your time and feedback.
 
@@ -42,8 +42,8 @@ Interested? Open an issue or comment on an existing one to say you're working on
 ### Other Ways to Help
 
 - **Star the repo** — helps with visibility
-- **Share NovaBilling** — blog posts, tweets, talks
-- **Answer questions** in [Discussions](https://github.com/novabilling/billing/discussions)
+- **Share PimaBill** — blog posts, tweets, talks
+- **Answer questions** in [Discussions](https://github.com/pimabill/billing/discussions)
 - **Review PRs** — fresh eyes always help
 
 ## Getting Started
@@ -59,7 +59,7 @@ Interested? Open an issue or comment on an existing one to say you're working on
 1. **Clone the repo**
 
    ```bash
-   git clone https://github.com/novabilling/billing.git
+   git clone https://github.com/pimabill/billing.git
    cd billing
    ```
 
@@ -84,7 +84,7 @@ Interested? Open an issue or comment on an existing one to say you're working on
    npm ci
    npx prisma generate --schema=./prisma/schema-central.prisma
    npx prisma generate --schema=./prisma/schema-tenant.prisma
-   npx prisma db push --schema=./prisma/schema-central.prisma
+   npm run migrate:central
    ```
 
 5. **Start the API**
@@ -147,7 +147,16 @@ fix: correct tax hierarchy resolution order
 docs: add webhook retry configuration guide
 ```
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/) loosely — prefix with `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, or `chore:`.
+PRs are squash-merged, so the **PR title** becomes the commit and sets the next version. CI checks it follows [Conventional Commits](https://www.conventionalcommits.org/):
+
+| Title | Release |
+|---|---|
+| `fix: ...` | patch (1.4.0 → 1.4.1) |
+| `feat: ...` | minor (1.4.0 → 1.5.0) |
+| `feat!: ...` or `fix!: ...` | major (1.4.0 → 2.0.0) |
+| `docs:`, `refactor:`, `test:`, `chore:`, `ci:`, `build:`, `perf:` | no release on their own |
+
+A PR that removes or changes anything existing API clients rely on fails CI unless its title is marked breaking with `!`.
 
 ### Code Style
 
@@ -178,8 +187,10 @@ If you modify Prisma schemas:
 
 1. Edit `backend/prisma/schema-central.prisma` or `backend/prisma/schema-tenant.prisma`
 2. Regenerate clients: `npx prisma generate --schema=./prisma/schema-<name>.prisma`
-3. Push changes: `npx prisma db push --schema=./prisma/schema-<name>.prisma`
-4. Document the schema change in your PR description
+3. Create a migration: `npm run prisma:migrate:central -- --name <change>` or `npm run prisma:migrate:tenant -- --name <change>`
+   (central and tenant migrations live in `prisma/migrations/central` and `prisma/migrations/tenant`)
+4. Apply to existing tenant databases: `npm run migrate:tenants`
+5. Document the schema change in your PR description
 
 ## Pull Requests
 
@@ -187,7 +198,7 @@ If you modify Prisma schemas:
 2. Make your changes with tests where applicable
 3. Ensure `npx tsc --noEmit` passes with no errors
 4. Ensure all existing tests still pass
-5. Open a PR with a clear title and description
+5. Open a PR with a Conventional Commits title (see [Commit Messages](#commit-messages)) and a clear description
 6. Link any related issues
 
 ### PR Description Template
@@ -208,19 +219,19 @@ Steps to verify the change works.
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/novabilling/billing/issues) to report bugs or request features.
+Use [GitHub Issues](https://github.com/pimabill/billing/issues) to report bugs or request features.
 
 For bugs, include:
 - Steps to reproduce
 - Expected vs actual behavior
-- NovaBilling version / commit SHA
+- PimaBill version / commit SHA
 - Docker or bare-metal setup
 - Relevant logs
 
 ## Questions?
 
-Open a [Discussion](https://github.com/novabilling/billing/discussions) for general questions, ideas, or help with setup.
+Open a [Discussion](https://github.com/pimabill/billing/discussions) for general questions, ideas, or help with setup.
 
 ## License
 
-By contributing to NovaBilling, you agree that your contributions will be licensed under the [AGPL-3.0 License](LICENSE).
+By contributing to PimaBill, you agree that your contributions will be licensed under the [AGPL-3.0 License](LICENSE).

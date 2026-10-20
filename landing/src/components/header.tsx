@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Zap, Github } from "lucide-react";
+import { Menu, X, Github } from "lucide-react";
 import clsx from "clsx";
 
-const DASHBOARD_URL =
-  process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4002";
-const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
-const API_REF_URL =
-  process.env.NEXT_PUBLIC_API_REF_URL || "http://localhost:4000/api/reference";
+import { site } from "@/lib/site";
+import BrandMark from "@/components/brand-mark";
 
-const GITHUB_URL = "https://github.com/novabilling/billing";
+const DASHBOARD_URL = site.dashboardUrl;
+const DOCS_URL = site.docsUrl;
+const API_REF_URL = site.apiRefUrl;
+const GITHUB_URL = site.githubUrl;
 
 const navLinks = [
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },
+  { label: "FAQ", href: "#faq" },
   { label: "Docs", href: DOCS_URL, external: true },
   { label: "API Reference", href: API_REF_URL, external: true },
 ];
@@ -32,10 +33,11 @@ export default function Header() {
           className="flex items-center gap-2 font-bold text-xl tracking-tight"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
-            <Zap className="h-5 w-5" />
+            <BrandMark className="h-5 w-5" />
           </span>
           <span>
-            Nova<span className="text-[var(--primary)]">Billing</span>
+            {site.name.slice(0, site.nameSplit)}
+            <span className="text-[var(--primary)]">{site.name.slice(site.nameSplit)}</span>
           </span>
         </Link>
 

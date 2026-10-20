@@ -34,6 +34,7 @@ import { apiClient } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { Plan } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 const SUPPORTED_CURRENCIES = [
   "USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "UGX",
@@ -68,6 +69,7 @@ const emptyForm: PlanForm = {
 };
 
 export default function PlansPage() {
+  const canWrite = useCan("billing.write");
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCurrency, setSelectedCurrency] = useState("");
@@ -294,11 +296,16 @@ export default function PlansPage() {
           <p className="text-muted-foreground">
             Manage your subscription plans
           </p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Plan
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Plan
+          </Button>
+        )}
       </div>
 
       {/* Currency Selector */}
@@ -327,20 +334,22 @@ export default function PlansPage() {
       {/* Plans Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Create Plan Card */}
-        <Card
-          className="border-dashed border-2 hover:border-blue-600 transition-colors cursor-pointer"
-          onClick={openCreateDialog}
-        >
-          <CardContent className="flex flex-col items-center justify-center h-full min-h-[400px] p-6">
-            <div className="rounded-full bg-accent p-4">
-              <Plus className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold">Create New Plan</h3>
-            <p className="mt-2 text-sm text-muted-foreground text-center">
-              Add a new subscription plan for your customers
-            </p>
-          </CardContent>
-        </Card>
+        {canWrite && (
+          <Card
+            className="border-dashed border-2 hover:border-blue-600 transition-colors cursor-pointer"
+            onClick={openCreateDialog}
+          >
+            <CardContent className="flex flex-col items-center justify-center h-full min-h-[400px] p-6">
+              <div className="rounded-full bg-accent p-4">
+                <Plus className="h-8 w-8 text-blue-600" />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold">Create New Plan</h3>
+              <p className="mt-2 text-sm text-muted-foreground text-center">
+                Add a new subscription plan for your customers
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Plan Cards */}
         {plans.map((plan) => {
@@ -401,30 +410,34 @@ export default function PlansPage() {
                 {/* Actions */}
                 <div className="pt-4 border-t border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Switch
-                      checked={plan.isActive}
-                      onCheckedChange={() => handleToggleActive(plan)}
-                    />
+                    {canWrite && (
+                      <Switch
+                        checked={plan.isActive}
+                        onCheckedChange={() => handleToggleActive(plan)}
+                      />
+                    )}
                     <span className="text-sm text-muted-foreground">
                       {plan.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditDialog(plan)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(plan)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
+                  {canWrite && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(plan)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(plan)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

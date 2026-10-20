@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { createHmac, timingSafeEqual } from 'crypto';
 import {
   BasePaymentProvider,
   ChargeParams,
@@ -20,19 +19,33 @@ interface PayPalCredentials {
 }
 
 interface PayPalPurchaseUnit {
+  reference_id?: string;
   invoice_id?: string;
   amount?: { currency_code: string; value: string };
   payments?: {
-    captures?: Array<{ id: string; amount?: { value: string; currency_code: string } }>;
+    captures?: Array<{ id: string; status?: string; amount?: { value: string; currency_code: string } }>;
   };
 }
 
 interface PayPalWebhookResource {
   id?: string;
   order_id?: string;
+  status?: string;
+  supplementary_data?: { related_ids?: { order_id?: string } };
   invoice_id?: string;
   amount?: { value: string; currency_code: string };
   purchase_units?: PayPalPurchaseUnit[];
+}
+
+/**
+ * PayPal order and capture ids are short alphanumeric strings. Ids from
+ * webhooks or callers go into request paths, so anything else is refused
+ * rather than allowed to change the URL.
+ */
+export function paypalId(value: string | undefined | null): string {
+  const id = String(value ?? '');
+  if (!/^[A-Za-z0-9-]{1,64}$/.test(id)) throw new Error('Invalid PayPal id');
+  return encodeURIComponent(id);
 }
 
 export class PayPalProvider extends BasePaymentProvider {
@@ -153,7 +166,7 @@ export class PayPalProvider extends BasePaymentProvider {
       const accessToken = await this.getAccessToken();
 
       // First we need to get the capture ID from the order
-      const orderResponse = await fetch(`${this.baseUrl}/v2/checkout/orders/${params.transactionId}`, {
+      const orderResponse = await fetch(`${this.baseUrl}/v2/checkout/orders/${paypalId(params.transactionId)}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
@@ -178,7 +191,7 @@ export class PayPalProvider extends BasePaymentProvider {
         };
       }
 
-      const refundResponse = await fetch(`${this.baseUrl}/v2/payments/captures/${captureId}/refund`, {
+      const refundResponse = await fetch(`${this.baseUrl}/v2/payments/captures/${paypalId(captureId)}/refund`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -207,7 +220,7 @@ export class PayPalProvider extends BasePaymentProvider {
   async getPaymentStatus(transactionId: string): Promise<PaymentStatusResult> {
     const accessToken = await this.getAccessToken();
 
-    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${transactionId}`, {
+    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${paypalId(transactionId)}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -241,62 +254,121 @@ export class PayPalProvider extends BasePaymentProvider {
   async handleWebhook(
     payload: Record<string, unknown>,
     signature: string,
-    rawBody?: string,
+    _rawBody?: string,
   ): Promise<WebhookData> {
-    // Verify webhook signature using PayPal's HMAC-SHA256 scheme
-    if (rawBody && signature && this.credentials.webhookId) {
-      const parts = signature.split('&').reduce<Record<string, string>>((acc, part) => {
-        const [k, v] = part.split('=');
-        acc[k] = v;
-        return acc;
-      }, {});
-
-      const transmissionId = parts['PAYPAL-TRANSMISSION-ID'] || '';
-      const timestamp = parts['PAYPAL-TRANSMISSION-TIME'] || '';
-      const certUrl = parts['PAYPAL-CERT-URL'] || '';
-      const authAlgo = parts['PAYPAL-AUTH-ALGO'] || '';
-
-      if (!authAlgo || !authAlgo.includes('SHA256')) {
-        throw new Error('PayPal webhook: unsupported or missing auth algorithm');
-      }
-      // The expected signature is an HMAC-SHA256 digest of the concatenated
-      // transmissionId, timestamp, webhookId, and raw body.
-      const signaturePayload = `${transmissionId}|${timestamp}|${this.credentials.webhookId}|${rawBody}`;
-      const expectedSig = createHmac('sha256', this.credentials.clientSecret)
-        .update(signaturePayload)
-        .digest('base64');
-      const providedSig = parts['PAYPAL-TRANSMISSION-SIG'] || '';
-      const expected = Buffer.from(expectedSig);
-      const provided = Buffer.from(providedSig);
-      if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
-        throw new Error('PayPal webhook signature mismatch');
-      }
-    }
+    await this.verifyWebhook(payload, signature);
 
     const eventType = payload.event_type as string;
-    const resource = payload.resource as PayPalWebhookResource;
+    const resource = (payload.resource ?? {}) as PayPalWebhookResource;
+    const orderId = this.orderIdOf(eventType, resource);
 
-    const succeededEvents = [
-      'PAYMENT.CAPTURE.COMPLETED',
-      'CHECKOUT.ORDER.APPROVED',
-      'CHECKOUT.ORDER.COMPLETED',
-    ];
-    const failedEvents = ['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED'];
+    // An approved order has not moved any money yet: capture it now. The
+    // capture is idempotent on the order id, so a redelivered APPROVED event
+    // cannot capture twice.
+    if (eventType === 'CHECKOUT.ORDER.APPROVED' && orderId) {
+      return this.captureOrder(orderId, resource);
+    }
 
+    const succeededEvents = ['PAYMENT.CAPTURE.COMPLETED', 'CHECKOUT.ORDER.COMPLETED'];
+    const failedEvents = ['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED', 'CHECKOUT.PAYMENT-APPROVAL.REVERSED'];
     const status: WebhookData['status'] = succeededEvents.includes(eventType)
       ? 'succeeded'
       : failedEvents.includes(eventType)
         ? 'failed'
         : 'pending'; // Unknown events treated as pending until confirmed
 
-    const transactionId = resource?.id || resource?.order_id || '';
+    const money = resource.amount ?? resource.purchase_units?.[0]?.amount;
+    return {
+      status,
+      transactionId: orderId || resource.id || '',
+      amount: money ? Number(money.value) : 0,
+      currency: money?.currency_code || 'USD',
+      invoiceId: resource.invoice_id || resource.purchase_units?.[0]?.invoice_id || resource.purchase_units?.[0]?.reference_id,
+    };
+  }
 
-    const captureAmount = resource?.amount;
-    const amount = captureAmount ? Number(captureAmount.value) : 0;
-    const currency = captureAmount?.currency_code || 'USD';
-    const invoiceId = resource?.invoice_id || resource?.purchase_units?.[0]?.invoice_id;
+  /**
+   * Verify a notification with PayPal's verify-webhook-signature API, using
+   * the transmission headers and the webhook id configured for this account.
+   * Unsigned or unverifiable notifications are rejected.
+   */
+  private async verifyWebhook(payload: Record<string, unknown>, signature: string): Promise<void> {
+    if (!this.credentials.webhookId) {
+      throw new Error('PayPal webhook id is not configured; cannot verify notifications');
+    }
+    let headers: Record<string, string>;
+    try {
+      headers = JSON.parse(signature || '{}');
+    } catch {
+      throw new Error('PayPal webhook: malformed signature headers');
+    }
+    const { authAlgo, certUrl, transmissionId, transmissionSig, transmissionTime } = headers;
+    if (!authAlgo || !certUrl || !transmissionId || !transmissionSig || !transmissionTime) {
+      throw new Error('PayPal webhook: missing transmission headers');
+    }
 
-    return { status, transactionId, amount, currency, invoiceId };
+    const accessToken = await this.getAccessToken();
+    const response = await fetch(`${this.baseUrl}/v1/notifications/verify-webhook-signature`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        auth_algo: authAlgo,
+        cert_url: certUrl,
+        transmission_id: transmissionId,
+        transmission_sig: transmissionSig,
+        transmission_time: transmissionTime,
+        webhook_id: this.credentials.webhookId,
+        webhook_event: payload,
+      }),
+    });
+    const data = (await response.json().catch(() => ({}))) as { verification_status?: string };
+    if (!response.ok || data.verification_status !== 'SUCCESS') {
+      throw new Error('PayPal webhook signature verification failed');
+    }
+  }
+
+  /** Order events carry the order id directly; capture events link to it. */
+  private orderIdOf(eventType: string, resource: PayPalWebhookResource): string | undefined {
+    if (eventType?.startsWith('CHECKOUT.ORDER')) return resource.id;
+    return resource.supplementary_data?.related_ids?.order_id ?? resource.order_id;
+  }
+
+  private async captureOrder(orderId: string, resource: PayPalWebhookResource): Promise<WebhookData> {
+    const accessToken = await this.getAccessToken();
+    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${paypalId(orderId)}/capture`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'PayPal-Request-Id': `capture-${orderId}`,
+      },
+    });
+    const data = (await response.json().catch(() => ({}))) as {
+      status?: string;
+      details?: { issue?: string }[];
+      purchase_units?: PayPalPurchaseUnit[];
+    };
+
+    const alreadyCaptured = data.details?.some((d) => d.issue === 'ORDER_ALREADY_CAPTURED');
+    const capture = data.purchase_units?.[0]?.payments?.captures?.[0];
+    const unit = resource.purchase_units?.[0];
+    const money = capture?.amount ?? unit?.amount;
+
+    let status: WebhookData['status'] = 'pending';
+    if (response.ok && data.status === 'COMPLETED' && capture?.status !== 'PENDING') status = 'succeeded';
+    else if (!response.ok && !alreadyCaptured) {
+      this.logger.error(`PayPal capture failed for order ${orderId}`, data);
+      // Leave the payment pending: the capture can be retried, and a later
+      // PAYMENT.CAPTURE.* notification settles it either way.
+    }
+
+    return {
+      status,
+      transactionId: orderId,
+      amount: money ? Number(money.value) : 0,
+      currency: money?.currency_code || 'USD',
+      invoiceId: unit?.invoice_id || unit?.reference_id,
+    };
   }
 
   async testConnection(): Promise<boolean> {

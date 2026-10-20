@@ -7,6 +7,13 @@ import { PayUProvider } from './payu.provider';
 import { PesapalProvider } from './pesapal.provider';
 import { PayPalProvider } from './paypal.provider';
 
+/**
+ * Providers that can run an invoice checkout through BasePaymentProvider.
+ * Money-movement-only providers (e.g. Yo! Payments) are configured in the same
+ * table but must never be picked as the default checkout provider.
+ */
+export const CHECKOUT_PROVIDER_NAMES = ['stripe', 'paystack', 'flutterwave', 'dpo', 'dpo-group', 'payu', 'pesapal', 'paypal'];
+
 export class ProviderFactory {
   static create(providerName: string, credentials: Record<string, unknown>): BasePaymentProvider {
     switch (providerName.toLowerCase()) {

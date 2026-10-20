@@ -1,0 +1,44 @@
+name: Release
+
+# One version for the whole system: API, dashboard, landing, docs, the
+# OpenAPI spec and the SDKs. release-please keeps a release PR open on main;
+# merging it tags vX.Y.Z, writes CHANGELOG.md and publishes a GitHub release.
+# The version bump comes from pull-request titles (squash merge):
+#   fix: → patch   feat: → minor   feat!: or fix!: → major
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release PR
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Releases made with GITHUB_TOKEN do not trigger other workflows, so the
+  # SDK build is called from here rather than on the release event.
+  sdks:
+    name: SDKs
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sdks.yml
+    with:
+      group: tier1
+      ref: ${{ needs.release-please.outputs.tag }}
+      version: ${{ needs.release-please.outputs.version }}
+    secrets: inherit

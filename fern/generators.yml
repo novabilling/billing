@@ -1,103 +1,98 @@
+# SDKs are generated from the committed spec (backend/openapi/openapi.json),
+# never in pull-request CI. Run `fern generate --local --group <group>` or the
+# "SDKs" GitHub workflow (on releases and on demand).
+#
+# tier1: published with every release (TypeScript, Python, PHP).
+# tier2: generated on request for users who need them (Go, Java, Ruby, C#).
+# SDKs are MIT-licensed so any project can embed them; the server stays AGPL.
+# Rust and Swift are not generated: billing calls need the secret API key,
+# so there is no client-side SDK; mobile apps call their own backend.
 api:
   specs:
-    - openapi: ../backend/api-1.yaml
+    - openapi: ../backend/openapi/openapi.json
       overrides: overrides.yml
 
-default-group: local
+default-group: tier1
 
 groups:
-  # Local development group - generates SDKs locally for testing
-  local:
+  tier1:
     generators:
-      # TypeScript SDK
       - name: fernapi/fern-typescript-sdk
-        version: 3.48.2  # Update to latest with: fern generator upgrade --generator typescript-sdk
+        version: 3.48.2
+        metadata:
+          license: MIT
         output:
           location: local-file-system
           path: ../sdks/typescript
         config:
-          namespaceExport: NovaBilling
+          namespaceExport: PimaBill
 
-      # Python SDK
       - name: fernapi/fern-python-sdk
-        version: 4.57.2  # Update to latest with: fern generator upgrade --generator python-sdk
+        version: 4.57.2
+        metadata:
+          license: MIT
         output:
           location: local-file-system
           path: ../sdks/python
         config:
-          client_class_name: NovaBilling
-          package_name: novabilling
+          client_class_name: PimaBill
+          package_name: pimabill
           timeout_in_seconds: 60
 
-      # Go SDK
+      - name: fernapi/fern-php-sdk
+        version: 2.0.0
+        metadata:
+          license: MIT
+        output:
+          location: local-file-system
+          path: ../sdks/php
+        config:
+          namespace: PimaBill
+
+  tier2:
+    generators:
       - name: fernapi/fern-go-sdk
-        version: 1.24.0  # Check latest: fern generator upgrade --list
+        version: 1.24.0
+        metadata:
+          license: MIT
         output:
           location: local-file-system
           path: ../sdks/go
         config:
           module:
-            path: github.com/novabilling/novabilling-go
-          import_path: github.com/novabilling/novabilling-go
+            path: github.com/pimabill/pimabill-go
+          import_path: github.com/pimabill/pimabill-go
 
-      # Java SDK
       - name: fernapi/fern-java-sdk
-        version: 3.36.0  # Check latest: fern generator upgrade --list
+        version: 3.36.0
+        metadata:
+          license: MIT
         output:
           location: local-file-system
           path: ../sdks/java
         config:
-          group_id: com.novabilling
-          artifact_id: novabilling-sdk
-          client_class_name: NovaBillingClient
+          group_id: com.pimabill
+          artifact_id: pimabill-sdk
+          client_class_name: PimaBillClient
 
-      # Ruby SDK
       - name: fernapi/fern-ruby-sdk
-        version: 1.0.0-rc85  # Check latest: fern generator upgrade --list
+        version: 1.0.0-rc85
+        metadata:
+          license: MIT
         output:
           location: local-file-system
           path: ../sdks/ruby
         config:
-          client_class_name: NovaBilling
-          module_name: NovaBilling
+          client_class_name: PimaBill
+          module_name: PimaBill
 
-      # C# / .NET SDK
       - name: fernapi/fern-csharp-sdk
-        version: 2.20.5  # Check latest: fern generator upgrade --list
+        version: 2.20.5
+        metadata:
+          license: MIT
         output:
           location: local-file-system
           path: ../sdks/csharp
         config:
-          namespace: NovaBilling
-          client_class_name: NovaBillingClient
-
-      # PHP SDK
-      - name: fernapi/fern-php-sdk
-        version: 2.0.0  # Check latest: fern generator upgrade --list
-        output:
-          location: local-file-system
-          path: ../sdks/php
-        config:
-          namespace: NovaBilling
-      
-      # Rust SDK
-      - name: fernapi/fern-rust-sdk
-        version: 0.17.2
-        output:
-          location: local-file-system
-          path: ../sdks/rust
-        config:
-          clientClassName: NovaBillingClient
-          crateName: novabilling-rust
-
-      # Swift SDK
-      - name: fernapi/fern-swift-sdk
-        version: 0.26.0
-        output:
-          location: local-file-system
-          path: ../sdks/swift
-        config:
-          clientClassName: NovaBillingClient
-          environmentEnumName: NovaBillingEnvironment
-
- 
+          namespace: PimaBill
+          client_class_name: PimaBillClient

@@ -43,6 +43,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatDate, isOverdue } from "@/lib/utils/date";
 import type { Invoice, Customer, PaymentProvider } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 const statusColors = {
   draft: "secondary",
@@ -59,6 +60,7 @@ interface LineItemForm {
 }
 
 export default function InvoicesPage() {
+  const canWrite = useCan("billing.write");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -312,11 +314,16 @@ export default function InvoicesPage() {
         <div>
           <h1 className="text-3xl font-bold">Invoices</h1>
           <p className="text-muted-foreground">Manage and track invoices</p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Invoice
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Invoice
+          </Button>
+        )}
       </div>
 
       {/* Status Tabs */}
@@ -435,13 +442,15 @@ export default function InvoicesPage() {
                                 <FileText className="mr-2 h-4 w-4" />
                                 Download PDF
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openEmailDialog(invoice)}
-                              >
-                                <Mail className="mr-2 h-4 w-4" />
-                                Send Email
-                              </DropdownMenuItem>
-                              {invoice.status === "pending" && (
+                              {canWrite && (
+                                <DropdownMenuItem
+                                  onClick={() => openEmailDialog(invoice)}
+                                >
+                                  <Mail className="mr-2 h-4 w-4" />
+                                  Send Email
+                                </DropdownMenuItem>
+                              )}
+                              {canWrite && invoice.status === "pending" && (
                                 <>
                                   <DropdownMenuItem
                                     onClick={() => handleCheckout(invoice)}
@@ -463,7 +472,7 @@ export default function InvoicesPage() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              {invoice.status === "failed" && (
+                              {canWrite && invoice.status === "failed" && (
                                 <>
                                   <DropdownMenuItem
                                     onClick={() => handleCheckout(invoice)}

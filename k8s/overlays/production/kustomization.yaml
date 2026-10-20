@@ -6,13 +6,13 @@ resources:
 
 # Override image tags for production
 images:
-  - name: ghcr.io/novabilling/api
+  - name: ghcr.io/pimabill/api
     newTag: v1.0.0
-  - name: ghcr.io/novabilling/dashboard
+  - name: ghcr.io/pimabill/dashboard
     newTag: v1.0.0
-  - name: ghcr.io/novabilling/landing
+  - name: ghcr.io/pimabill/landing
     newTag: v1.0.0
-  - name: ghcr.io/novabilling/docs
+  - name: ghcr.io/pimabill/docs
     newTag: v1.0.0
 
 # Patch replicas for production scale

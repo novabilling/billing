@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma-tenant/client';
-import { execSync } from 'child_process';
+import { migrate } from './migrations';
 import { randomBytes } from 'crypto';
 import { CentralPrismaService } from './central-prisma.service';
 import { EncryptionService } from '../services/encryption.service';
@@ -139,22 +139,10 @@ export class TenantDatabaseService implements OnModuleDestroy {
 
   async runTenantMigrations(connectionUrl: string): Promise<void> {
     try {
-      const output = execSync(
-        `npx prisma db push --schema=./prisma/schema-tenant.prisma --accept-data-loss`,
-        {
-          env: {
-            ...process.env,
-            DATABASE_URL: connectionUrl,
-            CENTRAL_DATABASE_URL: connectionUrl,
-          },
-          timeout: 60000,
-          encoding: 'utf-8',
-        },
-      );
-      this.logger.log(`Tenant schema push completed: ${output}`);
+      await migrate('tenant', connectionUrl, (line) => this.logger.log(`Tenant migrations: ${line}`));
     } catch (error) {
-      this.logger.error('Tenant schema push failed', error);
-      throw new InternalServerErrorException('Failed to push tenant schema');
+      this.logger.error('Tenant migrations failed', error);
+      throw new InternalServerErrorException('Failed to migrate tenant database');
     }
   }
 

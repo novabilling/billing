@@ -16,10 +16,11 @@ import {
 import { useAuthStore } from "@/lib/stores/auth";
 import { apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
+import { brand } from "@/lib/brand";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const { applySession } = useAuthStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,13 +39,7 @@ export default function RegisterPage() {
         companyName,
       });
 
-      setUser({
-        id: result.user.id,
-        name: result.user.name,
-        email: result.user.email,
-        role: "owner",
-        tenantId: result.user.tenantId,
-      });
+      applySession(result);
 
       toast.success("Account created! Redirecting...");
       router.push("/dashboard");
@@ -59,13 +54,13 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <Image src="/logo.png" alt="NovaBilling" width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
+          <Image src={brand.logo} alt={brand.name} width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
           <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 mb-2">
             Free during beta
           </div>
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
-            Get started with NovaBilling for free — no credit card required
+            Get started with {brand.name} for free — no credit card required
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -126,7 +121,7 @@ export default function RegisterPage() {
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
-              NovaBilling is free during the beta period. All features included.
+              {brand.name} is free during the beta period. All features included.
             </p>
           </form>
 

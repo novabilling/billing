@@ -25,6 +25,7 @@ import { apiClient } from "@/lib/api/client";
 import { formatDateTime } from "@/lib/utils/date";
 import type { Tax } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 interface TaxForm {
   name: string;
@@ -43,6 +44,7 @@ const emptyForm: TaxForm = {
 };
 
 export default function TaxesPage() {
+  const canWrite = useCan("billing.write");
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -160,11 +162,16 @@ export default function TaxesPage() {
           <p className="text-muted-foreground">
             Manage tax rates applied to invoices
           </p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Tax
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Tax
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -218,10 +225,12 @@ export default function TaxesPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Create tax rates to automatically apply taxes to invoices.
           </p>
-          <Button className="mt-4" onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Tax
-          </Button>
+          {canWrite && (
+            <Button className="mt-4" onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Tax
+            </Button>
+          )}
         </div>
       ) : (
         <div className="rounded-md border border-border overflow-hidden">
@@ -280,22 +289,24 @@ export default function TaxesPage() {
                       {formatDateTime(tax.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(tax)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(tax)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(tax)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(tax)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

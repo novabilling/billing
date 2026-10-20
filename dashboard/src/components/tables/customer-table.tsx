@@ -17,12 +17,14 @@ import type { Customer } from "@/types";
 
 interface CustomerTableProps {
   customers: Customer[];
-  onEdit: (customer: Customer) => void;
-  onDelete: (customer: Customer) => void;
+  /** Omit to hide the action, e.g. when the role cannot edit customers. */
+  onEdit?: (customer: Customer) => void;
+  onDelete?: (customer: Customer) => void;
   onViewPaymentMethods?: (customer: Customer) => void;
 }
 
 export function CustomerTable({ customers, onEdit, onDelete, onViewPaymentMethods }: CustomerTableProps) {
+  const hasActions = Boolean(onEdit || onDelete || onViewPaymentMethods);
   return (
     <div className="rounded-md border border-border overflow-hidden">
       <div className="overflow-x-auto">
@@ -83,32 +85,38 @@ export function CustomerTable({ customers, onEdit, onDelete, onViewPaymentMethod
                   {formatRelativeTime(customer.createdAt)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEdit(customer)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      {onViewPaymentMethods && (
-                        <DropdownMenuItem onClick={() => onViewPaymentMethods(customer)}>
-                          <CreditCard className="mr-2 h-4 w-4" />
-                          Payment Methods
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onClick={() => onDelete(customer)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {hasActions && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {onEdit && (
+                          <DropdownMenuItem onClick={() => onEdit(customer)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {onViewPaymentMethods && (
+                          <DropdownMenuItem onClick={() => onViewPaymentMethods(customer)}>
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Payment Methods
+                          </DropdownMenuItem>
+                        )}
+                        {onDelete && (
+                          <DropdownMenuItem
+                            onClick={() => onDelete(customer)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </td>
               </tr>
             ))}

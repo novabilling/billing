@@ -12,12 +12,15 @@ enum DatabaseProvider {
   INTERNAL
 }
 
+// An organisation (merchant). People reach it through memberships; `email`
+// is its contact address and `password` is only the pre-membership login,
+// kept so older databases migrate cleanly.
 model Tenant {
   id           String   @id @default(cuid())
   name         String
   slug         String   @unique
-  email        String   @unique
-  password     String
+  email        String
+  password     String?
   apiKey       String   @unique @default(cuid())
   webhookUrl   String?
   webhookSecret String?
@@ -29,11 +32,76 @@ model Tenant {
 
   databaseConnection DatabaseConnection?
   tenantBilling      TenantBilling?
+  ledgerStatus       TenantLedgerStatus?
+  apiUsage           ApiUsageHourly[]
+  dailyMetrics       TenantMetricsDaily[]
   apiKeys            ApiKey[]
   webhookLogs        WebhookLog[]
+  memberships        Membership[]
+  invitations        Invitation[]
 
   @@index([apiKey])
   @@index([slug])
+  @@index([email])
+}
+
+// A person who signs in to the dashboard. One user can belong to several
+// organisations, with a role in each.
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  password    String
+  isActive    Boolean      @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+}
+
+// OWNER: everything, including other owners and deleting the organisation.
+// ADMIN: everything else, including team and payment providers.
+// FINANCE: customers, billing and money movement, including payout approval.
+// DEVELOPER: read everything; API keys and webhooks.
+// VIEWER: read only.
+enum MemberRole {
+  OWNER
+  ADMIN
+  FINANCE
+  DEVELOPER
+  VIEWER
+}
+
+model Membership {
+  id        String     @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      MemberRole
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
+// An invitation to join an organisation; the token is sent once and stored hashed.
+model Invitation {
+  id         String     @id @default(cuid())
+  tenantId   String
+  email      String
+  role       MemberRole
+  tokenHash  String     @unique
+  invitedBy  String
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
   @@index([email])
 }
 
@@ -99,4 +167,88 @@ model WebhookLog {
   @@index([tenantId])
   @@index([event])
   @@index([createdAt])
+}
+
+// Latest ledger sync and integrity result per tenant, written by the ledger
+// runner so the platform console can show ledger health without opening every
+// tenant database.
+model TenantLedgerStatus {
+  id             String    @id @default(cuid())
+  tenantId       String    @unique
+  lastSyncAt     DateTime?
+  lastCheckAt    DateTime?
+  balanced       Boolean   @default(true)
+  // Informational differences (e.g. wallet balance vs ledger) found by the last check.
+  warnings       Int       @default(0)
+  entriesPosted  Int       @default(0)
+  failedPostings Int       @default(0)
+  lastError      String?
+  checks         Json?
+  updatedAt      DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([balanced])
+}
+
+// ============================================================
+// Platform visibility
+// ============================================================
+
+// API request counters per tenant, hour, route and client, flushed from each
+// API process every minute (increments, so several replicas add up).
+model ApiUsageHourly {
+  id          String   @id @default(cuid())
+  tenantId    String
+  hour        DateTime
+  // Route pattern, e.g. "GET /api/invoices/:id"
+  route       String
+  // "session" (dashboard) or "api_key"
+  authMethod  String
+  // Client SDK and version from request headers, or "http" when unknown
+  client      String
+  requests    Int      @default(0)
+  clientErrors Int     @default(0)
+  serverErrors Int     @default(0)
+  totalMs     BigInt   @default(0)
+  maxMs       Int      @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, hour, route, authMethod, client])
+  @@index([hour])
+  @@index([tenantId, hour])
+}
+
+// Daily snapshot of each tenant's usage, built by a job that reads every
+// tenant database. Aggregates only: no customer names, emails or phone numbers.
+model TenantMetricsDaily {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  date                DateTime @db.Date
+  customers           Int      @default(0)
+  activeSubscriptions Int      @default(0)
+  invoicesIssued30d   Int      @default(0)
+  paymentsSucceeded30d Int     @default(0)
+  paymentsFailed30d   Int      @default(0)
+  // { "UGX": "1250000.0000", "USD": "310.5000" }
+  paymentVolume30d    Json?
+  // { "USD": "1200.0000" } — monthly-normalised plan prices of active subscriptions
+  mrr                 Json?
+  // { "flutterwave": { "succeeded": 12, "failed": 1 } }
+  providerStats30d    Json?
+  providersConfigured String[]
+  // Product areas the tenant has data in, e.g. ["subscriptions", "wallets", "usage_metering"]
+  featuresUsed        String[]
+  firstPaymentAt      DateTime?
+  lastPaymentAt       DateTime?
+  // { collections: { count, volume: {UGX: "..."} }, payouts: {...}, transfers: { count },
+  //   stuck: n, awaitingApproval: n } over the last 30 days (open counts are current)
+  moneyMovement30d    Json?
+  createdAt           DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date])
+  @@index([date])
 }

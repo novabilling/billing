@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: dashboard
-          image: ghcr.io/novabilling/dashboard:latest
+          image: ghcr.io/pimabill/dashboard:latest
           ports:
             - containerPort: 4002
           env:

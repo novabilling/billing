@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Post, Delete, Body, Param, Req, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RequirePermission } from '../../common/auth/permissions';
 import { TenantsService } from './tenants.service';
 import { UpdateTenantDto, CreateApiKeyBodyDto } from './dto/update-tenant.dto';
 import { TenantResponse, ApiKeyResponse, TenantUsageResponse } from './dto/tenant-response.dto';
@@ -13,6 +14,7 @@ interface TenantRequest {
 @ApiTags('Tenants')
 @ApiBearerAuth('JWT')
 @UseGuards(TenantGuard)
+@RequirePermission('org.manage')
 @Controller('tenants')
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
@@ -51,6 +53,7 @@ export class TenantsController {
   }
 
   @Post('me/api-keys')
+  @RequirePermission('settings.developer')
   @ApiOperation({
     summary: 'Create a new API key',
     description:
@@ -67,6 +70,7 @@ export class TenantsController {
   }
 
   @Get('me/api-keys')
+  @RequirePermission('settings.developer')
   @ApiOperation({
     summary: 'List API keys',
     description:
@@ -119,6 +123,7 @@ export class TenantsController {
   }
 
   @Delete('me/api-keys/:id')
+  @RequirePermission('settings.developer')
   @ApiOperation({
     summary: 'Delete an API key',
     description:

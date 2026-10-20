@@ -1,4 +1,4 @@
-<h1 align="center">NovaBilling</h1>
+<h1 align="center">PimaBill</h1>
 
 <p align="center">
   <strong>Open-source billing infrastructure for Africa & beyond.</strong><br/>
@@ -6,15 +6,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/novabilling/billing/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-purple" alt="License" /></a>
-  <a href="https://github.com/novabilling/billing/actions"><img src="https://github.com/novabilling/billing/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/pimabill/billing/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-0e6e6b" alt="License" /></a>
+  <a href="https://github.com/pimabill/billing/actions"><img src="https://github.com/pimabill/billing/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
 
 ---
 
-## Why NovaBilling?
+## Why PimaBill?
 
-Most billing platforms assume Stripe-only, USD-only, and card-only. NovaBilling is built for businesses that operate across **multiple currencies, countries, and payment providers** — especially in Africa where mobile money, bank transfers, and regional gateways are the norm.
+Most billing platforms assume Stripe-only, USD-only, and card-only. PimaBill is built for businesses that operate across **multiple currencies, countries, and payment providers** — especially in Africa where mobile money, bank transfers, and regional gateways are the norm.
 
 - **6 payment providers** — Stripe, Paystack, Flutterwave, DPO, PayU, PesaPal
 - **40+ currencies** — USD, EUR, KES, UGX, NGN, GHS, ZAR, TZS, and more
@@ -67,7 +67,7 @@ Most billing platforms assume Stripe-only, USD-only, and card-only. NovaBilling 
 ### Docker (recommended)
 
 ```bash
-git clone https://github.com/novabilling/billing.git
+git clone https://github.com/pimabill/billing.git
 cd billing
 cp .env.example .env
 # Edit .env — set JWT_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY
@@ -86,8 +86,8 @@ docker compose up -d --build
 
 ```bash
 # On your server:
-curl -O https://raw.githubusercontent.com/novabilling/billing/main/docker-compose.prod.yml
-curl -O https://raw.githubusercontent.com/novabilling/billing/main/.env.example
+curl -O https://raw.githubusercontent.com/pimabill/billing/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/pimabill/billing/main/.env.example
 cp .env.example .env
 # Edit .env with real secrets and domain URLs
 
@@ -107,7 +107,7 @@ cd backend
 npm ci
 npx prisma generate --schema=./prisma/schema-central.prisma
 npx prisma generate --schema=./prisma/schema-tenant.prisma
-npx prisma db push --schema=./prisma/schema-central.prisma
+npm run migrate:central   # tenant databases are migrated when created
 npm run start:dev
 
 # Dashboard (separate terminal)
@@ -129,7 +129,7 @@ sdks/          Generated TypeScript and Python SDKs
 
 ## API
 
-NovaBilling exposes a REST API with 107 endpoints across 18 controllers. Interactive API docs are available at `/api/reference` (powered by Scalar).
+PimaBill exposes a REST API with 107 endpoints across 18 controllers. Interactive API docs are available at `/api/reference` (powered by Scalar).
 
 **Authentication**: Register a tenant, get a JWT, and pass it as `Authorization: Bearer <token>`. Alternatively, use the API key from your tenant settings as `X-API-Key: <key>`.
 
@@ -151,9 +151,9 @@ curl -X POST http://localhost:4000/api/customers \
 ### TypeScript
 
 ```typescript
-import { NovaBillingClient } from "novabilling-typescript-sdk";
+import { PimaBillClient } from "pimabill";
 
-const client = new NovaBillingClient({
+const client = new PimaBillClient({
   token: "your-jwt-token",
   environment: "http://localhost:4000/api",
 });
@@ -168,9 +168,9 @@ const customer = await client.customers.create({
 ### Python
 
 ```python
-from novabilling import NovaBilling
+from pimabill import PimaBill
 
-client = NovaBilling(
+client = PimaBill(
     token="your-jwt-token",
     base_url="http://localhost:4000/api",
 )
@@ -210,4 +210,4 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## License
 
-NovaBilling is licensed under [AGPL-3.0](LICENSE).
+PimaBill is licensed under [AGPL-3.0](LICENSE). The generated SDKs are MIT-licensed, so they can be used in any project.

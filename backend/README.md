@@ -1,4 +1,4 @@
-# NovaBilling Backend API
+# PimaBill Backend API
 
 Multi-tenant billing service API built with NestJS, Prisma, and PostgreSQL. Supports subscription management, invoice generation, payment processing via multiple African payment providers, and automated billing cycles.
 

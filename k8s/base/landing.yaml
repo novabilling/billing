@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: landing
-          image: ghcr.io/novabilling/landing:latest
+          image: ghcr.io/pimabill/landing:latest
           ports:
             - containerPort: 4001
           readinessProbe:

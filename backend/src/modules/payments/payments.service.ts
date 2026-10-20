@@ -8,6 +8,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaClient } from '../../generated/prisma-tenant/client';
 import { CentralPrismaService } from '../../database/central-prisma.service';
+import { EncryptionService } from '../../services/encryption.service';
+import { ProviderFactory } from '../../providers/provider.factory';
 import { PdfService } from '../../services/pdf.service';
 import { PaymentQueryDto } from './dto/payment-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
@@ -25,6 +27,7 @@ export class PaymentsService {
 
   constructor(
     private readonly centralPrisma: CentralPrismaService,
+    private readonly encryptionService: EncryptionService,
     @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
     @InjectQueue(WEBHOOK_QUEUE) private readonly webhookQueue: Queue,
   ) {}
@@ -93,27 +96,31 @@ export class PaymentsService {
       throw new NotFoundException('Invoice not found');
     }
 
-    const payment = await db.payment.create({
-      data: {
-        invoiceId: dto.invoiceId,
-        provider: dto.provider,
-        amount: dto.amount,
-        currency: dto.currency.toUpperCase(),
-        status: dto.status,
-        providerTransactionId: dto.providerTransactionId,
-        failureReason: dto.failureReason,
-        ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
-      },
-      include: { invoice: { include: { customer: true } } },
-    });
-
-    // If the payment is SUCCEEDED, also mark the invoice as paid
-    if (dto.status === 'SUCCEEDED' && invoice.status !== 'PAID') {
-      await db.invoice.update({
-        where: { id: dto.invoiceId },
-        data: { status: 'PAID', paidAt: dto.createdAt ? new Date(dto.createdAt) : new Date() },
-      });
-    }
+    const markPaid = dto.status === 'SUCCEEDED' && invoice.status !== 'PAID';
+    // Payment and invoice change together or not at all.
+    const [payment] = await db.$transaction([
+      db.payment.create({
+        data: {
+          invoiceId: dto.invoiceId,
+          provider: dto.provider,
+          amount: dto.amount,
+          currency: dto.currency.toUpperCase(),
+          status: dto.status,
+          providerTransactionId: dto.providerTransactionId,
+          failureReason: dto.failureReason,
+          ...(dto.createdAt && { createdAt: new Date(dto.createdAt) }),
+        },
+        include: { invoice: { include: { customer: true } } },
+      }),
+      ...(markPaid
+        ? [
+            db.invoice.update({
+              where: { id: dto.invoiceId },
+              data: { status: 'PAID', paidAt: dto.createdAt ? new Date(dto.createdAt) : new Date() },
+            }),
+          ]
+        : []),
+    ]);
 
     // Webhook
     await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
@@ -152,6 +159,8 @@ export class PaymentsService {
       throw new BadRequestException('Refund amount exceeds payment amount');
     }
 
+    const providerRefund = await this.refundAtProvider(db, payment, refundAmount, dto.recordOnly);
+
     const updatedPayment = await db.payment.update({
       where: { id },
       data: {
@@ -161,6 +170,8 @@ export class PaymentsService {
           refundAmount,
           refundReason: dto.reason,
           refundedAt: new Date().toISOString(),
+          refundMode: providerRefund ? 'provider' : 'recorded',
+          ...(providerRefund?.refundId && { providerRefundId: providerRefund.refundId }),
         },
       },
       include: { invoice: { include: { customer: true } } },
@@ -197,5 +208,50 @@ export class PaymentsService {
     });
 
     return updatedPayment;
+  }
+
+  /**
+   * Send the refund to the payment provider that took the payment. Returns
+   * null when the refund is only being recorded (manual payments, or an
+   * explicit recordOnly request); throws when the provider refuses, so the
+   * payment is never marked refunded for money that was not returned.
+   */
+  private async refundAtProvider(
+    db: PrismaClient,
+    payment: { provider: string; providerTransactionId: string | null; currency: string },
+    amount: number,
+    recordOnly?: boolean,
+  ): Promise<{ refundId?: string } | null> {
+    if (recordOnly || payment.provider === 'manual') return null;
+
+    const config = await db.paymentProvider.findFirst({
+      where: { providerName: payment.provider, isActive: true },
+    });
+    if (!config) {
+      throw new BadRequestException(
+        `The ${payment.provider} provider is not configured or is inactive, so the refund cannot be sent. ` +
+          'If you already refunded this payment elsewhere, retry with recordOnly: true.',
+      );
+    }
+    if (!payment.providerTransactionId) {
+      throw new BadRequestException(
+        'This payment has no provider transaction id to refund against. ' +
+          'If you already refunded it elsewhere, retry with recordOnly: true.',
+      );
+    }
+
+    const provider = ProviderFactory.create(
+      config.providerName,
+      JSON.parse(this.encryptionService.decrypt(config.credentials)),
+    );
+    const result = await provider.refund({
+      transactionId: payment.providerTransactionId,
+      amount,
+      currency: payment.currency,
+    });
+    if (!result.success) {
+      throw new BadRequestException(`${payment.provider} refused the refund: ${result.error ?? 'unknown error'}`);
+    }
+    return { refundId: result.refundId };
   }
 }

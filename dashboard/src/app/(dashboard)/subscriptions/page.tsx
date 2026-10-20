@@ -32,6 +32,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatDate, getDaysUntil } from "@/lib/utils/date";
 import type { Subscription, Customer, Plan } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 const statusColors = {
   active: "success",
@@ -42,6 +43,7 @@ const statusColors = {
 } as const;
 
 export default function SubscriptionsPage() {
+  const canWrite = useCan("billing.write");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -213,11 +215,16 @@ export default function SubscriptionsPage() {
         <div>
           <h1 className="text-3xl font-bold">Subscriptions</h1>
           <p className="text-muted-foreground">Manage customer subscriptions</p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Subscription
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Subscription
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -341,54 +348,56 @@ export default function SubscriptionsPage() {
                           </p>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {subscription.status === "active" && (
-                                <>
+                          {canWrite && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {subscription.status === "active" && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        openChangePlanDialog(subscription)
+                                      }
+                                    >
+                                      <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                      Change Plan
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handlePause(subscription)}
+                                    >
+                                      Pause
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        openCancelDialog(subscription)
+                                      }
+                                      className="text-red-600"
+                                    >
+                                      Cancel
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {subscription.status === "paused" && (
                                   <DropdownMenuItem
-                                    onClick={() =>
-                                      openChangePlanDialog(subscription)
-                                    }
+                                    onClick={() => handleResume(subscription)}
                                   >
-                                    <ArrowRightLeft className="mr-2 h-4 w-4" />
-                                    Change Plan
+                                    Resume
                                   </DropdownMenuItem>
+                                )}
+                                {subscription.status === "trial" && (
                                   <DropdownMenuItem
-                                    onClick={() => handlePause(subscription)}
-                                  >
-                                    Pause
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      openCancelDialog(subscription)
-                                    }
-                                    className="text-red-600"
+                                    onClick={() => openCancelDialog(subscription)}
                                   >
                                     Cancel
                                   </DropdownMenuItem>
-                                </>
-                              )}
-                              {subscription.status === "paused" && (
-                                <DropdownMenuItem
-                                  onClick={() => handleResume(subscription)}
-                                >
-                                  Resume
-                                </DropdownMenuItem>
-                              )}
-                              {subscription.status === "trial" && (
-                                <DropdownMenuItem
-                                  onClick={() => openCancelDialog(subscription)}
-                                >
-                                  Cancel
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </td>
                       </tr>
                     );

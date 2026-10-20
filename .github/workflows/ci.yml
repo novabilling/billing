@@ -43,6 +43,120 @@ jobs:
         run: npx jest test/unit --no-coverage --forceExit
 
   # ──────────────────────────────────────────────
+  # OpenAPI: the committed spec must match the code (SDKs and docs are built from it)
+  # ──────────────────────────────────────────────
+  openapi-check:
+    name: OpenAPI Spec
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma clients
+        run: |
+          npx prisma generate --schema=./prisma/schema-central.prisma
+          npx prisma generate --schema=./prisma/schema-tenant.prisma
+
+      - name: Export the spec and compare with the committed one
+        run: |
+          npm run -s openapi:export
+          git diff --exit-code -- openapi/openapi.json || {
+            echo "::error::backend/openapi/openapi.json is out of date. Run 'npm run openapi:export' in backend/ and commit the result."
+            exit 1
+          }
+
+      # A breaking API change is allowed only when the PR title marks it as
+      # one (feat!: or fix!:), which makes the next release a major version.
+      - name: Check for breaking API changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          OASDIFF_VERSION: 1.33.0
+          OASDIFF_SHA256: 43a4e328e2d13ba1552d760aa68d2485c75c5621f309f6ff64ae895188345247
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          if ! git show "origin/$BASE_REF:backend/openapi/openapi.json" > "$RUNNER_TEMP/base.json" 2>/dev/null; then
+            echo "No committed spec on $BASE_REF yet; nothing to compare."
+            exit 0
+          fi
+          curl -sSfL -o "$RUNNER_TEMP/oasdiff.tgz" \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          echo "$OASDIFF_SHA256  $RUNNER_TEMP/oasdiff.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/oasdiff.tgz" -C "$RUNNER_TEMP" oasdiff
+          if "$RUNNER_TEMP/oasdiff" breaking "$RUNNER_TEMP/base.json" openapi/openapi.json --fail-on ERR; then
+            exit 0
+          fi
+          if [[ "$PR_TITLE" =~ ^[a-z]+(\([a-z0-9-]+\))?!: ]]; then
+            echo "::warning::Breaking API changes, marked in the PR title; the next release will be a major version."
+            exit 0
+          fi
+          echo "::error::This PR breaks the API for existing clients (see above). Make it backwards compatible, or mark the PR title as breaking (feat!: ...) so the release is a major version."
+          exit 1
+
+  # ──────────────────────────────────────────────
+  # Backend: migrations and integration tests on PostgreSQL
+  # ──────────────────────────────────────────────
+  backend-integration:
+    name: Backend Integration (PostgreSQL)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG: postgresql://postgres:postgres@localhost:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Generate Prisma clients
+        run: |
+          npx prisma generate --schema=./prisma/schema-central.prisma
+          npx prisma generate --schema=./prisma/schema-tenant.prisma
+
+      - name: Create test databases and apply migrations
+        run: |
+          psql "$PG/postgres" -c 'CREATE DATABASE central_test' -c 'CREATE DATABASE tenant_test'
+          CENTRAL_DATABASE_URL=$PG/central_test npx prisma migrate deploy --config prisma.config.ts
+          DATABASE_URL=$PG/tenant_test npx prisma migrate deploy --config prisma.tenant.config.ts
+
+      - name: Integration tests
+        env:
+          CENTRAL_TEST_DATABASE_URL: ${{ env.PG }}/central_test
+          LEDGER_TEST_DATABASE_URL: ${{ env.PG }}/tenant_test
+          MIGRATION_TEST_ADMIN_URL: ${{ env.PG }}/postgres
+        run: npx jest test/integration --runInBand --no-coverage --forceExit
+
+  # ──────────────────────────────────────────────
   # Dashboard: type-check and build
   # ──────────────────────────────────────────────
   dashboard-build:
@@ -163,4 +277,4 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build ${{ matrix.service }}
-        run: docker build -t novabilling/${{ matrix.service }}:ci ${{ matrix.context }}
+        run: docker build -t pimabill/${{ matrix.service }}:ci ${{ matrix.context }}
