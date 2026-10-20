@@ -10,7 +10,7 @@ export class PaymentProviderResponse {
   @ApiProperty({ example: true })
   isActive: boolean;
 
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: 'integer', example: 1 })
   priority: number;
 
   @ApiProperty()

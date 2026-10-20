@@ -78,8 +78,8 @@ export class PortalController {
   })
   @ApiParam({ name: 'externalId', description: 'Customer external ID' })
   @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'PAID', 'FAILED', 'CANCELED'] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated invoices', type: PaginatedInvoiceResponse })
   async getInvoices(
     @TenantDb() db: PrismaClient,
@@ -121,8 +121,8 @@ export class PortalController {
     description: 'Returns a paginated list of all payments made by the customer.',
   })
   @ApiParam({ name: 'externalId', description: 'Customer external ID' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated payments', type: PaginatedPaymentResponse })
   async getPayments(
     @TenantDb() db: PrismaClient,

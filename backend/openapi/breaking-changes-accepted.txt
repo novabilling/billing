@@ -4,16 +4,57 @@
 # real client (the request on the wire is the same), and say why above it.
 
 # Query values were always sent as text; the spec now gives their real types
-# and allowed values, so generated SDKs take numbers and enums.
-GET /api/ledger/entries for the `query` request parameter `limit`, the `type` was changed from `string` to `number`
-GET /api/ledger/entries for the `query` request parameter `page`, the `type` was changed from `string` to `number`
-POST /api/ledger/sync for the `query` request parameter `full`, the `type` was changed from `string` to `boolean`
-GET /api/money/crypto-deposits for the `query` request parameter `limit`, the `type` was changed from `string` to `number`
-GET /api/money/crypto-deposits for the `query` request parameter `page`, the `type` was changed from `string` to `number`
+# (whole numbers for page and limit) and allowed values, so generated SDKs
+# take ints and enums instead of floats and strings.
+GET /api/add-ons for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/add-ons for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/add-ons/applied/list for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/add-ons/applied/list for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/coupons for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/coupons for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/credit-notes for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/credit-notes for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/customers for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/customers for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/events/subscription/{subscriptionId} for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/invoices for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/invoices for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/ledger/entries for the `query` request parameter `limit`, the `type` was changed from `string` to `integer`
+GET /api/ledger/entries for the `query` request parameter `page`, the `type` was changed from `string` to `integer`
+GET /api/money/crypto-deposits for the `query` request parameter `limit`, the `type` was changed from `string` to `integer`
+GET /api/money/crypto-deposits for the `query` request parameter `page`, the `type` was changed from `string` to `integer`
+GET /api/payments for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/payments for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/plan-overrides for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/plan-overrides for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/portal/customers/{externalId}/invoices for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/portal/customers/{externalId}/invoices for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/portal/customers/{externalId}/payments for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/portal/customers/{externalId}/payments for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/subscriptions for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/subscriptions for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/taxes for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/taxes for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/tenants/me/webhook-logs for the `query` request parameter `limit`, the `type` was changed from `string` to `integer`
+GET /api/tenants/me/webhook-logs for the `query` request parameter `page`, the `type` was changed from `string` to `integer`
+GET /api/wallets for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/wallets for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
+GET /api/wallets/{id}/transactions for the `query` request parameter `limit`, the `type` was changed from `number` to `integer`
+GET /api/wallets/{id}/transactions for the `query` request parameter `page`, the `type` was changed from `number` to `integer`
 GET /api/money/crypto-deposits the `query` request parameter `status` was restricted to a list of enum values
-GET /api/tenants/me/webhook-logs for the `query` request parameter `limit`, the `type` was changed from `string` to `number`
-GET /api/tenants/me/webhook-logs for the `query` request parameter `page`, the `type` was changed from `string` to `number`
 GET /api/tenants/me/webhook-logs the `query` request parameter `direction` was restricted to a list of enum values
+POST /api/ledger/sync for the `query` request parameter `full`, the `type` was changed from `string` to `boolean`
+
+# Whole-number fields the API already validates with @IsInt, described as
+# integers instead of numbers.
+PATCH /api/customers/{id} the `netPaymentTerms` request property `type` changed from `number` to `integer`
+PATCH /api/plans/{id} the `invoiceGracePeriodDays` request property `type` changed from `number` to `integer`
+PATCH /api/plans/{id} the `netPaymentTerms` request property `type` changed from `number` to `integer`
+POST /api/customers the `netPaymentTerms` request property `type` changed from `number` to `integer`
+POST /api/payment-methods the `expMonth` request property `type` changed from `number` to `integer`
+POST /api/payment-methods the `expYear` request property `type` changed from `number` to `integer`
+POST /api/plans the `invoiceGracePeriodDays` request property `type` changed from `number` to `integer`
+POST /api/plans the `netPaymentTerms` request property `type` changed from `number` to `integer`
 
 # `amount` was described as an object by mistake; the API has only ever
 # accepted a number or a numeric string.

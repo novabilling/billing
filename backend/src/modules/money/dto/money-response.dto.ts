@@ -175,7 +175,7 @@ export class PaginatedMoneyMovementResponse {
 }
 
 export class CommissionRuleResponse {
-  @ApiPropertyOptional({ example: 150, description: 'Basis points: 150 = 1.5%' })
+  @ApiPropertyOptional({ type: 'integer', example: 150, description: 'Basis points: 150 = 1.5%' })
   rateBps?: number;
 
   @ApiPropertyOptional({

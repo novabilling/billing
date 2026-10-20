@@ -43,8 +43,8 @@ export class WalletsController {
   @ApiOperation({ summary: 'List wallets', description: 'List wallets, optionally filtered by customer or status.' })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: ['ACTIVE', 'TERMINATED'] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of wallets', type: PaginatedWalletResponse })
   async findAll(
     @TenantDb() db: PrismaClient,
@@ -114,8 +114,8 @@ export class WalletsController {
   @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'SETTLED', 'FAILED'] })
   @ApiQuery({ name: 'transactionStatus', required: false, enum: ['PURCHASED', 'GRANTED', 'VOIDED', 'INVOICED'] })
   @ApiQuery({ name: 'transactionType', required: false, enum: ['INBOUND', 'OUTBOUND'] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of transactions', type: PaginatedWalletTransactionResponse })
   async listTransactions(
     @TenantDb() db: PrismaClient,

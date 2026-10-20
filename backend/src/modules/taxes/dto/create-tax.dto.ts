@@ -69,3 +69,9 @@ export class AssignTaxDto {
   @IsNotEmpty()
   taxId: string;
 }
+
+// One request type per endpoint: generated SDKs wrap a shared request body in
+// an extra `body` field, so each assignment gets its own name.
+export class AssignPlanTaxDto extends AssignTaxDto {}
+export class AssignChargeTaxDto extends AssignTaxDto {}
+export class AssignCustomerTaxDto extends AssignTaxDto {}

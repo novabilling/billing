@@ -24,7 +24,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { PlansService } from './plans.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
-import { CreatePlanPriceDto } from './dto/create-plan-price.dto';
+import { AddPlanPriceDto } from './dto/create-plan-price.dto';
 import { PlanResponse, PlanPriceResponse } from './dto/plan-response.dto';
 
 @ApiTags('Plans')
@@ -114,7 +114,7 @@ export class PlansController {
   async addPrice(
     @TenantDb() db: PrismaClient,
     @Param('id') id: string,
-    @Body() dto: CreatePlanPriceDto,
+    @Body() dto: AddPlanPriceDto,
   ) {
     return this.plansService.addPrice(db, id, dto);
   }

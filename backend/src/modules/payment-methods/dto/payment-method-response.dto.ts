@@ -25,10 +25,10 @@ export class PaymentMethodResponse {
   @ApiProperty({ example: 'visa', required: false })
   brand?: string;
 
-  @ApiProperty({ example: 12, required: false })
+  @ApiProperty({ type: 'integer', example: 12, required: false })
   expMonth?: number;
 
-  @ApiProperty({ example: 2028, required: false })
+  @ApiProperty({ type: 'integer', example: 2028, required: false })
   expYear?: number;
 
   @ApiProperty({ example: 'John Doe', required: false })

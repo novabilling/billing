@@ -109,8 +109,8 @@ export class TenantsController {
       'Retrieve inbound (received from payment providers) and outbound (sent to your webhook URL) event logs. Filter by direction to see each type.',
   })
   @ApiQuery({ name: 'direction', required: false, enum: ['inbound', 'outbound'] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 50' })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer', description: 'Default 50' })
   @ApiResponse({ status: 200, description: 'Paginated list of webhook log entries', type: PaginatedWebhookLogResponse })
   async getWebhookLogs(
     @Req() req: TenantRequest,

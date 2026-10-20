@@ -46,7 +46,7 @@ export class CreateCustomerDto {
   @IsOptional()
   metadata?: Record<string, unknown>;
 
-  @ApiProperty({ required: false, example: 30, description: 'Net payment terms in days (overrides org and plan defaults)' })
+  @ApiProperty({ type: 'integer', required: false, example: 30, description: 'Net payment terms in days (overrides org and plan defaults)' })
   @IsInt()
   @Min(0)
   @Max(365)

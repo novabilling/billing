@@ -112,6 +112,25 @@
         ],
         "type": "object"
       },
+      "AddPlanPriceDto": {
+        "properties": {
+          "amount": {
+            "description": "Price amount",
+            "example": 9999.99,
+            "type": "number"
+          },
+          "currency": {
+            "description": "ISO currency code",
+            "example": "NGN",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "amount"
+        ],
+        "type": "object"
+      },
       "ApiKeyResponse": {
         "properties": {
           "createdAt": {
@@ -283,19 +302,7 @@
         ],
         "type": "object"
       },
-      "AssignDepositDto": {
-        "properties": {
-          "collectionId": {
-            "description": "Open USDT on TRON collection this deposit pays",
-            "type": "string"
-          }
-        },
-        "required": [
-          "collectionId"
-        ],
-        "type": "object"
-      },
-      "AssignTaxDto": {
+      "AssignChargeTaxDto": {
         "properties": {
           "taxId": {
             "description": "Tax ID to assign",
@@ -308,11 +315,98 @@
         ],
         "type": "object"
       },
+      "AssignCustomerTaxDto": {
+        "properties": {
+          "taxId": {
+            "description": "Tax ID to assign",
+            "example": "clx1234567890",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxId"
+        ],
+        "type": "object"
+      },
+      "AssignDepositDto": {
+        "properties": {
+          "collectionId": {
+            "description": "Open USDT on TRON collection this deposit pays",
+            "type": "string"
+          }
+        },
+        "required": [
+          "collectionId"
+        ],
+        "type": "object"
+      },
+      "AssignPlanTaxDto": {
+        "properties": {
+          "taxId": {
+            "description": "Tax ID to assign",
+            "example": "clx1234567890",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxId"
+        ],
+        "type": "object"
+      },
+      "BankParty": {
+        "properties": {
+          "accountName": {
+            "example": "Amina Nakato",
+            "type": "string"
+          },
+          "accountNumber": {
+            "example": "0123456789",
+            "type": "string"
+          },
+          "bankCode": {
+            "example": "044",
+            "type": "string"
+          },
+          "bankName": {
+            "example": "Stanbic Bank",
+            "type": "string"
+          },
+          "country": {
+            "example": "UG",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Account holder's phone; some providers (Eversend) require it",
+            "example": "256771234567",
+            "type": "string"
+          },
+          "transferType": {
+            "enum": [
+              "RTGS",
+              "EFT",
+              "TT"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "bank"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "accountNumber",
+          "accountName"
+        ],
+        "type": "object"
+      },
       "BatchEventResponse": {
         "properties": {
           "duplicates": {
             "example": 0,
-            "type": "number"
+            "type": "integer"
           },
           "processed": {
             "example": 5,
@@ -783,7 +877,7 @@
           "rateBps": {
             "description": "Basis points: 150 = 1.5%",
             "example": 150,
-            "type": "number"
+            "type": "integer"
           }
         },
         "type": "object"
@@ -1124,15 +1218,16 @@
             "type": "object"
           },
           "otp": {
-            "description": "Code the payer received after POST /money/providers/{provider}/otp, where the provider asks for one (Eversend)",
-            "example": {
-              "pin": "123456",
-              "pinId": "dg524fhsgfde"
-            },
-            "type": "object"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PayerOtpDto"
+              }
+            ],
+            "description": "Code the payer received after POST /money/providers/{provider}/otp, where the provider asks for one (Eversend)"
           },
           "payer": {
-            "description": "One of: { type: \"mobile_money\", msisdn, network?, name? } · { type: \"bank\", accountNumber, accountName, bankCode?, bankName?, country?, transferType? } · { type: \"paypal\", email } · { type: \"yo_account\", accountNumber, email } · { type: \"hosted\", email, name? } (payer finishes on the provider's checkout page).",
+            "$ref": "#/components/schemas/Party",
+            "description": "Who pays",
             "example": {
               "msisdn": "256771234567",
               "type": "mobile_money"
@@ -1314,7 +1409,7 @@
           "netPaymentTerms": {
             "description": "Net payment terms in days (overrides org and plan defaults)",
             "example": 30,
-            "type": "number"
+            "type": "integer"
           }
         },
         "required": [
@@ -1503,11 +1598,11 @@
           },
           "expMonth": {
             "example": 12,
-            "type": "number"
+            "type": "integer"
           },
           "expYear": {
             "example": 2028,
-            "type": "number"
+            "type": "integer"
           },
           "last4": {
             "example": "4242",
@@ -1566,7 +1661,8 @@
             "type": "object"
           },
           "payee": {
-            "description": "One of: { type: \"mobile_money\", msisdn, network?, name? } · { type: \"bank\", accountNumber, accountName, bankCode?, bankName?, country?, transferType? } · { type: \"paypal\", email } · { type: \"yo_account\", accountNumber, email } · { type: \"hosted\", email, name? } (payer finishes on the provider's checkout page).",
+            "$ref": "#/components/schemas/Party",
+            "description": "Who is paid",
             "example": {
               "msisdn": "256771234567",
               "name": "Amina N",
@@ -1640,7 +1736,7 @@
           "invoiceGracePeriodDays": {
             "description": "Grace period in days before draft invoices are finalized",
             "example": 3,
-            "type": "number"
+            "type": "integer"
           },
           "name": {
             "example": "Premium Monthly",
@@ -1649,7 +1745,7 @@
           "netPaymentTerms": {
             "description": "Net payment terms in days (overrides org default)",
             "example": 30,
-            "type": "number"
+            "type": "integer"
           },
           "prices": {
             "items": {
@@ -2083,6 +2179,37 @@
         ],
         "type": "object"
       },
+      "CryptoParty": {
+        "properties": {
+          "chain": {
+            "description": "tron, ethereum, bsc or bitcoin",
+            "example": "tron",
+            "type": "string"
+          },
+          "email": {
+            "example": "amina@example.com",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "payCurrency": {
+            "description": "Coin to pay in, when it differs from the currency",
+            "example": "USDT",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "crypto"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "CurrencyResponse": {
         "properties": {},
         "type": "object"
@@ -2096,11 +2223,11 @@
           },
           "newCustomers": {
             "example": 12,
-            "type": "number"
+            "type": "integer"
           },
           "totalCustomers": {
             "example": 150,
-            "type": "number"
+            "type": "integer"
           },
           "totalRevenue": {
             "example": "12500.0000",
@@ -2200,6 +2327,28 @@
         "required": [
           "fromValue",
           "perUnitAmount"
+        ],
+        "type": "object"
+      },
+      "HostedParty": {
+        "properties": {
+          "email": {
+            "example": "amina@example.com",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "hosted"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "email"
         ],
         "type": "object"
       },
@@ -2426,7 +2575,7 @@
           "activeSubscriptions": {
             "description": "Number of currently active subscriptions",
             "example": 85,
-            "type": "number"
+            "type": "integer"
           },
           "arpu": {
             "description": "Average Revenue Per User in USD",
@@ -2461,7 +2610,7 @@
           "newCustomers": {
             "description": "New customers created within the selected period",
             "example": 12,
-            "type": "number"
+            "type": "integer"
           },
           "retentionRate": {
             "description": "Retention rate: 100 - churn rate",
@@ -2476,7 +2625,7 @@
           "totalCustomers": {
             "description": "Total registered customers",
             "example": 150,
-            "type": "number"
+            "type": "integer"
           },
           "totalRevenue": {
             "description": "Total all-time revenue from paid invoices in USD",
@@ -2781,7 +2930,7 @@
       "LedgerProjectionResponse": {
         "properties": {
           "duplicates": {
-            "type": "number"
+            "type": "integer"
           },
           "errors": {
             "items": {
@@ -2790,13 +2939,13 @@
             "type": "array"
           },
           "failed": {
-            "type": "number"
+            "type": "integer"
           },
           "posted": {
-            "type": "number"
+            "type": "integer"
           },
           "skipped": {
-            "type": "number"
+            "type": "integer"
           }
         },
         "required": [
@@ -3078,6 +3227,35 @@
         },
         "required": [
           "message"
+        ],
+        "type": "object"
+      },
+      "MobileMoneyParty": {
+        "properties": {
+          "msisdn": {
+            "description": "International format, digits only",
+            "example": "256771234567",
+            "type": "string"
+          },
+          "name": {
+            "example": "Amina Nakato",
+            "type": "string"
+          },
+          "network": {
+            "description": "Detected from the number when left out",
+            "example": "MTN",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "mobile_money"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "msisdn"
         ],
         "type": "object"
       },
@@ -3697,7 +3875,7 @@
             "type": "array"
           },
           "meta": {
-            "type": "object"
+            "$ref": "#/components/schemas/PaginationMeta"
           }
         },
         "required": [
@@ -3818,19 +3996,19 @@
         "properties": {
           "limit": {
             "example": 20,
-            "type": "number"
+            "type": "integer"
           },
           "page": {
             "example": 1,
-            "type": "number"
+            "type": "integer"
           },
           "total": {
             "example": 150,
-            "type": "number"
+            "type": "integer"
           },
           "totalPages": {
             "example": 8,
-            "type": "number"
+            "type": "integer"
           }
         },
         "required": [
@@ -3838,6 +4016,48 @@
           "page",
           "limit",
           "totalPages"
+        ],
+        "type": "object"
+      },
+      "Party": {
+        "description": "Who pays (collections) or who is paid (payouts), told apart by `type`",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MobileMoneyParty"
+          },
+          {
+            "$ref": "#/components/schemas/BankParty"
+          },
+          {
+            "$ref": "#/components/schemas/PaypalParty"
+          },
+          {
+            "$ref": "#/components/schemas/YoAccountParty"
+          },
+          {
+            "$ref": "#/components/schemas/HostedParty"
+          },
+          {
+            "$ref": "#/components/schemas/CryptoParty"
+          }
+        ]
+      },
+      "PayerOtpDto": {
+        "properties": {
+          "pin": {
+            "description": "The code the payer received",
+            "example": "123456",
+            "type": "string"
+          },
+          "pinId": {
+            "description": "pinId returned by POST /money/providers/{provider}/otp",
+            "example": "dg524fhsgfde",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pinId",
+          "pin"
         ],
         "type": "object"
       },
@@ -3857,15 +4077,15 @@
         "properties": {
           "failed": {
             "example": 15,
-            "type": "number"
+            "type": "integer"
           },
           "pending": {
             "example": 5,
-            "type": "number"
+            "type": "integer"
           },
           "succeeded": {
             "example": 180,
-            "type": "number"
+            "type": "integer"
           },
           "successRate": {
             "description": "Success rate percentage",
@@ -3874,7 +4094,7 @@
           },
           "totalPayments": {
             "example": 200,
-            "type": "number"
+            "type": "integer"
           }
         },
         "required": [
@@ -3950,11 +4170,11 @@
           },
           "expMonth": {
             "example": 12,
-            "type": "number"
+            "type": "integer"
           },
           "expYear": {
             "example": 2028,
-            "type": "number"
+            "type": "integer"
           },
           "id": {
             "example": "pm_abc123",
@@ -4017,7 +4237,7 @@
           },
           "priority": {
             "example": 1,
-            "type": "number"
+            "type": "integer"
           },
           "providerName": {
             "example": "paystack",
@@ -4099,6 +4319,28 @@
           "status",
           "createdAt",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "PaypalParty": {
+        "properties": {
+          "email": {
+            "example": "amina@example.com",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "paypal"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "email"
         ],
         "type": "object"
       },
@@ -4548,14 +4790,14 @@
       "PortalSummaryResponse": {
         "properties": {
           "activeSubscriptions": {
-            "type": "number"
+            "type": "integer"
           },
           "currency": {
             "example": "USD",
             "type": "string"
           },
           "pendingInvoices": {
-            "type": "number"
+            "type": "integer"
           },
           "totalSpent": {
             "description": "Sum of paid invoices",
@@ -4828,7 +5070,7 @@
           },
           "invoiceCount": {
             "example": 45,
-            "type": "number"
+            "type": "integer"
           },
           "mrr": {
             "description": "Monthly recurring revenue",
@@ -4961,11 +5203,11 @@
         "properties": {
           "active": {
             "example": 85,
-            "type": "number"
+            "type": "integer"
           },
           "canceled": {
             "example": 5,
-            "type": "number"
+            "type": "integer"
           },
           "churnRate": {
             "description": "Churn rate percentage",
@@ -4974,11 +5216,11 @@
           },
           "newSubscriptions": {
             "example": 12,
-            "type": "number"
+            "type": "integer"
           },
           "paused": {
             "example": 2,
-            "type": "number"
+            "type": "integer"
           },
           "retentionRate": {
             "description": "Retention rate percentage",
@@ -4987,11 +5229,11 @@
           },
           "total": {
             "example": 100,
-            "type": "number"
+            "type": "integer"
           },
           "trialing": {
             "example": 8,
-            "type": "number"
+            "type": "integer"
           }
         },
         "required": [
@@ -5382,7 +5624,7 @@
         "properties": {
           "activeSubscriptions": {
             "example": 15,
-            "type": "number"
+            "type": "integer"
           },
           "customers": {
             "example": 42,
@@ -5625,7 +5867,7 @@
           "netPaymentTerms": {
             "description": "Net payment terms in days (overrides org and plan defaults)",
             "example": 30,
-            "type": "number"
+            "type": "integer"
           }
         },
         "type": "object"
@@ -5688,7 +5930,7 @@
           "invoiceGracePeriodDays": {
             "description": "Grace period in days before draft invoices are finalized",
             "example": 3,
-            "type": "number"
+            "type": "integer"
           },
           "isActive": {
             "type": "boolean"
@@ -5699,7 +5941,7 @@
           "netPaymentTerms": {
             "description": "Net payment terms in days",
             "example": 30,
-            "type": "number"
+            "type": "integer"
           },
           "progressiveBillingThreshold": {
             "description": "Usage cost threshold for progressive billing",
@@ -5876,6 +6118,7 @@
       "VerifyPayeeDto": {
         "properties": {
           "payee": {
+            "$ref": "#/components/schemas/Party",
             "example": {
               "msisdn": "256771234567",
               "type": "mobile_money"
@@ -6088,7 +6331,7 @@
         "properties": {
           "attemptCount": {
             "example": 1,
-            "type": "number"
+            "type": "integer"
           },
           "createdAt": {
             "format": "date-time",
@@ -6124,7 +6367,7 @@
           },
           "statusCode": {
             "example": 200,
-            "type": "number"
+            "type": "integer"
           },
           "success": {
             "type": "boolean"
@@ -6144,6 +6387,33 @@
           "attemptCount",
           "direction",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "YoAccountParty": {
+        "properties": {
+          "accountNumber": {
+            "example": "100123456789",
+            "type": "string"
+          },
+          "email": {
+            "example": "amina@example.com",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "yo_account"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "accountNumber",
+          "email"
         ],
         "type": "object"
       }
@@ -6179,7 +6449,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -6187,7 +6457,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -6279,7 +6549,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -6287,7 +6557,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -7846,7 +8116,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -7854,7 +8124,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -8059,7 +8329,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -8067,7 +8337,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -8376,7 +8646,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -8384,7 +8654,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -8669,7 +8939,7 @@
             "required": false,
             "schema": {
               "default": 1,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -8678,7 +8948,7 @@
             "required": false,
             "schema": {
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -9260,7 +9530,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -9379,7 +9649,7 @@
             "required": false,
             "schema": {
               "default": 1,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -9388,7 +9658,7 @@
             "required": false,
             "schema": {
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -9878,7 +10148,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -9886,7 +10156,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -10062,7 +10332,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -10070,7 +10340,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -10839,7 +11109,7 @@
             "required": false,
             "schema": {
               "default": 1,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -10848,7 +11118,7 @@
             "required": false,
             "schema": {
               "default": 20,
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -11035,7 +11305,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -11043,7 +11313,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -11293,7 +11563,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -11301,7 +11571,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -11717,7 +11987,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePlanPriceDto"
+                "$ref": "#/components/schemas/AddPlanPriceDto"
               }
             }
           },
@@ -11921,7 +12191,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -11929,7 +12199,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -12025,7 +12295,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -12033,7 +12303,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -12138,7 +12408,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -12146,7 +12416,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -12518,7 +12788,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -12526,7 +12796,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -12610,7 +12880,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignTaxDto"
+                "$ref": "#/components/schemas/AssignChargeTaxDto"
               }
             }
           },
@@ -12727,7 +12997,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignTaxDto"
+                "$ref": "#/components/schemas/AssignCustomerTaxDto"
               }
             }
           },
@@ -12847,7 +13117,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignTaxDto"
+                "$ref": "#/components/schemas/AssignPlanTaxDto"
               }
             }
           },
@@ -13516,7 +13786,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -13525,7 +13795,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -13575,7 +13845,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -13583,7 +13853,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -13728,7 +13998,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -13736,7 +14006,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],
@@ -14016,7 +14286,7 @@
             "name": "page",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -14024,7 +14294,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer"
             }
           }
         ],

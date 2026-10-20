@@ -45,8 +45,8 @@ export class LedgerController {
 
   @Get('entries')
   @ApiOperation({ summary: 'List journal entries', description: 'Journal entries with their lines, newest first.' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiQuery({ name: 'type', required: false })
   @ApiQuery({ name: 'sourceType', required: false, description: 'invoice, payment, wallet_transaction, credit_note' })
   @ApiQuery({ name: 'sourceId', required: false })

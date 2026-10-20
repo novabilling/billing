@@ -31,8 +31,8 @@ export class CreditNotesController {
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'invoiceId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: ['DRAFT', 'FINALIZED', 'VOIDED'] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of credit notes', type: PaginatedCreditNoteResponse })
   async findAll(
     @TenantDb() db: PrismaClient,

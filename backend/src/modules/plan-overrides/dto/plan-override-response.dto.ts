@@ -1,3 +1,4 @@
+import { PaginationMeta } from '../../../common/dto/pagination.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PlanOverrideResponse {
@@ -33,11 +34,6 @@ export class PaginatedPlanOverrideResponse {
   @ApiProperty({ type: [PlanOverrideResponse] })
   data: PlanOverrideResponse[];
 
-  @ApiProperty()
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+  @ApiProperty({ type: PaginationMeta })
+  meta: PaginationMeta;
 }

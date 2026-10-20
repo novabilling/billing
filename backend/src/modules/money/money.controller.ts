@@ -12,7 +12,8 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { PARTY_MODELS } from './dto/party.dto';
 import { PrismaClient } from '../../generated/prisma-tenant/client';
 import { Public } from '../../common/decorators/public.decorator';
 import { TenantDb } from '../../common/decorators/tenant-db.decorator';
@@ -60,6 +61,7 @@ const listQuery = (q: Record<string, string | undefined>) => ({
 });
 
 @ApiTags('Collections')
+@ApiExtraModels(...PARTY_MODELS)
 @ApiBearerAuth('api-key')
 @Public()
 @UseGuards(TenantGuard)
@@ -85,8 +87,8 @@ export class CollectionsController {
   @Get()
   @ApiOperation({ summary: 'List collections' })
   @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 20, at most 100' })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer', description: 'Default 20, at most 100' })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'walletId', required: false, description: 'Movements into or out of this wallet' })
   @ApiResponse({ status: 200, description: 'Newest first', type: PaginatedMoneyMovementResponse })
@@ -146,8 +148,8 @@ export class PayoutsController {
   @Get()
   @ApiOperation({ summary: 'List payouts' })
   @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 20, at most 100' })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer', description: 'Default 20, at most 100' })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'walletId', required: false, description: 'Movements into or out of this wallet' })
   @ApiResponse({ status: 200, description: 'Newest first', type: PaginatedMoneyMovementResponse })
@@ -216,8 +218,8 @@ export class TransfersController {
   @Get()
   @ApiOperation({ summary: 'List transfers' })
   @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Default 20, at most 100' })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer', description: 'Default 20, at most 100' })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'walletId', required: false, description: 'Movements into or out of this wallet' })
   @ApiResponse({ status: 200, description: 'Newest first', type: PaginatedMoneyMovementResponse })
@@ -289,8 +291,8 @@ export class MoneySettingsController {
   @Get('crypto-deposits')
   @ApiOperation({ summary: 'Crypto transfers seen arriving at your own wallet address, matched or not' })
   @ApiQuery({ name: 'status', required: false, enum: ['matched', 'unmatched', 'assigned', 'confirming'] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Deposits, newest first', type: PaginatedCryptoDepositResponse })
   cryptoDeposits(
     @TenantDb() db: PrismaClient,

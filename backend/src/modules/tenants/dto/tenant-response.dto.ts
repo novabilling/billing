@@ -66,7 +66,7 @@ export class TenantUsageResponse {
   @ApiProperty({ example: 42 })
   customers: number;
 
-  @ApiProperty({ example: 15 })
+  @ApiProperty({ type: 'integer', example: 15 })
   activeSubscriptions: number;
 
   @ApiProperty({ example: 120 })
@@ -92,13 +92,13 @@ export class WebhookLogResponse {
   @ApiPropertyOptional({ type: 'object', additionalProperties: true, description: "The endpoint's reply, as stored" })
   response?: Record<string, unknown>;
 
-  @ApiPropertyOptional({ example: 200 })
+  @ApiPropertyOptional({ type: 'integer', example: 200 })
   statusCode?: number;
 
   @ApiProperty()
   success: boolean;
 
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: 'integer', example: 1 })
   attemptCount: number;
 
   @ApiProperty({ enum: ['inbound', 'outbound'] })

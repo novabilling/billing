@@ -126,7 +126,7 @@ export class PortalPaymentResponse {
 }
 
 export class PortalSummaryResponse {
-  @ApiProperty()
+  @ApiProperty({ type: 'integer' })
   activeSubscriptions: number;
 
   @ApiProperty({ example: 149.97, description: 'Sum of paid invoices' })
@@ -135,7 +135,7 @@ export class PortalSummaryResponse {
   @ApiProperty({ example: 'USD' })
   currency: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: 'integer' })
   pendingInvoices: number;
 }
 

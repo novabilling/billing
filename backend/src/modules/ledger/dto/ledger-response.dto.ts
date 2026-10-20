@@ -173,16 +173,16 @@ export class LedgerProjectionErrorResponse {
 }
 
 export class LedgerProjectionResponse {
-  @ApiProperty()
+  @ApiProperty({ type: 'integer' })
   posted: number;
 
-  @ApiProperty()
+  @ApiProperty({ type: 'integer' })
   duplicates: number;
 
-  @ApiProperty()
+  @ApiProperty({ type: 'integer' })
   skipped: number;
 
-  @ApiProperty()
+  @ApiProperty({ type: 'integer' })
   failed: number;
 
   @ApiProperty({ type: [LedgerProjectionErrorResponse] })

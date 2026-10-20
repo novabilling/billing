@@ -4,7 +4,7 @@ export class RevenueAnalyticsResponse {
   @ApiProperty({ example: '12500.0000', description: 'Total revenue as decimal string' })
   totalRevenue: string;
 
-  @ApiProperty({ example: 45 })
+  @ApiProperty({ type: 'integer', example: 45 })
   invoiceCount: number;
 
   @ApiProperty({ example: '4200.0000', description: 'Monthly recurring revenue' })
@@ -15,22 +15,22 @@ export class RevenueAnalyticsResponse {
 }
 
 export class SubscriptionAnalyticsResponse {
-  @ApiProperty({ example: 100 })
+  @ApiProperty({ type: 'integer', example: 100 })
   total: number;
 
-  @ApiProperty({ example: 85 })
+  @ApiProperty({ type: 'integer', example: 85 })
   active: number;
 
-  @ApiProperty({ example: 5 })
+  @ApiProperty({ type: 'integer', example: 5 })
   canceled: number;
 
-  @ApiProperty({ example: 8 })
+  @ApiProperty({ type: 'integer', example: 8 })
   trialing: number;
 
-  @ApiProperty({ example: 2 })
+  @ApiProperty({ type: 'integer', example: 2 })
   paused: number;
 
-  @ApiProperty({ example: 12 })
+  @ApiProperty({ type: 'integer', example: 12 })
   newSubscriptions: number;
 
   @ApiProperty({ example: '5.00', description: 'Churn rate percentage' })
@@ -41,10 +41,10 @@ export class SubscriptionAnalyticsResponse {
 }
 
 export class CustomerAnalyticsResponse {
-  @ApiProperty({ example: 150 })
+  @ApiProperty({ type: 'integer', example: 150 })
   totalCustomers: number;
 
-  @ApiProperty({ example: 12 })
+  @ApiProperty({ type: 'integer', example: 12 })
   newCustomers: number;
 
   @ApiProperty({ example: '83.33', description: 'Average revenue per user' })
@@ -55,16 +55,16 @@ export class CustomerAnalyticsResponse {
 }
 
 export class PaymentAnalyticsResponse {
-  @ApiProperty({ example: 200 })
+  @ApiProperty({ type: 'integer', example: 200 })
   totalPayments: number;
 
-  @ApiProperty({ example: 180 })
+  @ApiProperty({ type: 'integer', example: 180 })
   succeeded: number;
 
-  @ApiProperty({ example: 15 })
+  @ApiProperty({ type: 'integer', example: 15 })
   failed: number;
 
-  @ApiProperty({ example: 5 })
+  @ApiProperty({ type: 'integer', example: 5 })
   pending: number;
 
   @ApiProperty({ example: '90.00', description: 'Success rate percentage' })
@@ -129,16 +129,16 @@ export class KpisResponse {
   @ApiProperty({ example: 12500, description: 'Total all-time revenue from paid invoices in USD' })
   totalRevenue: number;
 
-  @ApiProperty({ example: 85, description: 'Number of currently active subscriptions' })
+  @ApiProperty({ type: 'integer', example: 85, description: 'Number of currently active subscriptions' })
   activeSubscriptions: number;
 
   @ApiProperty({ example: 100, description: 'Total number of subscriptions ever created' })
   totalSubscriptions: number;
 
-  @ApiProperty({ example: 150, description: 'Total registered customers' })
+  @ApiProperty({ type: 'integer', example: 150, description: 'Total registered customers' })
   totalCustomers: number;
 
-  @ApiProperty({ example: 12, description: 'New customers created within the selected period' })
+  @ApiProperty({ type: 'integer', example: 12, description: 'New customers created within the selected period' })
   newCustomers: number;
 
   @ApiProperty({ example: '5.00%', description: 'Churn rate: canceled / total subscriptions' })

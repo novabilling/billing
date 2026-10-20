@@ -1,11 +1,7 @@
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PayerOtpDto, partySchema } from './party.dto';
 import { IsBoolean, IsDefined, IsEmail, IsObject, IsOptional, IsString, IsUrl, Length, MaxLength, ValidateNested } from 'class-validator';
-
-const PARTY_DOC =
-  'One of: { type: "mobile_money", msisdn, network?, name? } · { type: "bank", accountNumber, accountName, bankCode?, ' +
-  'bankName?, country?, transferType? } · { type: "paypal", email } · { type: "yo_account", accountNumber, email } · ' +
-  '{ type: "hosted", email, name? } (payer finishes on the provider\'s checkout page).';
 
 export class CreateCollectionDto {
   @ApiProperty({
@@ -21,7 +17,7 @@ export class CreateCollectionDto {
   @Length(3, 3)
   currency!: string;
 
-  @ApiProperty({ example: { type: 'mobile_money', msisdn: '256771234567' }, description: PARTY_DOC })
+  @ApiProperty({ ...partySchema, example: { type: 'mobile_money', msisdn: '256771234567' }, description: 'Who pays' })
   @IsObject()
   payer!: Record<string, unknown>;
 
@@ -58,7 +54,7 @@ export class CreateCollectionDto {
   returnUrl?: string;
 
   @ApiPropertyOptional({
-    example: { pinId: 'dg524fhsgfde', pin: '123456' },
+    type: PayerOtpDto,
     description: 'Code the payer received after POST /money/providers/{provider}/otp, where the provider asks for one (Eversend)',
   })
   @IsOptional()
@@ -81,7 +77,7 @@ export class CreatePayoutDto {
   @Length(3, 3)
   currency!: string;
 
-  @ApiProperty({ example: { type: 'mobile_money', msisdn: '256771234567', name: 'Amina N' }, description: PARTY_DOC })
+  @ApiProperty({ ...partySchema, example: { type: 'mobile_money', msisdn: '256771234567', name: 'Amina N' }, description: 'Who is paid' })
   @IsObject()
   payee!: Record<string, unknown>;
 
@@ -167,7 +163,7 @@ export class UpdateMoneySettingsDto {
 }
 
 export class VerifyPayeeDto {
-  @ApiProperty({ example: { type: 'mobile_money', msisdn: '256771234567' } })
+  @ApiProperty({ ...partySchema, example: { type: 'mobile_money', msisdn: '256771234567' } })
   @IsObject()
   payee!: Record<string, unknown>;
 }
