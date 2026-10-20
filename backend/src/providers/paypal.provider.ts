@@ -37,6 +37,17 @@ interface PayPalWebhookResource {
   purchase_units?: PayPalPurchaseUnit[];
 }
 
+/**
+ * PayPal order and capture ids are short alphanumeric strings. Ids from
+ * webhooks or callers go into request paths, so anything else is refused
+ * rather than allowed to change the URL.
+ */
+export function paypalId(value: string | undefined | null): string {
+  const id = String(value ?? '');
+  if (!/^[A-Za-z0-9-]{1,64}$/.test(id)) throw new Error('Invalid PayPal id');
+  return encodeURIComponent(id);
+}
+
 export class PayPalProvider extends BasePaymentProvider {
   readonly name = 'paypal';
   private readonly logger = new Logger(PayPalProvider.name);
@@ -155,7 +166,7 @@ export class PayPalProvider extends BasePaymentProvider {
       const accessToken = await this.getAccessToken();
 
       // First we need to get the capture ID from the order
-      const orderResponse = await fetch(`${this.baseUrl}/v2/checkout/orders/${params.transactionId}`, {
+      const orderResponse = await fetch(`${this.baseUrl}/v2/checkout/orders/${paypalId(params.transactionId)}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
@@ -180,7 +191,7 @@ export class PayPalProvider extends BasePaymentProvider {
         };
       }
 
-      const refundResponse = await fetch(`${this.baseUrl}/v2/payments/captures/${captureId}/refund`, {
+      const refundResponse = await fetch(`${this.baseUrl}/v2/payments/captures/${paypalId(captureId)}/refund`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -209,7 +220,7 @@ export class PayPalProvider extends BasePaymentProvider {
   async getPaymentStatus(transactionId: string): Promise<PaymentStatusResult> {
     const accessToken = await this.getAccessToken();
 
-    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${transactionId}`, {
+    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${paypalId(transactionId)}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -324,7 +335,7 @@ export class PayPalProvider extends BasePaymentProvider {
 
   private async captureOrder(orderId: string, resource: PayPalWebhookResource): Promise<WebhookData> {
     const accessToken = await this.getAccessToken();
-    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${orderId}/capture`, {
+    const response = await fetch(`${this.baseUrl}/v2/checkout/orders/${paypalId(orderId)}/capture`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,

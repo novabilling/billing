@@ -19,7 +19,7 @@ export function parseParty(raw: unknown, role: 'payer' | 'payee'): Party {
   };
   const email = (field = 'email') => {
     const value = need(field);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new BadRequestException(`${role}.${field} must be an email address`);
+    if (!isEmail(value)) throw new BadRequestException(`${role}.${field} must be an email address`);
     return value;
   };
   const optional = (field: string) => str(p[field]) || undefined;
@@ -78,4 +78,13 @@ export function parseParty(raw: unknown, role: 'payer' | 'payee'): Party {
     default:
       throw new BadRequestException(`${role}.type must be one of mobile_money, bank, paypal, yo_account, hosted, crypto`);
   }
+}
+
+/** local@domain.tld, checked without a backtracking regex so long input cannot stall it. */
+export function isEmail(value: string): boolean {
+  if (value.length > 254 || /\s/.test(value)) return false;
+  const parts = value.split('@');
+  if (parts.length !== 2 || !parts[0]) return false;
+  const labels = parts[1].split('.');
+  return labels.length >= 2 && labels.every(Boolean);
 }

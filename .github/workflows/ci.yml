@@ -48,6 +48,8 @@ jobs:
   backend-integration:
     name: Backend Integration (PostgreSQL)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: backend

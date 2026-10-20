@@ -105,3 +105,13 @@ describe('PayPalProvider.handleWebhook', () => {
     expect(result).toMatchObject({ status: 'succeeded', transactionId: 'ORDER-9', amount: 10, currency: 'EUR' });
   });
 });
+
+describe('paypalId', () => {
+  it('passes PayPal ids and refuses anything that could change the request path', () => {
+    const { paypalId } = jest.requireActual('../../../src/providers/paypal.provider');
+    expect(paypalId('5O190127TN364715T')).toBe('5O190127TN364715T');
+    for (const bad of ['../v1/oauth2/token', 'abc/capture', 'x?y=1', 'a b', '', '@evil.com', undefined]) {
+      expect(() => paypalId(bad)).toThrow('Invalid PayPal id');
+    }
+  });
+});
