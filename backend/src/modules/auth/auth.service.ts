@@ -230,7 +230,8 @@ export class AuthService {
   // --- Helpers ---
 
   private session(user: User, tenant: Tenant, role: MemberRole, organisations?: Awaited<ReturnType<AuthService['organisations']>>) {
-    const { password: _password, ...org } = tenant;
+    // Access and operator state are for the platform; the dashboard reads them from /admin/me.
+    const { password: _password, isPlatformOperator: _operator, accessMode: _mode, accessReason: _reason, accessUrl: _url, ...org } = tenant;
     return {
       // Kept for older dashboards, which read the organisation from here.
       tenant: org,
