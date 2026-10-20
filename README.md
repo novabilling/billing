@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/novabilling/billing/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-purple" alt="License" /></a>
-  <a href="https://github.com/novabilling/billing/actions"><img src="https://github.com/novabilling/billing/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/pimabill/billing/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-0e6e6b" alt="License" /></a>
+  <a href="https://github.com/pimabill/billing/actions"><img src="https://github.com/pimabill/billing/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
 
 ---
@@ -67,7 +67,7 @@ Most billing platforms assume Stripe-only, USD-only, and card-only. PimaBill is 
 ### Docker (recommended)
 
 ```bash
-git clone https://github.com/novabilling/billing.git
+git clone https://github.com/pimabill/billing.git
 cd billing
 cp .env.example .env
 # Edit .env — set JWT_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY
@@ -86,8 +86,8 @@ docker compose up -d --build
 
 ```bash
 # On your server:
-curl -O https://raw.githubusercontent.com/novabilling/billing/main/docker-compose.prod.yml
-curl -O https://raw.githubusercontent.com/novabilling/billing/main/.env.example
+curl -O https://raw.githubusercontent.com/pimabill/billing/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/pimabill/billing/main/.env.example
 cp .env.example .env
 # Edit .env with real secrets and domain URLs
 

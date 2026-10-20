@@ -29,7 +29,7 @@ spec:
               done
       containers:
         - name: worker
-          image: ghcr.io/novabilling/api:latest
+          image: ghcr.io/pimabill/api:latest
           command: ["node", "dist/main"]
           envFrom:
             - configMapRef:

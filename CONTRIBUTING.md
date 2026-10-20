@@ -14,7 +14,7 @@ We need people to deploy PimaBill and put it through its paces:
 - **Test the billing flows** — create customers, plans, subscriptions, generate invoices
 - **Try the payment providers** — Stripe, Paystack, Flutterwave, DPO, PayU, PesaPal
 - **Break things** — edge cases, error handling, unexpected inputs
-- **Report bugs** via [GitHub Issues](https://github.com/novabilling/billing/issues) with steps to reproduce
+- **Report bugs** via [GitHub Issues](https://github.com/pimabill/billing/issues) with steps to reproduce
 
 No code required. Just your time and feedback.
 
@@ -43,7 +43,7 @@ Interested? Open an issue or comment on an existing one to say you're working on
 
 - **Star the repo** — helps with visibility
 - **Share PimaBill** — blog posts, tweets, talks
-- **Answer questions** in [Discussions](https://github.com/novabilling/billing/discussions)
+- **Answer questions** in [Discussions](https://github.com/pimabill/billing/discussions)
 - **Review PRs** — fresh eyes always help
 
 ## Getting Started
@@ -59,7 +59,7 @@ Interested? Open an issue or comment on an existing one to say you're working on
 1. **Clone the repo**
 
    ```bash
-   git clone https://github.com/novabilling/billing.git
+   git clone https://github.com/pimabill/billing.git
    cd billing
    ```
 
@@ -210,7 +210,7 @@ Steps to verify the change works.
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/novabilling/billing/issues) to report bugs or request features.
+Use [GitHub Issues](https://github.com/pimabill/billing/issues) to report bugs or request features.
 
 For bugs, include:
 - Steps to reproduce
@@ -221,7 +221,7 @@ For bugs, include:
 
 ## Questions?
 
-Open a [Discussion](https://github.com/novabilling/billing/discussions) for general questions, ideas, or help with setup.
+Open a [Discussion](https://github.com/pimabill/billing/discussions) for general questions, ideas, or help with setup.
 
 ## License
 

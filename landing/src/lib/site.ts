@@ -14,7 +14,7 @@ export const site = {
     "Open-source subscription and usage billing with mobile money, cards, bank payouts and crypto. MTN MoMo, Airtel Money, Flutterwave, Paystack, Stripe and more. Self-host or use the cloud.",
   ),
   url: env("NEXT_PUBLIC_SITE_URL", "https://pimabill.com").replace(/\/$/, ""),
-  githubUrl: env("NEXT_PUBLIC_GITHUB_URL", "https://github.com/novabilling/billing"),
+  githubUrl: env("NEXT_PUBLIC_GITHUB_URL", "https://github.com/pimabill/billing"),
   dashboardUrl: env("NEXT_PUBLIC_DASHBOARD_URL", "http://localhost:4002"),
   docsUrl: env("NEXT_PUBLIC_DOCS_URL", "http://localhost:4003"),
   apiRefUrl: env("NEXT_PUBLIC_API_REF_URL", "http://localhost:4000/api/reference"),

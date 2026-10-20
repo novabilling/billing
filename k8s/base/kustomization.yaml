@@ -21,11 +21,11 @@ commonLabels:
   app.kubernetes.io/managed-by: kustomize
 
 images:
-  - name: ghcr.io/novabilling/api
+  - name: ghcr.io/pimabill/api
     newTag: latest
-  - name: ghcr.io/novabilling/dashboard
+  - name: ghcr.io/pimabill/dashboard
     newTag: latest
-  - name: ghcr.io/novabilling/landing
+  - name: ghcr.io/pimabill/landing
     newTag: latest
-  - name: ghcr.io/novabilling/docs
+  - name: ghcr.io/pimabill/docs
     newTag: latest

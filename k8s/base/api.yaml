@@ -57,7 +57,7 @@ spec:
               done
       containers:
         - name: api
-          image: ghcr.io/novabilling/api:latest
+          image: ghcr.io/pimabill/api:latest
           ports:
             - containerPort: 4000
           envFrom:
