@@ -1,12 +1,12 @@
 export default defineNuxtConfig({
   app: {
     head: {
-      title: "NovaBilling Documentation",
+      title: "PimaBill Documentation",
       meta: [
         {
           name: "description",
           content:
-            "Documentation for NovaBilling - Borderless Billing Infrastructure for Africa & Beyond",
+            "Documentation for PimaBill - Borderless Billing Infrastructure for Africa & Beyond",
         },
       ],
     },

@@ -6,10 +6,10 @@ import { Capabilities, CollectRequest, MoneyProvider, ProviderOutcome } from '..
  * separate, privately run Managed Payments service opens a Flutterwave
  * subaccount for the tenant and takes payments on it; Flutterwave settles
  * straight to the tenant's bank account and keeps the platform fee as the
- * split, so neither NovaBilling nor the service holds the money.
+ * split, so neither PimaBill nor the service holds the money.
  *
  * This adapter is only the client. The instance's subscription key
- * (MANAGED_PAYMENTS_API_KEY) identifies the NovaBilling deployment; the
+ * (MANAGED_PAYMENTS_API_KEY) identifies the PimaBill deployment; the
  * tenant's managed account id is its stored credential.
  *
  * API (v1, JSON, `Authorization: Bearer <instance key>`):

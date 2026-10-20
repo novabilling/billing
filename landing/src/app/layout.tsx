@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0f19",
+  themeColor: "#10141b",
 };
 
 /** Structured data: who we are, what the software is, and the FAQ shown on the page. */

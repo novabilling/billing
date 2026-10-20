@@ -1,7 +1,7 @@
-# NovaBilling — Nginx reverse proxy configuration
+# PimaBill — Nginx reverse proxy configuration
 #
-# Copy to /etc/nginx/sites-available/novabilling.conf
-# then:  ln -s /etc/nginx/sites-available/novabilling.conf /etc/nginx/sites-enabled/
+# Copy to /etc/nginx/sites-available/pimabill.conf
+# then:  ln -s /etc/nginx/sites-available/pimabill.conf /etc/nginx/sites-enabled/
 #         nginx -t && systemctl reload nginx
 #
 # SSL with Certbot:

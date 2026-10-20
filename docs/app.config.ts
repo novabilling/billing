@@ -5,11 +5,11 @@ const API_REF_URL =
 
 export default defineAppConfig({
   docus: {
-    title: "NovaBilling",
+    title: "PimaBill",
     description: "Borderless Billing Infrastructure for Africa & Beyond",
     navigation: true,
     header: {
-      title: "NovaBilling",
+      title: "PimaBill",
       links: [
         { title: "Home", to: LANDING_URL, target: "_blank" },
         { title: "Dashboard", to: DASHBOARD_URL, target: "_blank" },
@@ -21,7 +21,7 @@ export default defineAppConfig({
       ],
     },
     footer: {
-      credits: "NovaBilling",
+      credits: "PimaBill",
     },
   },
   ui: {

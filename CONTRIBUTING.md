@@ -1,14 +1,14 @@
-# Contributing to NovaBilling
+# Contributing to PimaBill
 
-Thanks for your interest in contributing to NovaBilling! This guide will help you get started.
+Thanks for your interest in contributing to PimaBill! This guide will help you get started.
 
 ## We're Looking for Contributors & Testers
 
-NovaBilling is in its early stages and we need help from the community. Whether you're an experienced developer or just getting started, there's a way to contribute.
+PimaBill is in its early stages and we need help from the community. Whether you're an experienced developer or just getting started, there's a way to contribute.
 
 ### Alpha Testers
 
-We need people to deploy NovaBilling and put it through its paces:
+We need people to deploy PimaBill and put it through its paces:
 
 - **Self-host it** with Docker and report any setup issues
 - **Test the billing flows** — create customers, plans, subscriptions, generate invoices
@@ -42,7 +42,7 @@ Interested? Open an issue or comment on an existing one to say you're working on
 ### Other Ways to Help
 
 - **Star the repo** — helps with visibility
-- **Share NovaBilling** — blog posts, tweets, talks
+- **Share PimaBill** — blog posts, tweets, talks
 - **Answer questions** in [Discussions](https://github.com/novabilling/billing/discussions)
 - **Review PRs** — fresh eyes always help
 
@@ -215,7 +215,7 @@ Use [GitHub Issues](https://github.com/novabilling/billing/issues) to report bug
 For bugs, include:
 - Steps to reproduce
 - Expected vs actual behavior
-- NovaBilling version / commit SHA
+- PimaBill version / commit SHA
 - Docker or bare-metal setup
 - Relevant logs
 
@@ -225,4 +225,4 @@ Open a [Discussion](https://github.com/novabilling/billing/discussions) for gene
 
 ## License
 
-By contributing to NovaBilling, you agree that your contributions will be licensed under the [AGPL-3.0 License](LICENSE).
+By contributing to PimaBill, you agree that your contributions will be licensed under the [AGPL-3.0 License](LICENSE).

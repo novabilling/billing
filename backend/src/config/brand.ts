@@ -15,11 +15,11 @@ export interface Brand {
 }
 
 export function getBrand(): Brand {
-  const name = process.env.BRAND_NAME?.trim() || 'NovaBilling';
+  const name = process.env.BRAND_NAME?.trim() || 'PimaBill';
   return {
     name,
     slug: process.env.BRAND_SLUG?.trim() || 'novabilling',
-    supportEmail: process.env.BRAND_SUPPORT_EMAIL?.trim() || 'noreply@novabilling.com',
-    website: process.env.BRAND_WEBSITE?.trim() || 'https://novabilling.com',
+    supportEmail: process.env.BRAND_SUPPORT_EMAIL?.trim() || 'noreply@pimabill.com',
+    website: process.env.BRAND_WEBSITE?.trim() || 'https://pimabill.com',
   };
 }

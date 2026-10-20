@@ -45,7 +45,7 @@ export class EmailService {
    */
   private async getTransporterForTenant(tenantId?: string): Promise<{ transporter: nodemailer.Transporter | null; from: string }> {
     const systemFromEmail = this.configService.get<string>('EMAIL_FROM', getBrand().supportEmail);
-    const systemFromName = this.configService.get<string>('EMAIL_FROM_NAME', process.env.BRAND_NAME?.trim() || 'Nova Billing');
+    const systemFromName = this.configService.get<string>('EMAIL_FROM_NAME', process.env.BRAND_NAME?.trim() || 'PimaBill');
     const systemFrom = `"${systemFromName}" <${systemFromEmail}>`;
 
     if (!tenantId) {

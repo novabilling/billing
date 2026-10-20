@@ -50,7 +50,7 @@ function Hero() {
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(109,40,217,.12), transparent)",
+            "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(14,110,107,.12), transparent)",
         }}
       />
       <div
@@ -58,7 +58,7 @@ function Hero() {
         className="pointer-events-none absolute right-0 top-0 -z-10 h-[600px] w-[600px] opacity-20"
         style={{
           background:
-            "radial-gradient(circle at 100% 0%, rgba(236,72,153,.15), transparent 60%)",
+            "radial-gradient(circle at 100% 0%, rgba(168,72,31,.15), transparent 60%)",
         }}
       />
 
@@ -71,18 +71,18 @@ function Hero() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              Open source &middot; 40+ currencies &middot; 6 payment providers
+              Open source &middot; Mobile money, cards &amp; crypto &middot; Self-host or cloud
             </div>
 
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl leading-[1.1]">
               Open-source billing{" "}
-              <span className="text-gradient">for the rest of us.</span>
+              <span className="text-gradient">for the way Africa pays.</span>
             </h1>
 
             <p className="mt-6 text-lg leading-relaxed text-[var(--muted)] max-w-xl">
-              Subscriptions, usage-based metering, invoicing, and prepaid
-              wallets. Connect Stripe, Paystack, Flutterwave, DPO, PayU, or
-              PesaPal &mdash; bill customers anywhere with one API.
+              Subscriptions, usage metering and invoices that renew over MTN
+              MoMo, Airtel Money, cards, bank or USDT &mdash; then collect, pay
+              out and reconcile it all on one ledger. Measure it. Bill it. Settle it.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
@@ -90,7 +90,7 @@ function Hero() {
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:bg-[var(--primary-light)] hover:shadow-purple-500/30 hover:gap-3"
+                className="group inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-700/25 transition-all hover:bg-[var(--primary-light)] hover:shadow-teal-700/30 hover:gap-3"
               >
                 <Github className="h-4 w-4" />
                 Star on GitHub{" "}
@@ -123,7 +123,7 @@ function Hero() {
 
           {/* Code window */}
           <div className="relative">
-            <div className="absolute -inset-4 rounded-2xl bg-gradient-to-br from-[var(--primary)]/10 via-transparent to-[var(--accent-pink)]/10 blur-xl" />
+            <div className="absolute -inset-4 rounded-2xl bg-gradient-to-br from-[var(--primary)]/10 via-transparent to-[var(--accent-warm)]/10 blur-xl" />
             <div className="relative rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 glow-card">
               <div className="flex items-center gap-1.5 px-4 py-3">
                 <span className="h-3 w-3 rounded-full bg-red-400/80" />
@@ -134,27 +134,27 @@ function Hero() {
                 </span>
               </div>
               <pre className="overflow-x-auto rounded-b-lg bg-[var(--code-bg)] p-5 text-[13px] leading-6 text-gray-300">
-                <code>{`import { NovaBillingClient } from "novabilling";
+                <code>{`import { PimaBillClient } from "pimabill";
 
-const nova = new NovaBillingClient({
-  token: process.env.NOVA_API_KEY,
+const pima = new PimaBillClient({
+  token: process.env.PIMABILL_API_KEY,
 });
 
 // Track usage events for metered billing
-await nova.events.create({
+await pima.events.create({
   subscriptionId: "sub_abc",
   code: "api_requests",
   properties: { endpoint: "/v1/users" },
 });
 
 // Create a customer with prepaid wallet
-const customer = await nova.customers.create({
+const customer = await pima.customers.create({
   externalId: "user_123",
   email: "amina@kampaltech.ug",
   currency: "UGX",
 });
 
-await nova.wallets.create({
+await pima.wallets.create({
   customerId: customer.id,
   currency: "UGX",
   grantedCredits: 50000,
@@ -205,29 +205,29 @@ function ProviderBar() {
 }
 
 /* ================================================================
-   VALUE PROPOSITION -- WHY NOVABILLING
+   VALUE PROPOSITION -- WHY PIMABILL
    ================================================================ */
-function WhyNova() {
+function WhyPimaBill() {
   const reasons = [
     {
-      icon: Globe,
-      title: "Borderless by default",
+      icon: Smartphone,
+      title: "Built for how customers pay",
       description:
-        "Support 40+ currencies across Africa, Europe, and beyond. Automatic currency matching routes payments to the right provider.",
+        "Renewals designed around mobile money prompts, retries and reminders, beside Stripe, Flutterwave, Paystack, PayPal and USDT or Bitcoin.",
       color: "var(--primary)",
     },
     {
-      icon: Github,
-      title: "Open source, self-hostable",
+      icon: Receipt,
+      title: "One ledger for every movement",
       description:
-        "AGPL-3.0 licensed. Deploy on your own infrastructure with Docker. No vendor lock-in, no per-transaction fees from us.",
+        "Subscriptions, usage, collections, payouts, transfers and platform fees post to a double-entry ledger your finance team can reconcile.",
       color: "var(--accent-blue)",
     },
     {
-      icon: Zap,
-      title: "Ship in minutes, not months",
+      icon: Github,
+      title: "Yours to run",
       description:
-        "Type-safe SDKs for TypeScript and Python. Create customers, plans, subscriptions, and track usage with a few lines of code.",
+        "AGPL-3.0, self-hosted on Postgres, no processor lock-in. Or use the cloud, with managed payments if you have no merchant account yet.",
       color: "var(--accent-orange)",
     },
   ];
@@ -240,12 +240,12 @@ function WhyNova() {
             Why {site.name}
           </p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            The billing platform{" "}
-            <span className="text-gradient">Africa deserves</span>
+            Billing that measures{" "}
+            <span className="text-gradient">every shilling, cent and satoshi</span>
           </h2>
           <p className="mt-4 text-lg text-[var(--muted)]">
-            Inspired by Stripe&apos;s developer experience and Lago&apos;s flexibility
-            &mdash; open source and purpose-built for businesses that operate across borders.
+            A developer-first API, multi-tenant with team roles from day one, and
+            independent of any single payment processor.
           </p>
         </div>
 
@@ -253,7 +253,7 @@ function WhyNova() {
           {reasons.map((r) => (
             <div
               key={r.title}
-              className="group relative rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 transition-all hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-purple-500/5"
+              className="group relative rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 transition-all hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-teal-700/5"
             >
               <div
                 className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl transition-colors"
@@ -378,7 +378,7 @@ function Features() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 transition-all hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-purple-500/5"
+              className="group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 transition-all hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-teal-700/5"
             >
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] transition-colors group-hover:bg-[var(--primary)] group-hover:text-white">
                 <f.icon className="h-5 w-5" />
@@ -604,14 +604,14 @@ docker compose up -d
               </div>
               <pre className="overflow-x-auto rounded-b-lg bg-[var(--code-bg)] p-5 text-[13px] leading-6 text-gray-300">
                 <code>{`// Define a usage metric
-await nova.billableMetrics.create({
+await pima.billableMetrics.create({
   name: "API Requests",
   code: "api_requests",
   aggregationType: "COUNT",
 });
 
 // Attach a graduated charge to a plan
-await nova.charges.create({
+await pima.charges.create({
   planId: plan.id,
   billableMetricId: metric.id,
   chargeModel: "GRADUATED",
@@ -879,13 +879,13 @@ function Pricing() {
               key={tier.name}
               className={`relative flex flex-col rounded-2xl border p-8 transition-all ${
                 tier.highlighted
-                  ? "border-[var(--primary)] shadow-xl shadow-purple-500/10 scale-[1.02]"
+                  ? "border-[var(--primary)] shadow-xl shadow-teal-700/10 scale-[1.02]"
                   : "border-[var(--border)] hover:border-[var(--primary)]/30"
               }`}
             >
               {tier.highlighted && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="rounded-full bg-[var(--primary)] px-4 py-1 text-xs font-semibold text-white shadow-lg shadow-purple-500/25">
+                  <span className="rounded-full bg-[var(--primary)] px-4 py-1 text-xs font-semibold text-white shadow-lg shadow-teal-700/25">
                     Most Popular
                   </span>
                 </div>
@@ -939,16 +939,16 @@ function Pricing() {
    ================================================================ */
 function Comparison() {
   const rows = [
-    { feature: "Open source", nova: true, lago: true, stripe: false },
-    { feature: "Self-hostable", nova: true, lago: true, stripe: false },
-    { feature: "Usage-based billing", nova: true, lago: true, stripe: true },
-    { feature: "Prepaid wallets", nova: true, lago: true, stripe: false },
-    { feature: "African payment providers", nova: true, lago: false, stripe: false },
-    { feature: "Multi-tenant isolation", nova: true, lago: false, stripe: false },
-    { feature: "Graduated & volume pricing", nova: true, lago: true, stripe: true },
-    { feature: "Smart dunning", nova: true, lago: true, stripe: true },
-    { feature: "Free self-hosted tier", nova: true, lago: "Limited", stripe: false },
-    { feature: "Premium self-hosted price", nova: "Free", lago: "$9,000/yr", stripe: "N/A" },
+    { feature: "Open source", pima: true, lago: true, stripe: false },
+    { feature: "Self-hostable", pima: true, lago: true, stripe: false },
+    { feature: "Usage-based billing", pima: true, lago: true, stripe: true },
+    { feature: "Prepaid wallets", pima: true, lago: true, stripe: false },
+    { feature: "African payment providers", pima: true, lago: false, stripe: false },
+    { feature: "Multi-tenant isolation", pima: true, lago: false, stripe: false },
+    { feature: "Graduated & volume pricing", pima: true, lago: true, stripe: true },
+    { feature: "Smart dunning", pima: true, lago: true, stripe: true },
+    { feature: "Free self-hosted tier", pima: true, lago: "Limited", stripe: false },
+    { feature: "Premium self-hosted price", pima: "Free", lago: "$9,000/yr", stripe: "N/A" },
   ];
 
   return (
@@ -977,7 +977,7 @@ function Comparison() {
               {rows.map((row) => (
                 <tr key={row.feature} className="border-b border-[var(--border)]/50">
                   <td className="py-3 pr-4 text-[var(--muted)]">{row.feature}</td>
-                  {[row.nova, row.lago, row.stripe].map((val, i) => (
+                  {[row.pima, row.lago, row.stripe].map((val, i) => (
                     <td key={i} className="px-4 py-3 text-center">
                       {val === true ? (
                         <Check className="mx-auto h-4 w-4 text-[var(--accent-green)]" />
@@ -1017,7 +1017,7 @@ function FinalCTA() {
             href={GITHUB_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:bg-[var(--primary-light)] hover:shadow-purple-500/30 hover:gap-3"
+            className="group inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-teal-700/25 transition-all hover:bg-[var(--primary-light)] hover:shadow-teal-700/30 hover:gap-3"
           >
             <Github className="h-4 w-4" />
             Star on GitHub{" "}
@@ -1139,12 +1139,12 @@ function Footer() {
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
                 <Zap className="h-4 w-4" />
               </span>
-              Nova<span className="text-[var(--primary)]">Billing</span>
+              {site.name.slice(0, site.nameSplit)}
+              <span className="text-[var(--primary)]">{site.name.slice(site.nameSplit)}</span>
             </div>
             <p className="mt-3 max-w-xs text-sm text-[var(--muted)]">
-              Open-source billing infrastructure for SaaS. Subscriptions, usage
-              metering, invoicing, and wallets &mdash; with native support for
-              African and global payment providers.
+              {site.tagline}. Subscriptions, usage metering, invoices, payouts
+              and wallets on one ledger.
             </p>
             <div className="mt-4 flex gap-3">
               <a
@@ -1323,7 +1323,7 @@ export default function Home() {
       <main>
         <Hero />
         <ProviderBar />
-        <WhyNova />
+        <WhyPimaBill />
         <Features />
         <MoneyMovement />
         <ForTeams />

@@ -22,7 +22,7 @@ groups:
           location: local-file-system
           path: ../sdks/typescript
         config:
-          namespaceExport: NovaBilling
+          namespaceExport: PimaBill
 
       - name: fernapi/fern-python-sdk
         version: 4.57.2
@@ -30,8 +30,8 @@ groups:
           location: local-file-system
           path: ../sdks/python
         config:
-          client_class_name: NovaBilling
-          package_name: novabilling
+          client_class_name: PimaBill
+          package_name: pimabill
           timeout_in_seconds: 60
 
       - name: fernapi/fern-php-sdk
@@ -40,7 +40,7 @@ groups:
           location: local-file-system
           path: ../sdks/php
         config:
-          namespace: NovaBilling
+          namespace: PimaBill
 
   tier2:
     generators:
@@ -51,8 +51,8 @@ groups:
           path: ../sdks/go
         config:
           module:
-            path: github.com/novabilling/novabilling-go
-          import_path: github.com/novabilling/novabilling-go
+            path: github.com/pimabill/pimabill-go
+          import_path: github.com/pimabill/pimabill-go
 
       - name: fernapi/fern-java-sdk
         version: 3.36.0
@@ -60,9 +60,9 @@ groups:
           location: local-file-system
           path: ../sdks/java
         config:
-          group_id: com.novabilling
-          artifact_id: novabilling-sdk
-          client_class_name: NovaBillingClient
+          group_id: com.pimabill
+          artifact_id: pimabill-sdk
+          client_class_name: PimaBillClient
 
       - name: fernapi/fern-ruby-sdk
         version: 1.0.0-rc85
@@ -70,8 +70,8 @@ groups:
           location: local-file-system
           path: ../sdks/ruby
         config:
-          client_class_name: NovaBilling
-          module_name: NovaBilling
+          client_class_name: PimaBill
+          module_name: PimaBill
 
       - name: fernapi/fern-csharp-sdk
         version: 2.20.5
@@ -79,5 +79,5 @@ groups:
           location: local-file-system
           path: ../sdks/csharp
         config:
-          namespace: NovaBilling
-          client_class_name: NovaBillingClient
+          namespace: PimaBill
+          client_class_name: PimaBillClient
