@@ -9,8 +9,12 @@
     "preview": "nuxt preview"
   },
   "dependencies": {
-    "docus": "^5.5.0",
     "better-sqlite3": "^12.5.0",
+    "docus": "^5.5.0",
     "nuxt": "^4.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3"
   }
 }
