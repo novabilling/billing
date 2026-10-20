@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/stores/auth";
+import { BrandMark } from "@/components/brand-mark";
 
 /** Another organisation for the signed-in person, who owns it; switches to it once created. */
 export function NewOrganisationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -64,7 +65,7 @@ export function NewOrganisationDialog({ open, onOpenChange }: { open: boolean; o
                 Cancel
               </Button>
               <Button type="submit" disabled={saving || name.trim().length < 2}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
                 Create
               </Button>
             </DialogFooter>

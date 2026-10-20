@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Check, Edit, Trash2, X, Loader2 } from "lucide-react";
+import { Plus, Check, Edit, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import type { Plan } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 const SUPPORTED_CURRENCIES = [
   "USD", "EUR", "GBP", "NGN", "KES", "GHS", "ZAR", "UGX",
@@ -673,7 +674,7 @@ export default function PlansPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               {editingPlan ? "Save Changes" : "Create Plan"}
             </Button>
           </DialogFooter>

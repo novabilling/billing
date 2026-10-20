@@ -1,7 +1,7 @@
 ---
 seo:
-  title: PimaBill Docs - Borderless Billing for Africa & Beyond
-  description: One unified API for subscriptions, invoices, and payments. Connect Stripe, Flutterwave, Paystack, and M-Pesa through a single integration.
+  title: Open-source billing for the way Africa pays
+  description: One unified API for subscriptions, invoices, and payments. Connect Stripe, Flutterwave, Paystack, MTN MoMo, Airtel Money and more through a single integration.
 navigation: false
 ---
 
@@ -10,7 +10,7 @@ navigation: false
 One API. Every payment provider. :br Billing without borders.
 
 #description
-PimaBill is an open billing platform inspired by Stripe's developer experience and Lago's flexibility -- purpose-built for Africa and the world. Connect Stripe, Flutterwave, Paystack, and M-Pesa through a single, unified API. Manage customers, subscriptions, invoices, and payments across 17 currencies.
+PimaBill is open-source billing for the way Africa pays. Connect Stripe, Flutterwave, Paystack, Pesapal, MTN MoMo, Airtel Money and more through one API. Manage customers, subscriptions, invoices, payments, payouts and a double-entry ledger in any currency.
 
 #links
   :::u-button
@@ -73,7 +73,7 @@ Why PimaBill?
     title: 4 Payment Providers
     to: /guides/payment-providers
     ---
-    Stripe for global cards. Flutterwave & Paystack for West Africa. M-Pesa for East Africa. Automatic failover between providers when one is unavailable.
+    Stripe and PayPal for global cards. Flutterwave and Paystack for West Africa. Pesapal, MTN MoMo and Airtel Money for East Africa. USDT and Bitcoin straight to your own wallet.
     ::::
 
     ::::card

@@ -1,33 +1,43 @@
-const LANDING_URL = process.env.LANDING_URL || "http://localhost:4001";
-const DASHBOARD_URL = process.env.DASHBOARD_URL || "http://localhost:4002";
-const API_REF_URL =
-  process.env.API_REF_URL || "http://localhost:4000/api/reference";
+const LANDING_URL = process.env.LANDING_URL || "https://novabilling.one";
+const DASHBOARD_URL = process.env.DASHBOARD_URL || "https://app.novabilling.one";
+const API_REF_URL = process.env.API_REF_URL || "https://api.novabilling.one/api/reference";
+const GITHUB_URL = process.env.GITHUB_URL || "https://github.com/pimabill/billing";
 
 export default defineAppConfig({
   docus: {
+    locale: "en",
+  },
+  seo: {
+    title: "PimaBill Docs",
+    description:
+      "Documentation for PimaBill, open-source billing for the way Africa pays: subscriptions, usage billing, mobile money, payouts, crypto and a double-entry ledger.",
+  },
+  header: {
     title: "PimaBill",
-    description: "Borderless Billing Infrastructure for Africa & Beyond",
-    navigation: true,
-    header: {
+  },
+  github: {
+    url: GITHUB_URL,
+    branch: "main",
+    rootDir: "docs",
+  },
+  socials: {
+    github: GITHUB_URL,
+  },
+  toc: {
+    title: "On this page",
+    bottom: {
       title: "PimaBill",
       links: [
-        { title: "Home", to: LANDING_URL, target: "_blank" },
-        { title: "Dashboard", to: DASHBOARD_URL, target: "_blank" },
-        {
-          title: "API Reference",
-          to: API_REF_URL,
-          target: "_blank",
-        },
+        { icon: "i-lucide-house", label: "Home", to: LANDING_URL, target: "_blank" },
+        { icon: "i-lucide-layout-dashboard", label: "Dashboard", to: DASHBOARD_URL, target: "_blank" },
+        { icon: "i-lucide-braces", label: "API reference", to: API_REF_URL, target: "_blank" },
       ],
-    },
-    footer: {
-      credits: "PimaBill",
     },
   },
   ui: {
     colors: {
-      primary: "purple",
-      neutral: "zinc",
+      primary: "teal",
+      neutral: "slate",
     },
   },
 });

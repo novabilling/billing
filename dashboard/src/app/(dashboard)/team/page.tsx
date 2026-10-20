@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Copy, Loader2, Trash2, UserPlus } from "lucide-react";
+import { Copy, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,7 +116,7 @@ export default function TeamPage() {
                 </Select>
               </div>
               <Button type="submit" disabled={inviting}>
-                {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                {inviting ? <BrandMark animated tight className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
                 Invite
               </Button>
             </form>
@@ -140,7 +140,7 @@ export default function TeamPage() {
         <CardContent className="p-0">
           {members === null ? (
             <div className="flex justify-center p-8">
-              <BrandMark animated className="h-8 w-8 text-primary" />
+              <BrandMark animated tight className="h-8 w-8 text-primary" />
             </div>
           ) : (
             <div className="overflow-x-auto">

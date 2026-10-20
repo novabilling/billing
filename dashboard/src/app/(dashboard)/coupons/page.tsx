@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Tag, Edit, Trash2, X, Loader2, UserPlus } from "lucide-react";
+import { Plus, Tag, Edit, Trash2, X, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import type { Coupon, Customer } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 interface CouponForm {
   code: string;
@@ -661,7 +662,7 @@ export default function CouponsPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               {editingCoupon ? "Save Changes" : "Create Coupon"}
             </Button>
           </DialogFooter>
@@ -702,7 +703,7 @@ export default function CouponsPage() {
               Cancel
             </Button>
             <Button onClick={handleApplyCoupon} disabled={isApplying || !selectedCustomerId}>
-              {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isApplying && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               Apply Coupon
             </Button>
           </DialogFooter>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { brand } from "@/lib/brand";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -43,10 +41,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <Image src={brand.logo} alt={brand.name} width={48} height={48} className="mx-auto h-12 w-12 rounded-lg mb-4" />
+    <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader className="space-y-1 px-0">
           <CardTitle className="text-2xl">Reset your password</CardTitle>
           <CardDescription>
             {submitted
@@ -54,7 +50,7 @@ export default function ForgotPasswordPage() {
               : "Enter your email to receive a password reset link"}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0">
           {submitted ? (
             <div className="space-y-4 text-center">
               <p className="text-sm text-muted-foreground">
@@ -72,7 +68,7 @@ export default function ForgotPasswordPage() {
                 Try another email
               </Button>
               <div className="text-sm text-muted-foreground">
-                <a href="/login" className="text-blue-600 hover:underline">
+                <a href="/login" className="font-medium text-primary hover:underline">
                   Back to sign in
                 </a>
               </div>
@@ -99,14 +95,13 @@ export default function ForgotPasswordPage() {
 
               <div className="mt-6 text-center text-sm text-muted-foreground">
                 Remember your password?{" "}
-                <a href="/login" className="text-blue-600 hover:underline">
+                <a href="/login" className="font-medium text-primary hover:underline">
                   Sign in
                 </a>
               </div>
             </>
           )}
         </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }

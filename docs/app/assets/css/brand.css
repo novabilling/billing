@@ -1,0 +1,17 @@
+/* PimaBill brand on top of Docus: ledger teal and the brand type. */
+:root {
+  --ui-primary: #0e6e6b;
+  --ui-font-family: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+.dark {
+  --ui-primary: #4fc2b9;
+}
+body {
+  font-family: var(--ui-font-family);
+}
+h1,
+h2 {
+  font-family: "Unbounded", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

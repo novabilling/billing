@@ -7,7 +7,6 @@ import {
   Receipt,
   Download,
   ExternalLink,
-  Loader2,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/currency";
 import { brand } from "@/lib/brand";
+import { BrandMark } from "@/components/brand-mark";
 
 interface BillingData {
   customer: {
@@ -152,7 +152,7 @@ export default function CustomerBillingPortal() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+          <BrandMark animated tight className="h-8 w-8 mx-auto text-muted-foreground" />
           <p className="mt-3 text-sm text-muted-foreground">Loading billing information...</p>
         </div>
       </div>
@@ -316,7 +316,7 @@ export default function CustomerBillingPortal() {
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                     >
                       {checkoutLoading === inv.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <BrandMark animated tight className="h-3 w-3" />
                       ) : (
                         <ExternalLink className="h-3 w-3" />
                       )}

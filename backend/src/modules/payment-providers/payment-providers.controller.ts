@@ -47,7 +47,7 @@ export class PaymentProvidersController {
   @ApiOperation({
     summary: 'Configure a payment provider',
     description:
-      'Set up a payment provider (stripe, paystack, flutterwave, or mpesa) with encrypted credentials. ' +
+      'Set up a payment provider (stripe, paystack, flutterwave, pesapal, paypal, payu or dpo) with encrypted credentials. ' +
       'The provider with the lowest priority number is used by default for checkout.',
   })
   @ApiResponse({ status: 201, description: 'Provider configured successfully', type: PaymentProviderResponse })

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Copy, RefreshCw, AlertTriangle, Loader2, Mail, Send } from "lucide-react";
+import { Save, Copy, RefreshCw, AlertTriangle, Mail, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -248,7 +248,7 @@ export default function SettingsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <BrandMark animated className="h-8 w-8 text-primary" />
+        <BrandMark animated tight className="h-8 w-8 text-primary" />
       </div>
     );
   }
@@ -336,7 +336,7 @@ export default function SettingsPage() {
               {canManageOrg && (
                 <Button onClick={handleSaveGeneral} disabled={isSaving}>
                   {isSaving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <BrandMark animated tight className="mr-2 h-4 w-4" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
@@ -455,7 +455,7 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <Button onClick={handleSaveSmtp} disabled={isSaving}>
                     {isSaving ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <BrandMark animated tight className="mr-2 h-4 w-4" />
                     ) : (
                       <Save className="mr-2 h-4 w-4" />
                     )}
@@ -504,7 +504,7 @@ export default function SettingsPage() {
                     variant="outline"
                   >
                     {isTesting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <BrandMark animated tight className="mr-2 h-4 w-4" />
                     ) : (
                       <Send className="mr-2 h-4 w-4" />
                     )}
@@ -617,7 +617,7 @@ export default function SettingsPage() {
               {canManageOrg && (
                 <Button onClick={handleSaveWebhook} disabled={isSaving}>
                   {isSaving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <BrandMark animated tight className="mr-2 h-4 w-4" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}

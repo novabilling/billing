@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Search, Loader2, CreditCard, Trash2 } from "lucide-react";
+import { Plus, Search, CreditCard, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -367,7 +367,7 @@ export default function CustomersPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               {editingCustomer ? "Save Changes" : "Create Customer"}
             </Button>
           </DialogFooter>
@@ -389,7 +389,7 @@ export default function CustomersPage() {
           <div className="py-4 space-y-3">
             {pmLoading ? (
               <div className="flex items-center justify-center py-8">
-                <BrandMark animated className="h-8 w-8 text-primary" />
+                <BrandMark animated tight className="h-8 w-8 text-primary" />
               </div>
             ) : paymentMethods.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">

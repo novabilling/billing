@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Loader2, Copy, ExternalLink, ShieldCheck, Zap } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
 import { brand } from "@/lib/brand";
 import { useAuthStore } from "@/lib/stores/auth";
+import { BrandMark } from "@/components/brand-mark";
 
 const providerInfo: Record<string, { logo: string; color: string }> = {
   stripe: { logo: "💳", color: "bg-indigo-500" },
@@ -536,7 +537,7 @@ export default function ProvidersPage() {
                           disabled={isTesting === provider.id}
                         >
                           {isTesting === provider.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <BrandMark animated tight className="h-4 w-4" />
                           ) : (
                             "Test"
                           )}
@@ -828,7 +829,7 @@ export default function ProvidersPage() {
               Cancel
             </Button>
             <Button onClick={handleSaveConfig} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               Save Configuration
             </Button>
           </DialogFooter>

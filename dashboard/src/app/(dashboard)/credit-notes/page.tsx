@@ -6,7 +6,6 @@ import {
   FileText,
   Check,
   X,
-  Loader2,
   Ban,
   MoreHorizontal,
 } from "lucide-react";
@@ -41,6 +40,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import type { CreditNote } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 const statusVariants = {
   DRAFT: "outline",
@@ -466,7 +466,7 @@ export default function CreditNotesPage() {
             </Button>
             <Button onClick={handleCreate} disabled={isSaving}>
               {isSaving && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <BrandMark animated tight className="mr-2 h-4 w-4" />
               )}
               Create Credit Note
             </Button>

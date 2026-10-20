@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MoreHorizontal, Loader2 } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import type { Payment } from "@/types";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
+import { BrandMark } from "@/components/brand-mark";
 
 const statusColors = {
   succeeded: "success",
@@ -357,7 +358,7 @@ export default function PaymentsPage() {
               onClick={handleRefund}
               disabled={isRefunding}
             >
-              {isRefunding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isRefunding && <BrandMark animated tight className="mr-2 h-4 w-4" />}
               Refund Payment
             </Button>
           </DialogFooter>

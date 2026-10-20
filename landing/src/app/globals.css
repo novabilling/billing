@@ -1,149 +1,95 @@
 @import "tailwindcss";
 
+/* PimaBill brand: mist ground, ink text, ledger teal; barkcloth marks totals only. */
 :root {
-    --bg: #ffffff;
-    --fg: #10141b;
-    --primary: #0e6e6b;
-    --primary-light: #14918c;
-    --primary-dark: #0a5552;
-    --muted: #6b7280;
-    --muted-light: #9ca3af;
-    --border: #e5e7eb;
-    --card: #f9fafb;
-    --card-hover: #f3f4f6;
-    --surface: #ffffff;
-    --accent-green: #10b981;
-    --accent-blue: #3b82f6;
-    --accent-orange: #f59e0b;
-    --accent-warm: #a8481f;
-    --hero-glow: rgba(14, 110, 107, 0.08);
-    --code-bg: #0d1117;
+  --mist: #f1f4f3;
+  --card: #ffffff;
+  --ink: #10141b;
+  --ink-2: #4b5563;
+  --line: #d8dedc;
+  --teal: #0e6e6b;
+  --teal-strong: #0a5552;
+  --teal-soft: #ddefed;
+  --bark: #a8481f;
+  --bark-soft: #f6e4da;
+  --on-teal: #ffffff;
+  --code-bg: #0c1114;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #0c1114;
-        --fg: #e7ecea;
-        --primary: #14918c;
-        --primary-light: #4fc2b9;
-        --primary-dark: #0e6e6b;
-        --muted: #9ca3af;
-        --muted-light: #6b7280;
-        --border: #1e1e24;
-        --card: #0e0e12;
-        --card-hover: #16161d;
-        --surface: #111116;
-        --accent-green: #34d399;
-        --accent-blue: #60a5fa;
-        --accent-orange: #fbbf24;
-        --accent-warm: #e08457;
-        --hero-glow: rgba(79, 194, 185, 0.06);
-        --code-bg: #0a0a0f;
-    }
+  :root {
+    --mist: #0c1114;
+    --card: #141b1f;
+    --ink: #e7ecea;
+    --ink-2: #9ba7a3;
+    --line: #25312f;
+    --teal: #4fc2b9;
+    --teal-strong: #7fd6cf;
+    --teal-soft: #123230;
+    --bark: #e08457;
+    --bark-soft: #3a2015;
+    --on-teal: #0c1114;
+    --code-bg: #080c0e;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-mist: var(--mist);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-line: var(--line);
+  --color-teal: var(--teal);
+  --color-teal-strong: var(--teal-strong);
+  --color-teal-soft: var(--teal-soft);
+  --color-bark: var(--bark);
+  --color-bark-soft: var(--bark-soft);
+  --color-on-teal: var(--on-teal);
+  --color-code: var(--code-bg);
+  --font-display: var(--font-unbounded), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
 
 body {
-    background: var(--bg);
-    color: var(--fg);
+  background: var(--mist);
+  color: var(--ink);
+  font-family: var(--font-sans);
 }
 
-/* Gradient text utility */
-.text-gradient {
-    background: linear-gradient(
-        135deg,
-        var(--primary),
-        var(--primary-light),
-        var(--accent-warm)
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
-/* Glow effects */
-.glow-primary {
-    box-shadow:
-        0 0 80px rgba(14, 110, 107, 0.15),
-        0 0 160px rgba(14, 110, 107, 0.05);
+:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
 }
 
-.glow-card {
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.04),
-        0 8px 24px rgba(0, 0, 0, 0.04);
+/* The mark's second reading climbs, holds, settles. */
+@keyframes pima-climb {
+  0%, 12% { transform: translateY(34px); }
+  45%, 78% { transform: translateY(0); }
+  100% { transform: translateY(34px); }
 }
-
-@media (prefers-color-scheme: dark) {
-    .glow-primary {
-        box-shadow:
-            0 0 80px rgba(139, 92, 246, 0.12),
-            0 0 160px rgba(139, 92, 246, 0.04);
-    }
-    .glow-card {
-        box-shadow:
-            0 1px 3px rgba(0, 0, 0, 0.2),
-            0 8px 24px rgba(0, 0, 0, 0.15);
-    }
+@keyframes pima-tick {
+  0%, 100% { opacity: 0.55; }
+  10% { opacity: 1; }
+  30% { opacity: 0.55; }
 }
-
-/* Animated gradient border */
-@keyframes border-rotate {
-    from {
-        --angle: 0deg;
-    }
-    to {
-        --angle: 360deg;
-    }
-}
-
-/* Smooth scrolling */
-html {
-    scroll-behavior: smooth;
-}
-
-/* Stats counter animation */
-@keyframes count-up {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.animate-count {
-    animation: count-up 0.6s ease-out forwards;
-}
-
-/* Floating animation for decorative elements */
-@keyframes float {
-    0%,
-    100% {
-        transform: translateY(0px);
-    }
-    50% {
-        transform: translateY(-10px);
-    }
-}
-
-.animate-float {
-    animation: float 6s ease-in-out infinite;
-}
-
-/* Staggered fade-in */
-@keyframes fade-in-up {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.animate-fade-in {
-    animation: fade-in-up 0.6s ease-out forwards;
+.pima-animated .pima-high { animation: pima-climb 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.pima-animated .pima-low { animation: pima-tick 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .pima-animated .pima-high { animation: none; }
+  .pima-animated .pima-low { animation-duration: 2.4s; }
 }

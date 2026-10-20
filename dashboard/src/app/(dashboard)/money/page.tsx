@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ExternalLink, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ExternalLink, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCan } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import { CryptoDeposits } from "./crypto-deposits";
 import { ManagedPayments } from "./managed-payments";
 import type { Wallet } from "@/types";
+import { BrandMark } from "@/components/brand-mark";
 
 const AUTO = "auto";
 const ALL = "all";
@@ -709,7 +710,7 @@ function CreateDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={saving || !form.amount}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {saving && <BrandMark animated tight className="mr-2 h-4 w-4" />}
             {type === "collection" ? "Request payment" : type === "payout" ? "Send payout" : "Transfer"}
           </Button>
         </DialogFooter>

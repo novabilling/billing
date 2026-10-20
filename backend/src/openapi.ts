@@ -19,7 +19,7 @@ export function buildOpenApiDocument(app: INestApplication, serverUrl = process.
     .setTitle(`${brand.name} API`)
     .setDescription(
       `${brand.name} is a multi-tenant billing and subscription management API. ` +
-        'It supports African and global payment providers including Stripe, Paystack, Flutterwave, and M-Pesa.\n\n' +
+        'It supports African and global payment providers including Stripe, Paystack, Flutterwave, Pesapal, MTN MoMo and Airtel Money.\n\n' +
         '## Authentication\n' +
         '- **JWT (Bearer)**: Used for tenant management endpoints (`/api/tenants/me/*`, `/api/auth/*`). Obtain tokens via `/api/auth/login`.\n' +
         '- **API Key**: Used for all billing resource endpoints (customers, plans, subscriptions, invoices, payments, analytics). ' +

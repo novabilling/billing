@@ -7,7 +7,7 @@ Multi-tenant billing service API built with NestJS, Prisma, and PostgreSQL. Supp
 - **Multi-Database**: Central DB for tenant management + isolated PostgreSQL databases per tenant
 - **Dynamic Connections**: Runtime Prisma client creation with connection pooling
 - **Queue-Based Processing**: BullMQ with Redis for billing cycles, payments, webhooks, and emails
-- **Payment Providers**: Flutterwave, Paystack, M-Pesa with abstract provider pattern
+- **Payment Providers**: Stripe, Flutterwave, Paystack, Pesapal, PayPal, PayU and DPO for checkout; MTN MoMo, Airtel Money, Yo!, Eversend and crypto for collections and payouts
 
 ## Tech Stack
 
@@ -101,7 +101,7 @@ Authorization: Bearer sk_live_xxxx
 | Payments | `GET /api/payments`, `/refund` |
 | Payment Providers | `CRUD /api/payment-providers`, `/test` |
 | Analytics | `GET /api/analytics/revenue`, `/subscriptions`, `/customers` |
-| Webhooks | `POST /webhooks/flutterwave`, `/paystack`, `/mpesa` |
+| Webhooks | `POST /webhooks/stripe`, `/paystack`, `/flutterwave`, `/paypal`, `/pesapal`, `/payu`, `/dpo` |
 
 ## Scripts
 
