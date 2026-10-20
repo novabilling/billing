@@ -7808,6 +7808,14 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
             "description": "Invoice PDF binary"
           },
           "404": {

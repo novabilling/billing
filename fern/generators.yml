@@ -8,6 +8,16 @@
 # Rust and Swift are not generated: billing calls need the secret API key,
 # so there is no client-side SDK; mobile apps call their own backend.
 api:
+  # API keys and dashboard JWTs are both sent as "Authorization: Bearer ...".
+  # The spec lists that header twice (JWT and api-key), which would make the
+  # SDKs ask for two credentials, so they get one bearer token.
+  auth-schemes:
+    bearer:
+      scheme: bearer
+      token:
+        name: token
+        env: PIMABILL_API_KEY
+  auth: bearer
   specs:
     - openapi: ../backend/openapi/openapi.json
       overrides: overrides.yml
@@ -26,6 +36,8 @@ groups:
           path: ../sdks/typescript
         config:
           namespaceExport: PimaBill
+          # client.customers.get(id), as in the Python SDK and the docs.
+          inlinePathParameters: false
 
       - name: fernapi/fern-python-sdk
         version: 4.57.2
