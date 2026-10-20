@@ -13,3 +13,10 @@ export class CreatePlanPriceDto {
   @Min(0)
   amount: number;
 }
+
+/**
+ * Body of POST /plans/{id}/prices. Its own type because CreatePlanPriceDto is
+ * also nested in CreatePlanDto, and generated SDKs wrap a shared request body
+ * in an extra `body` field.
+ */
+export class AddPlanPriceDto extends CreatePlanPriceDto {}

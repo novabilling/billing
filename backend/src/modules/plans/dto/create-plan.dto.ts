@@ -76,14 +76,14 @@ export class CreatePlanDto {
   @IsOptional()
   prices?: CreatePlanPriceDto[];
 
-  @ApiProperty({ required: false, example: 30, description: 'Net payment terms in days (overrides org default)' })
+  @ApiProperty({ type: 'integer', required: false, example: 30, description: 'Net payment terms in days (overrides org default)' })
   @IsInt()
   @Min(0)
   @Max(365)
   @IsOptional()
   netPaymentTerms?: number;
 
-  @ApiProperty({ required: false, example: 3, description: 'Grace period in days before draft invoices are finalized' })
+  @ApiProperty({ type: 'integer', required: false, example: 3, description: 'Grace period in days before draft invoices are finalized' })
   @IsInt()
   @Min(0)
   @Max(90)

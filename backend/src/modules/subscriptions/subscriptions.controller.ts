@@ -40,8 +40,8 @@ export class SubscriptionsController {
   })
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
   @ApiQuery({ name: 'planId', required: false, description: 'Filter by plan ID' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({
     status: 200,
     description: 'Paginated list of subscriptions with customer and plan details',

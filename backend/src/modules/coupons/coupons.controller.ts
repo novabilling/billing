@@ -29,8 +29,8 @@ export class CouponsController {
   @Get()
   @ApiOperation({ summary: 'List coupons', description: 'Retrieve a paginated list of coupons.' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of coupons', type: PaginatedCouponResponse })
   async findAll(
     @TenantDb() db: PrismaClient,

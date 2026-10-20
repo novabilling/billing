@@ -8,7 +8,14 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RequirePermission } from '../../common/auth/permissions';
 import { RequestWithTenant } from '../../common/interfaces/request-with-tenant.interface';
 import { RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
-import { RegisterResponse, LoginResponse, TokenPairResponse, MessageResponse } from './dto/auth-response.dto';
+import {
+  RegisterResponse,
+  LoginResponse,
+  TokenPairResponse,
+  MessageResponse,
+  SessionResponse,
+  InvitationInfoResponse,
+} from './dto/auth-response.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -46,6 +53,7 @@ export class AuthController {
   @UseGuards(TenantGuard)
   @Get('session')
   @ApiOperation({ summary: 'The signed-in person, their role in this organisation, and the organisations they belong to' })
+  @ApiResponse({ status: 200, description: 'The session', type: SessionResponse })
   session(@Req() req: RequestWithTenant) {
     return this.authService.currentSession(req.tenant.id, this.member(req).userId);
   }
@@ -56,6 +64,7 @@ export class AuthController {
   @RequirePermission('read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Switch to another organisation you belong to; returns new tokens' })
+  @ApiResponse({ status: 200, description: 'Signed in to the other organisation', type: LoginResponse })
   switch(@Req() req: RequestWithTenant, @Body() dto: SwitchOrganisationDto) {
     return this.authService.switchOrganisation(this.member(req).userId, dto.tenantId);
   }
@@ -65,6 +74,7 @@ export class AuthController {
   @Post('organisations')
   @RequirePermission('read')
   @ApiOperation({ summary: 'Create another organisation, owned by you; returns tokens for it' })
+  @ApiResponse({ status: 201, description: 'The new organisation, signed in', type: RegisterResponse })
   createOrganisation(@Req() req: RequestWithTenant, @Body() dto: CreateOrganisationDto) {
     return this.authService.createAnotherOrganisation(this.member(req).userId, dto.companyName);
   }
@@ -72,6 +82,7 @@ export class AuthController {
   @Public()
   @Get('invitations/:token')
   @ApiOperation({ summary: 'What an invitation is for, before accepting it' })
+  @ApiResponse({ status: 200, description: 'The invitation', type: InvitationInfoResponse })
   describeInvitation(@Param('token') token: string) {
     return this.authService.describeInvitation(token);
   }
@@ -80,6 +91,7 @@ export class AuthController {
   @Post('invitations/accept')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Accept an invitation; returns tokens for that organisation' })
+  @ApiResponse({ status: 200, description: 'Joined and signed in', type: LoginResponse })
   acceptInvitation(@Body() dto: AcceptInvitationDto) {
     return this.authService.acceptInvitation(dto.token, dto.password, dto.name);
   }

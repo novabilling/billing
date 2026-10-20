@@ -26,7 +26,7 @@ PimaBill is an open billing platform inspired by Stripe's developer experience a
   ---
   color: neutral
   size: xl
-  to: http://localhost:3000/api/reference
+  to: http://localhost:4000/api/reference
   target: _blank
   variant: outline
   ---
@@ -149,7 +149,7 @@ Install an SDK and create your first subscription.
   import { PimaBillClient } from 'pimabill';
 
   const pima = new PimaBillClient({
-    token: process.env.PIMABILL_API_KEY,
+    token: process.env.PIMABILL_API_KEY!,
   });
 
   // Create a customer
@@ -172,9 +172,9 @@ Install an SDK and create your first subscription.
 
   ```python [Python]
   import os
-  from pimabill import PimaBill
+  from pimabill import PimaBillClient
 
-  pima = PimaBill(token=os.environ["PIMABILL_API_KEY"])
+  pima = PimaBillClient(token=os.environ["PIMABILL_API_KEY"])
 
   # Create a customer
   customer = pima.customers.create(
@@ -196,7 +196,7 @@ Install an SDK and create your first subscription.
 
   ```bash [cURL]
   # Create a customer
-  curl -X POST http://localhost:3000/api/customers \
+  curl -X POST http://localhost:4000/api/customers \
     -H "Authorization: Bearer sk_live_..." \
     -H "Content-Type: application/json" \
     -d '{
@@ -207,7 +207,7 @@ Install an SDK and create your first subscription.
     }'
 
   # Create a subscription
-  curl -X POST http://localhost:3000/api/subscriptions \
+  curl -X POST http://localhost:4000/api/subscriptions \
     -H "Authorization: Bearer sk_live_..." \
     -H "Content-Type: application/json" \
     -d '{

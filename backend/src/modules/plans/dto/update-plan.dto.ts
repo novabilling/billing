@@ -36,14 +36,14 @@ export class UpdatePlanDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty({ required: false, example: 30, description: 'Net payment terms in days' })
+  @ApiProperty({ type: 'integer', required: false, example: 30, description: 'Net payment terms in days' })
   @IsInt()
   @Min(0)
   @Max(365)
   @IsOptional()
   netPaymentTerms?: number;
 
-  @ApiProperty({ required: false, example: 3, description: 'Grace period in days before draft invoices are finalized' })
+  @ApiProperty({ type: 'integer', required: false, example: 3, description: 'Grace period in days before draft invoices are finalized' })
   @IsInt()
   @Min(0)
   @Max(90)

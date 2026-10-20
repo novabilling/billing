@@ -12,7 +12,7 @@ We only patch the latest release. We recommend always running the most recent ve
 
 **Please do not open public GitHub issues for security vulnerabilities.**
 
-Instead, report vulnerabilities privately by emailing **security@novabilling.com**.
+Instead, report vulnerabilities privately by emailing **security@novabilling.one**.
 
 Include:
 - Description of the vulnerability

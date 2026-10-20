@@ -15,7 +15,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantDb } from '../../common/decorators/tenant-db.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { TaxesService } from './taxes.service';
-import { CreateTaxDto, UpdateTaxDto, AssignTaxDto } from './dto/create-tax.dto';
+import { CreateTaxDto, UpdateTaxDto, AssignPlanTaxDto, AssignChargeTaxDto, AssignCustomerTaxDto } from './dto/create-tax.dto';
 import { TaxResponse, PaginatedTaxResponse } from './dto/tax-response.dto';
 
 @ApiTags('Taxes')
@@ -31,8 +31,8 @@ export class TaxesController {
   @Get()
   @ApiOperation({ summary: 'List all taxes' })
   @ApiQuery({ name: 'appliedByDefault', required: false, type: Boolean })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of taxes', type: PaginatedTaxResponse })
   async findAll(
     @TenantDb() db: PrismaClient,
@@ -100,7 +100,7 @@ export class TaxesController {
   async assignToCustomer(
     @TenantDb() db: PrismaClient,
     @Param('customerId') customerId: string,
-    @Body() dto: AssignTaxDto,
+    @Body() dto: AssignCustomerTaxDto,
   ) {
     return this.taxesService.assignToCustomer(db, customerId, dto.taxId);
   }
@@ -136,7 +136,7 @@ export class TaxesController {
   async assignToPlan(
     @TenantDb() db: PrismaClient,
     @Param('planId') planId: string,
-    @Body() dto: AssignTaxDto,
+    @Body() dto: AssignPlanTaxDto,
   ) {
     return this.taxesService.assignToPlan(db, planId, dto.taxId);
   }
@@ -163,7 +163,7 @@ export class TaxesController {
   async assignToCharge(
     @TenantDb() db: PrismaClient,
     @Param('chargeId') chargeId: string,
-    @Body() dto: AssignTaxDto,
+    @Body() dto: AssignChargeTaxDto,
   ) {
     return this.taxesService.assignToCharge(db, chargeId, dto.taxId);
   }

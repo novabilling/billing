@@ -14,6 +14,7 @@ import { TeamService } from '../../src/modules/team/team.service';
 import { TenantGuard } from '../../src/common/guards/tenant.guard';
 import { PERMISSION_KEY } from '../../src/common/auth/permissions';
 import { CentralPrismaService } from '../../src/database/central-prisma.service';
+import { expectResponseShape } from '../helpers/openapi-schema';
 
 const url = process.env.CENTRAL_TEST_DATABASE_URL;
 const describeDb = url ? describe : describe.skip;
@@ -162,5 +163,16 @@ describeDb('team access (postgres)', () => {
     await expect(auth.acceptInvitation(token, 'not-bobs-password')).rejects.toBeInstanceOf(UnauthorizedException);
     expect(await auth.acceptInvitation(token, 'bob-pass-123')).toMatchObject({ role: 'VIEWER', tenant: { id: second.id } });
   });
-});
 
+  it('returns what the API spec describes', async () => {
+    const owner = { userId: alice.user.id, email: alice.user.email, name: 'Alice', role: 'OWNER' as const };
+    expectResponseShape(alice, 'RegisterResponse');
+    expectResponseShape(await auth.login({ email: 'alice@example.com', password: 'alice-pass-1' }), 'LoginResponse');
+    expectResponseShape(await auth.currentSession(alice.tenant.id, alice.user.id), 'SessionResponse');
+    const invite = await team.invite({ id: alice.tenant.id, name: 'Rapcio' }, owner, 'dana@example.com', 'DEVELOPER', 'https://app.example.com');
+    expectResponseShape(invite, 'SentInvitationResponse');
+    expectResponseShape(await auth.describeInvitation(invite.acceptUrl.split('/invite/')[1]), 'InvitationInfoResponse');
+    for (const i of await team.invitations(alice.tenant.id)) expectResponseShape(i, 'InvitationResponse');
+    for (const m of await team.members(alice.tenant.id)) expectResponseShape(m, 'TeamMemberResponse');
+  });
+});

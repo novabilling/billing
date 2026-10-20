@@ -39,6 +39,6 @@ export class BatchEventResponse {
   @ApiProperty({ example: 5 })
   processed: number;
 
-  @ApiProperty({ example: 0 })
+  @ApiProperty({ type: 'integer', example: 0 })
   duplicates: number;
 }

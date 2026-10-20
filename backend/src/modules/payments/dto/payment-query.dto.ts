@@ -28,14 +28,14 @@ export class PaymentQueryDto {
   @IsDateString()
   dateTo?: string;
 
-  @ApiProperty({ required: false, default: 1 })
+  @ApiProperty({ required: false, type: 'integer', default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
-  @ApiProperty({ required: false, default: 20 })
+  @ApiProperty({ required: false, type: 'integer', default: 20 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

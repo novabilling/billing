@@ -38,14 +38,14 @@ export class CreatePaymentMethodDto {
   @IsOptional()
   brand?: string;
 
-  @ApiProperty({ example: 12, required: false })
+  @ApiProperty({ type: 'integer', example: 12, required: false })
   @IsInt()
   @Min(1)
   @Max(12)
   @IsOptional()
   expMonth?: number;
 
-  @ApiProperty({ example: 2028, required: false })
+  @ApiProperty({ type: 'integer', example: 2028, required: false })
   @IsInt()
   @Min(2024)
   @IsOptional()

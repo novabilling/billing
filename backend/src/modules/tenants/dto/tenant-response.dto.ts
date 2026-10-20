@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationMeta } from '../../../common/dto/pagination.dto';
 
 export class TenantResponse {
   @ApiProperty({ example: 'clx1234567890' })
@@ -65,7 +66,7 @@ export class TenantUsageResponse {
   @ApiProperty({ example: 42 })
   customers: number;
 
-  @ApiProperty({ example: 15 })
+  @ApiProperty({ type: 'integer', example: 15 })
   activeSubscriptions: number;
 
   @ApiProperty({ example: 120 })
@@ -73,4 +74,47 @@ export class TenantUsageResponse {
 
   @ApiProperty({ example: '125000.00' })
   totalRevenue: string;
+}
+
+export class WebhookLogResponse {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ example: 'invoice.paid' })
+  event: string;
+
+  @ApiProperty({ example: 'https://example.com/webhooks', description: 'Your endpoint, or inbound:<provider>' })
+  url: string;
+
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  payload: Record<string, unknown>;
+
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true, description: "The endpoint's reply, as stored" })
+  response?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ type: 'integer', example: 200 })
+  statusCode?: number;
+
+  @ApiProperty()
+  success: boolean;
+
+  @ApiProperty({ type: 'integer', example: 1 })
+  attemptCount: number;
+
+  @ApiProperty({ enum: ['inbound', 'outbound'] })
+  direction: string;
+
+  @ApiPropertyOptional({ example: 'stripe', description: 'Inbound only: the provider that called us' })
+  provider?: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt: string;
+}
+
+export class PaginatedWebhookLogResponse {
+  @ApiProperty({ type: [WebhookLogResponse] })
+  data: WebhookLogResponse[];
+
+  @ApiProperty({ type: PaginationMeta })
+  meta: PaginationMeta;
 }

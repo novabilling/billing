@@ -28,8 +28,8 @@ export class AddOnsController {
 
   @Get()
   @ApiOperation({ summary: 'List add-ons', description: 'Retrieve a paginated list of add-ons with prices.' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of add-ons', type: PaginatedAddOnResponse })
   async findAll(
     @TenantDb() db: PrismaClient,
@@ -93,8 +93,8 @@ export class AddOnsController {
   @ApiOperation({ summary: 'List applied add-ons', description: 'View one-time charges applied to customers.' })
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'invoiced', required: false, type: Boolean })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of applied add-ons', type: [AppliedAddOnResponse] })
   async findApplied(
     @TenantDb() db: PrismaClient,

@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import { getBrand } from './config/brand';
+import { PARTY_SCHEMA, PARTY_SCHEMA_NAME } from './modules/money/dto/party.dto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { version } = require('../package.json') as { version: string };
 
@@ -43,5 +44,7 @@ export function buildOpenApiDocument(app: INestApplication, serverUrl = process.
     .addTag('Webhooks', 'Webhook endpoints')
     .addTag('Analytics', 'Analytics and reporting')
     .build();
-  return SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config);
+  document.components = { ...document.components, schemas: { ...document.components?.schemas, [PARTY_SCHEMA_NAME]: PARTY_SCHEMA } };
+  return document;
 }

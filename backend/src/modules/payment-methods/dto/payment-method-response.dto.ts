@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PaymentMethodResponse {
   @ApiProperty({ example: 'pm_abc123' })
@@ -25,10 +25,10 @@ export class PaymentMethodResponse {
   @ApiProperty({ example: 'visa', required: false })
   brand?: string;
 
-  @ApiProperty({ example: 12, required: false })
+  @ApiProperty({ type: 'integer', example: 12, required: false })
   expMonth?: number;
 
-  @ApiProperty({ example: 2028, required: false })
+  @ApiProperty({ type: 'integer', example: 2028, required: false })
   expYear?: number;
 
   @ApiProperty({ example: 'John Doe', required: false })
@@ -36,6 +36,9 @@ export class PaymentMethodResponse {
 
   @ApiProperty({ example: 'US', required: false })
   country?: string;
+
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
+  metadata?: Record<string, unknown>;
 
   @ApiProperty({ example: '2024-01-15T10:30:00Z' })
   createdAt: Date;

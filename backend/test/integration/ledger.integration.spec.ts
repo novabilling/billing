@@ -10,6 +10,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../src/generated/prisma-tenant/client';
 import { LedgerService } from '../../src/modules/ledger/ledger.service';
 import { LedgerProjectorService } from '../../src/modules/ledger/ledger-projector.service';
+import { expectResponseShape } from '../helpers/openapi-schema';
 import { Accounts } from '../../src/modules/ledger/chart-of-accounts';
 import { formatScaled } from '../../src/modules/ledger/ledger.money';
 
@@ -94,6 +95,17 @@ describeDb('ledger (postgres)', () => {
     const health = await ledger.checkHealth(db);
     expect(health.balanced).toBe(true);
     expect(health.checks.find((c) => c.name === 'wallet_balances_match_ledger')?.ok).toBe(true);
+  });
+
+  it('returns what the API spec describes', async () => {
+    await invoice('inv_1', '50000', 'PAID');
+    await db.payment.create({
+      data: { id: 'pay_1', invoiceId: 'inv_1', provider: 'stripe', amount: '50000', currency: 'UGX', status: 'SUCCEEDED', createdAt: past, updatedAt: past },
+    });
+    expectResponseShape(await projector.project(db), 'LedgerProjectionResponse');
+    for (const account of await ledger.listAccounts(db, {})) expectResponseShape(account, 'LedgerAccountResponse');
+    expectResponseShape(await ledger.listEntries(db, {}), 'PaginatedLedgerEntryResponse');
+    expectResponseShape(await ledger.checkHealth(db), 'LedgerHealthResponse');
   });
 
   it('is idempotent across repeated and from-scratch runs', async () => {

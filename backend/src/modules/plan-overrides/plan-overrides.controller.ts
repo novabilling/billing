@@ -30,8 +30,8 @@ export class PlanOverridesController {
   @ApiOperation({ summary: 'List plan overrides', description: 'List all plan overrides, optionally filtered by customerId or planId' })
   @ApiQuery({ name: 'customerId', required: false, type: String })
   @ApiQuery({ name: 'planId', required: false, type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
+  @ApiQuery({ name: 'limit', required: false, type: 'integer' })
   @ApiResponse({ status: 200, description: 'Paginated list of plan overrides', type: PaginatedPlanOverrideResponse })
   async findAll(
     @TenantDb() db: PrismaClient,

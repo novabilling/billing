@@ -216,7 +216,11 @@ export class InvoicesController {
       'Returns the PDF binary for the invoice. If a PDF has not been generated yet, it will be created on-demand.',
   })
   @ApiParam({ name: 'id', description: 'Invoice ID' })
-  @ApiResponse({ status: 200, description: 'Invoice PDF binary' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice PDF binary',
+    content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } },
+  })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   async getPdf(
     @TenantDb() db: PrismaClient,

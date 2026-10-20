@@ -91,7 +91,7 @@ export class EventsController {
   @ApiQuery({ name: 'code', required: false, description: 'Filter by metric code' })
   @ApiQuery({ name: 'from', required: false, description: 'Start date (ISO 8601)' })
   @ApiQuery({ name: 'to', required: false, description: 'End date (ISO 8601)' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: 'integer' })
   @ApiQuery({ name: 'perPage', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'List of events for the subscription', type: PaginatedUsageEventResponse })
   async findBySubscription(

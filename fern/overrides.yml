@@ -1,3 +1,11 @@
+# SDKs default to the hosted API; pass baseUrl / base_url (or the Local
+# environment) for a self-hosted or local server.
+servers:
+  - url: https://api.novabilling.one
+    x-fern-server-name: Production
+  - url: http://localhost:4000
+    x-fern-server-name: Local
+
 paths:
   # ==================== Auth ====================
   /api/auth/login:
@@ -20,6 +28,26 @@ paths:
     post:
       x-fern-sdk-group-name: auth
       x-fern-sdk-method-name: resetPassword
+  /api/auth/session:
+    get:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: getSession
+  /api/auth/switch:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: switchOrganisation
+  /api/auth/organisations:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: createOrganisation
+  /api/auth/invitations/{token}:
+    get:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: getInvitation
+  /api/auth/invitations/accept:
+    post:
+      x-fern-sdk-group-name: auth
+      x-fern-sdk-method-name: acceptInvitation
 
   # ==================== Tenants ====================
   /api/tenants/me:
@@ -37,6 +65,10 @@ paths:
     post:
       x-fern-sdk-group-name: tenants
       x-fern-sdk-method-name: testSmtp
+  /api/tenants/me/webhook-logs:
+    get:
+      x-fern-sdk-group-name: tenants
+      x-fern-sdk-method-name: getWebhookLogs
 
   # ==================== API Keys ====================
   /api/tenants/me/api-keys:
@@ -91,9 +123,6 @@ paths:
     get:
       x-fern-sdk-group-name: customers
       x-fern-sdk-method-name: getPaymentMethods
-    post:
-      x-fern-sdk-group-name: customers
-      x-fern-sdk-method-name: addPaymentMethod
   /api/customers/{id}/payment-methods/{methodId}:
     delete:
       x-fern-sdk-group-name: customers
@@ -192,9 +221,6 @@ paths:
 
   # ==================== Events ====================
   /api/events:
-    get:
-      x-fern-sdk-group-name: events
-      x-fern-sdk-method-name: list
     post:
       x-fern-sdk-group-name: events
       x-fern-sdk-method-name: create
@@ -350,6 +376,9 @@ paths:
     get:
       x-fern-sdk-group-name: creditNotes
       x-fern-sdk-method-name: get
+    patch:
+      x-fern-sdk-group-name: creditNotes
+      x-fern-sdk-method-name: update
   /api/credit-notes/{id}/finalize:
     post:
       x-fern-sdk-group-name: creditNotes
@@ -364,6 +393,9 @@ paths:
     get:
       x-fern-sdk-group-name: payments
       x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: payments
+      x-fern-sdk-method-name: create
   /api/payments/{id}:
     get:
       x-fern-sdk-group-name: payments
@@ -375,9 +407,6 @@ paths:
 
   # ==================== Payment Methods ====================
   /api/payment-methods:
-    get:
-      x-fern-sdk-group-name: paymentMethods
-      x-fern-sdk-method-name: list
     post:
       x-fern-sdk-group-name: paymentMethods
       x-fern-sdk-method-name: create
@@ -439,6 +468,9 @@ paths:
       x-fern-sdk-group-name: taxes
       x-fern-sdk-method-name: delete
   /api/taxes/plan/{planId}:
+    get:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: listForPlan
     post:
       x-fern-sdk-group-name: taxes
       x-fern-sdk-method-name: assignToPlan
@@ -455,6 +487,9 @@ paths:
       x-fern-sdk-group-name: taxes
       x-fern-sdk-method-name: removeFromCharge
   /api/taxes/customer/{customerId}:
+    get:
+      x-fern-sdk-group-name: taxes
+      x-fern-sdk-method-name: listForCustomer
     post:
       x-fern-sdk-group-name: taxes
       x-fern-sdk-method-name: assignToCustomer
@@ -523,6 +558,10 @@ paths:
     get:
       x-fern-sdk-group-name: analytics
       x-fern-sdk-method-name: getChurnCohorts
+  /api/analytics/kpis:
+    get:
+      x-fern-sdk-group-name: analytics
+      x-fern-sdk-method-name: getKpis
 
   # ==================== Customer Portal ====================
   /api/portal/customers/{externalId}/billing:
@@ -545,3 +584,172 @@ paths:
     post:
       x-fern-sdk-group-name: portal
       x-fern-sdk-method-name: createCheckout
+
+  # ==================== Collections ====================
+  /api/collections:
+    get:
+      x-fern-sdk-group-name: collections
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: collections
+      x-fern-sdk-method-name: create
+  /api/collections/{id}:
+    get:
+      x-fern-sdk-group-name: collections
+      x-fern-sdk-method-name: get
+  /api/collections/{id}/cancel:
+    post:
+      x-fern-sdk-group-name: collections
+      x-fern-sdk-method-name: cancel
+  /api/collections/{id}/refresh:
+    post:
+      x-fern-sdk-group-name: collections
+      x-fern-sdk-method-name: refresh
+
+  # ==================== Payouts ====================
+  /api/payouts:
+    get:
+      x-fern-sdk-group-name: payouts
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: payouts
+      x-fern-sdk-method-name: create
+  /api/payouts/{id}:
+    get:
+      x-fern-sdk-group-name: payouts
+      x-fern-sdk-method-name: get
+  /api/payouts/{id}/approve:
+    post:
+      x-fern-sdk-group-name: payouts
+      x-fern-sdk-method-name: approve
+  /api/payouts/{id}/cancel:
+    post:
+      x-fern-sdk-group-name: payouts
+      x-fern-sdk-method-name: cancel
+  /api/payouts/{id}/refresh:
+    post:
+      x-fern-sdk-group-name: payouts
+      x-fern-sdk-method-name: refresh
+
+  # ==================== Transfers ====================
+  /api/transfers:
+    get:
+      x-fern-sdk-group-name: transfers
+      x-fern-sdk-method-name: list
+    post:
+      x-fern-sdk-group-name: transfers
+      x-fern-sdk-method-name: create
+  /api/transfers/{id}:
+    get:
+      x-fern-sdk-group-name: transfers
+      x-fern-sdk-method-name: get
+
+  # ==================== Money settings ====================
+  /api/money/settings:
+    patch:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: updateSettings
+  /api/money/capabilities:
+    get:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: getCapabilities
+  /api/money/providers/{provider}/balance:
+    get:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: getProviderBalance
+  /api/money/providers/{provider}/otp:
+    post:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: requestOtp
+  /api/money/providers/{provider}/verify-payee:
+    post:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: verifyPayee
+  /api/money/managed:
+    get:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: getManagedStatus
+    post:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: openManaged
+  /api/money/crypto-deposits:
+    get:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: listCryptoDeposits
+  /api/money/crypto-deposits/{id}/assign:
+    post:
+      x-fern-sdk-group-name: money
+      x-fern-sdk-method-name: assignCryptoDeposit
+
+  # ==================== Ledger ====================
+  /api/ledger/accounts:
+    get:
+      x-fern-sdk-group-name: ledger
+      x-fern-sdk-method-name: listAccounts
+  /api/ledger/entries:
+    get:
+      x-fern-sdk-group-name: ledger
+      x-fern-sdk-method-name: listEntries
+  /api/ledger/health:
+    get:
+      x-fern-sdk-group-name: ledger
+      x-fern-sdk-method-name: getHealth
+  /api/ledger/sync:
+    post:
+      x-fern-sdk-group-name: ledger
+      x-fern-sdk-method-name: sync
+
+  # ==================== Team ====================
+  /api/team/members:
+    get:
+      x-fern-sdk-group-name: team
+      x-fern-sdk-method-name: listMembers
+  /api/team/members/{userId}:
+    patch:
+      x-fern-sdk-group-name: team
+      x-fern-sdk-method-name: changeRole
+    delete:
+      x-fern-sdk-group-name: team
+      x-fern-sdk-method-name: removeMember
+  /api/team/invitations:
+    get:
+      x-fern-sdk-group-name: team
+      x-fern-sdk-method-name: listInvitations
+    post:
+      x-fern-sdk-group-name: team
+      x-fern-sdk-method-name: invite
+  /api/team/invitations/{id}:
+    delete:
+      x-fern-sdk-group-name: team
+      x-fern-sdk-method-name: revokeInvitation
+  /api/team/me:
+    delete:
+      x-fern-sdk-group-name: team
+      x-fern-sdk-method-name: leave
+
+  # ==================== Provider webhooks ====================
+  # Called by payment providers, not by API clients: left out of the SDKs.
+  /webhooks/stripe:
+    post:
+      x-fern-ignore: true
+  /webhooks/paystack:
+    post:
+      x-fern-ignore: true
+  /webhooks/flutterwave:
+    post:
+      x-fern-ignore: true
+  /webhooks/payu:
+    post:
+      x-fern-ignore: true
+  /webhooks/pesapal:
+    post:
+      x-fern-ignore: true
+  /webhooks/dpo:
+    post:
+      x-fern-ignore: true
+  /webhooks/paypal:
+    post:
+      x-fern-ignore: true
+  /webhooks/{provider}/{tenantId}:
+    post:
+      x-fern-ignore: true

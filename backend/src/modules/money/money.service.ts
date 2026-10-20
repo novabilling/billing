@@ -561,7 +561,7 @@ export class MoneyService {
         status: r.status.toLowerCase(),
         collectionId: r.reference ? (byRef.get(r.reference) ?? null) : null,
       })),
-      meta: { total, page, totalPages: Math.ceil(total / limit) },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
