@@ -40,6 +40,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateTime } from "@/lib/utils/date";
 import type { Wallet, WalletTransaction, Customer } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 interface WalletForm {
   customerId: string;
@@ -74,6 +75,7 @@ const emptyTopUp: TopUpForm = {
 };
 
 export default function WalletsPage() {
+  const canWrite = useCan("billing.write");
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -231,11 +233,16 @@ export default function WalletsPage() {
           <p className="text-muted-foreground">
             Manage prepaid credit wallets for your customers
           </p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={() => { setForm(emptyForm); setCreateOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Wallet
-        </Button>
+        {canWrite && (
+          <Button onClick={() => { setForm(emptyForm); setCreateOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Wallet
+          </Button>
+        )}
       </div>
 
       {/* Summary */}
@@ -286,10 +293,12 @@ export default function WalletsPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Create a prepaid credit wallet for a customer to get started.
           </p>
-          <Button className="mt-4" onClick={() => { setForm(emptyForm); setCreateOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Wallet
-          </Button>
+          {canWrite && (
+            <Button className="mt-4" onClick={() => { setForm(emptyForm); setCreateOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Wallet
+            </Button>
+          )}
         </div>
       ) : (
         <div className="rounded-md border border-border overflow-hidden">
@@ -371,7 +380,7 @@ export default function WalletsPage() {
                         className="flex justify-end gap-1"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {wallet.status === "ACTIVE" && (
+                        {canWrite && wallet.status === "ACTIVE" && (
                           <>
                             <Button
                               variant="ghost"

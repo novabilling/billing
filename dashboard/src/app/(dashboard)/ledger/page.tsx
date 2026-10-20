@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,7 @@ function natural(account: LedgerAccount): number {
 }
 
 export default function LedgerPage() {
+  const canWrite = useCan("billing.write");
   const [accounts, setAccounts] = useState<LedgerAccount[] | null>(null);
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [health, setHealth] = useState<{ balanced: boolean; checkedAt: string; checks: LedgerCheck[] } | null>(null);
@@ -93,10 +95,12 @@ export default function LedgerPage() {
             Double-entry record of invoices, payments, wallets, collections and payouts. Updated every 10 minutes.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={sync} disabled={syncing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing…" : "Sync now"}
-        </Button>
+        {canWrite && (
+          <Button variant="outline" size="sm" onClick={sync} disabled={syncing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing…" : "Sync now"}
+          </Button>
+        )}
       </div>
 
       <Card>

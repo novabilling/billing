@@ -25,8 +25,10 @@ import { apiClient } from "@/lib/api/client";
 import { Badge } from "@/components/ui/badge";
 import type { Customer, PaymentMethod } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 export default function CustomersPage() {
+  const canWrite = useCan("billing.write");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -195,11 +197,16 @@ export default function CustomersPage() {
         <div>
           <h1 className="text-3xl font-bold">Customers</h1>
           <p className="text-muted-foreground">Manage your customer base</p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Customer
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Customer
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -238,8 +245,8 @@ export default function CustomersPage() {
         <>
           <CustomerTable
             customers={customers}
-            onEdit={openEditDialog}
-            onDelete={handleDelete}
+            onEdit={canWrite ? openEditDialog : undefined}
+            onDelete={canWrite ? handleDelete : undefined}
             onViewPaymentMethods={openPaymentMethods}
           />
 
@@ -429,14 +436,16 @@ export default function CustomersPage() {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-red-600"
-                    onClick={() => handleDeletePaymentMethod(method.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                      onClick={() => handleDeletePaymentMethod(method.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ))
             )}

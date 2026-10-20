@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ExternalLink, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,7 @@ export default function MoneyPage() {
   const [providers, setProviders] = useState<ProviderCapabilities[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const canConfigure = useCan("settings.providers");
 
   const loadCapabilities = useCallback(async () => {
     try {
@@ -103,13 +105,13 @@ export default function MoneyPage() {
         </TabsList>
 
         <TabsContent value="collections" className="mt-4">
-          <IntentList type="collection" enabled={settings.collections} providers={providers} wallets={wallets} onEnable={() => toggle("collections", true)} />
+          <IntentList type="collection" enabled={settings.collections} providers={providers} wallets={wallets} onEnable={canConfigure ? () => toggle("collections", true) : undefined} />
         </TabsContent>
         <TabsContent value="payouts" className="mt-4">
           <IntentList type="payout" enabled={settings.payouts} providers={providers} wallets={wallets} />
         </TabsContent>
         <TabsContent value="transfers" className="mt-4">
-          <IntentList type="transfer" enabled={settings.transfers} providers={providers} wallets={wallets} onEnable={() => toggle("transfers", true)} />
+          <IntentList type="transfer" enabled={settings.transfers} providers={providers} wallets={wallets} onEnable={canConfigure ? () => toggle("transfers", true) : undefined} />
         </TabsContent>
         {watchesChain && (
           <TabsContent value="deposits" className="mt-4">
@@ -180,6 +182,8 @@ function IntentList({
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const text = copy[type];
+  const canMove = useCan("money.move");
+  const canApprove = useCan("money.approve");
 
   const load = useCallback(() => {
     moneyApi
@@ -242,10 +246,12 @@ function IntentList({
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {text.create}
-          </Button>
+          {canMove && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              {text.create}
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0 overflow-x-auto">
@@ -328,17 +334,21 @@ function IntentList({
                     )}
                     {r.status === "requires_approval" && (
                       <>
-                        <Button size="sm" disabled={busy === r.id} onClick={() => act(r.id, () => moneyApi.approve(r.id), "Approved")}>
-                          Approve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={busy === r.id}
-                          onClick={() => act(r.id, () => moneyApi.cancel(type, r.id), "Canceled")}
-                        >
-                          Cancel
-                        </Button>
+                        {canApprove && (
+                          <Button size="sm" disabled={busy === r.id} onClick={() => act(r.id, () => moneyApi.approve(r.id), "Approved")}>
+                            Approve
+                          </Button>
+                        )}
+                        {canMove && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busy === r.id}
+                            onClick={() => act(r.id, () => moneyApi.cancel(type, r.id), "Canceled")}
+                          >
+                            Cancel
+                          </Button>
+                        )}
                       </>
                     )}
                     {(r.status === "processing" || r.status === "stuck") && (
@@ -743,6 +753,7 @@ function SettingsPanel({
   const [limit, setLimit] = useState(settings.payoutDailyLimit);
   const [saving, setSaving] = useState(false);
   const [balances, setBalances] = useState<Record<string, Record<string, string> | string>>({});
+  const canConfigure = useCan("settings.providers");
 
   const save = async (patch: Partial<MoneySettings>) => {
     setSaving(true);
@@ -779,6 +790,7 @@ function SettingsPanel({
             hint="One-time payments by mobile money prompt or checkout link"
             checked={settings.collections}
             disabled={saving}
+            readOnly={!canConfigure}
             onChange={(v) => save({ collections: v })}
           />
           <ToggleRow
@@ -786,6 +798,7 @@ function SettingsPanel({
             hint="Move balance between customer wallets"
             checked={settings.transfers}
             disabled={saving}
+            readOnly={!canConfigure}
             onChange={(v) => save({ transfers: v })}
           />
           <div className="flex items-start justify-between gap-4">
@@ -804,11 +817,20 @@ function SettingsPanel({
           <CardDescription>Amounts per currency. Leave empty for no rule.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <CurrencyAmounts label="Needs approval at or above" value={threshold} onChange={setThreshold} />
-          <CurrencyAmounts label="Daily limit" value={limit} onChange={setLimit} />
-          <Button disabled={saving} onClick={() => save({ payoutApprovalThreshold: threshold, payoutDailyLimit: limit })}>
-            Save payout controls
-          </Button>
+          {canConfigure ? (
+            <>
+              <CurrencyAmounts label="Needs approval at or above" value={threshold} onChange={setThreshold} />
+              <CurrencyAmounts label="Daily limit" value={limit} onChange={setLimit} />
+              <Button disabled={saving} onClick={() => save({ payoutApprovalThreshold: threshold, payoutDailyLimit: limit })}>
+                Save payout controls
+              </Button>
+            </>
+          ) : (
+            <>
+              <AmountsSummary label="Needs approval at or above" value={settings.payoutApprovalThreshold} />
+              <AmountsSummary label="Daily limit" value={settings.payoutDailyLimit} />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -883,14 +905,44 @@ function SettingsPanel({
   );
 }
 
-function ToggleRow({ label, hint, checked, disabled, onChange }: { label: string; hint: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  disabled,
+  readOnly,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  disabled?: boolean;
+  readOnly?: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
         <p className="font-medium text-sm">{label}</p>
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
-      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+      {readOnly ? (
+        <Badge variant={checked ? "success" : "outline"}>{checked ? "On" : "Off"}</Badge>
+      ) : (
+        <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+      )}
+    </div>
+  );
+}
+
+function AmountsSummary({ label, value }: { label: string; value: Record<string, string> }) {
+  const entries = Object.entries(value ?? {});
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <p className="text-sm text-muted-foreground">
+        {entries.length ? entries.map(([code, amount]) => `${code} ${Number(amount).toLocaleString()}`).join(" · ") : "No rule"}
+      </p>
     </div>
   );
 }

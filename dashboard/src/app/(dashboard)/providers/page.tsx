@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api/client";
 import type { PaymentProvider } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 import { brand } from "@/lib/brand";
 import { useAuthStore } from "@/lib/stores/auth";
 
@@ -321,6 +322,7 @@ function webhookUrlFor(code: string): string {
 }
 
 export default function ProvidersPage() {
+  const canConfigure = useCan("settings.providers");
   const [providers, setProviders] = useState<PaymentProvider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -453,6 +455,9 @@ export default function ProvidersPage() {
           <p className="text-muted-foreground">
             Configure and manage payment providers
           </p>
+          {!canConfigure && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
       </div>
 
@@ -504,40 +509,42 @@ export default function ProvidersPage() {
                 )}
 
                 {/* Actions */}
-                <div className="pt-4 border-t border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Active</span>
-                    <Switch
-                      checked={provider.isActive}
-                      onCheckedChange={() => handleToggleActive(provider)}
-                      disabled={!provider.isConfigured}
-                    />
-                  </div>
+                {canConfigure && (
+                  <div className="pt-4 border-t border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Active</span>
+                      <Switch
+                        checked={provider.isActive}
+                        onCheckedChange={() => handleToggleActive(provider)}
+                        disabled={!provider.isConfigured}
+                      />
+                    </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => openConfigDialog(provider)}
-                    >
-                      <SettingsIcon className="mr-2 h-4 w-4" />
-                      {provider.isConfigured ? "Reconfigure" : "Configure"}
-                    </Button>
-                    {provider.isConfigured && (
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => handleTest(provider)}
-                        disabled={isTesting === provider.id}
+                        className="flex-1"
+                        onClick={() => openConfigDialog(provider)}
                       >
-                        {isTesting === provider.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Test"
-                        )}
+                        <SettingsIcon className="mr-2 h-4 w-4" />
+                        {provider.isConfigured ? "Reconfigure" : "Configure"}
                       </Button>
-                    )}
+                      {provider.isConfigured && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleTest(provider)}
+                          disabled={isTesting === provider.id}
+                        >
+                          {isTesting === provider.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Test"
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Webhook URL */}
                 <div className="rounded-md border border-border bg-muted/50 p-3 space-y-2">

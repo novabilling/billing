@@ -33,6 +33,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateTime } from "@/lib/utils/date";
 import type { Payment } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 const statusColors = {
   succeeded: "success",
@@ -52,6 +53,7 @@ const providerLogos: Record<string, string> = {
 };
 
 export default function PaymentsPage() {
+  const canWrite = useCan("billing.write");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -241,7 +243,7 @@ export default function PaymentsPage() {
                         {formatDateTime(payment.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {payment.status === "succeeded" && (
+                        {canWrite && payment.status === "succeeded" && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon">

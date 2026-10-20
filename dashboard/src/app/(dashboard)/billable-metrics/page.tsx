@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@/lib/api/client";
 import type { BillableMetric } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 const AGGREGATION_TYPES = [
   { value: "COUNT", label: "Count", description: "Number of events" },
@@ -63,6 +64,7 @@ const emptyForm: MetricForm = {
 };
 
 export default function BillableMetricsPage() {
+  const canWrite = useCan("billing.write");
   const [metrics, setMetrics] = useState<BillableMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -198,11 +200,16 @@ export default function BillableMetricsPage() {
           <p className="text-muted-foreground">
             Define usage-based metrics for event tracking and aggregation.
           </p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Metric
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Metric
+          </Button>
+        )}
       </div>
 
       {/* Metrics Grid */}
@@ -217,14 +224,16 @@ export default function BillableMetricsPage() {
                     {metric.code}
                   </code>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(metric)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(metric)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
+                {canWrite && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(metric)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(metric)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -264,10 +273,12 @@ export default function BillableMetricsPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 Create your first metric to start tracking usage events.
               </p>
-              <Button onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Metric
-              </Button>
+              {canWrite && (
+                <Button onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Metric
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}

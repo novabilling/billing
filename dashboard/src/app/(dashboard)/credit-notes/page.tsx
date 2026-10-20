@@ -40,6 +40,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateTime } from "@/lib/utils/date";
 import type { CreditNote } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 const statusVariants = {
   DRAFT: "outline",
@@ -55,6 +56,7 @@ const reasonLabels: Record<CreditNote["reason"], string> = {
 };
 
 export default function CreditNotesPage() {
+  const canWrite = useCan("billing.write");
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -178,11 +180,16 @@ export default function CreditNotesPage() {
           <p className="text-muted-foreground">
             Manage credit notes for invoices
           </p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Credit Note
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Credit Note
+          </Button>
+        )}
       </div>
 
       {/* Status Tabs */}
@@ -299,8 +306,9 @@ export default function CreditNotesPage() {
                         {formatDateTime(cn.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {(cn.status === "DRAFT" ||
-                          cn.status === "FINALIZED") && (
+                        {canWrite &&
+                          (cn.status === "DRAFT" ||
+                            cn.status === "FINALIZED") && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon">

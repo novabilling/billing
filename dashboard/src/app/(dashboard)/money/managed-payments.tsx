@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,7 @@ export function ManagedPayments({ onChanged }: { onChanged: () => void }) {
   const [state, setState] = useState<{ available: boolean; account: ManagedAccount | null } | null>(null);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const canManage = useCan("settings.providers");
 
   const load = useCallback(async () => {
     try {
@@ -42,7 +44,8 @@ export function ManagedPayments({ onChanged }: { onChanged: () => void }) {
     load();
   }, [load]);
 
-  if (!state?.available) return null;
+  // Without an account the card is only the onboarding form.
+  if (!state?.available || (!state.account && !canManage)) return null;
 
   const set = (key: keyof typeof empty, value: string) => setForm((f) => ({ ...f, [key]: value }));
   const field = (key: keyof typeof empty, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (

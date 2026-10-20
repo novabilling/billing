@@ -31,6 +31,7 @@ import { apiClient } from "@/lib/api/client";
 import { formatDateTime } from "@/lib/utils/date";
 import type { PlanOverride, Customer, Plan } from "@/types";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 
 interface OverrideForm {
   customerId: string;
@@ -49,6 +50,7 @@ const emptyForm: OverrideForm = {
 };
 
 export default function PlanOverridesPage() {
+  const canWrite = useCan("billing.write");
   const [overrides, setOverrides] = useState<PlanOverride[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -182,11 +184,16 @@ export default function PlanOverridesPage() {
           <p className="text-muted-foreground">
             Customer-specific pricing overrides for plans
           </p>
+          {!canWrite && (
+            <p className="text-sm text-muted-foreground">You have view-only access.</p>
+          )}
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Override
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Override
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -237,10 +244,12 @@ export default function PlanOverridesPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Create customer-specific pricing to override base plan amounts.
           </p>
-          <Button className="mt-4" onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Override
-          </Button>
+          {canWrite && (
+            <Button className="mt-4" onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Override
+            </Button>
+          )}
         </div>
       ) : (
         <div className="rounded-md border border-border overflow-hidden">
@@ -328,22 +337,24 @@ export default function PlanOverridesPage() {
                       {formatDateTime(override.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(override)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(override)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(override)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(override)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

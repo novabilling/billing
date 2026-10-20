@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,7 @@ function explorerUrl(d: CryptoDeposit): string {
  * assigned to an open collection here.
  */
 export function CryptoDeposits() {
+  const canMove = useCan("money.move");
   const [rows, setRows] = useState<CryptoDeposit[] | null>(null);
   const [open, setOpen] = useState<MoneyIntent[]>([]);
   const [filter, setFilter] = useState<"all" | "unmatched">("all");
@@ -143,7 +145,7 @@ export function CryptoDeposits() {
                       {d.collectionId && <p className="mt-1 font-mono text-xs text-muted-foreground">{d.collectionId}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      {d.status === "unmatched" && d.chain !== "BITCOIN" && open.some((c) => c.paymentDetails?.chain === d.chain) && (
+                      {canMove && d.status === "unmatched" && d.chain !== "BITCOIN" && open.some((c) => c.paymentDetails?.chain === d.chain) && (
                         <div className="flex items-center justify-end gap-2">
                           <Select value={choice[d.id] ?? ""} onValueChange={(v) => setChoice((c) => ({ ...c, [d.id]: v }))}>
                             <SelectTrigger className="w-[220px]">

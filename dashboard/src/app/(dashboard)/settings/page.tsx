@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useCan } from "@/lib/permissions";
 import { apiClient } from "@/lib/api/client";
 import { brand } from "@/lib/brand";
 
@@ -24,6 +25,8 @@ function maskApiKey(key: string): string {
 }
 
 export default function SettingsPage() {
+  const canManageOrg = useCan("org.manage");
+  const canManageKeys = useCan("settings.developer");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -256,6 +259,9 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">
           Manage your account and application settings
         </p>
+        {!canManageOrg && !canManageKeys && (
+          <p className="text-sm text-muted-foreground">You have view-only access.</p>
+        )}
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
@@ -281,6 +287,7 @@ export default function SettingsPage() {
                   <Label htmlFor="company">Company Name</Label>
                   <Input
                     id="company"
+                    readOnly={!canManageOrg}
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                   />
@@ -306,6 +313,7 @@ export default function SettingsPage() {
                   <Input
                     id="email"
                     type="email"
+                    readOnly={!canManageOrg}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -324,14 +332,16 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              <Button onClick={handleSaveGeneral} disabled={isSaving}>
-                {isSaving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save Changes
-              </Button>
+              {canManageOrg && (
+                <Button onClick={handleSaveGeneral} disabled={isSaving}>
+                  {isSaving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save Changes
+                </Button>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -355,6 +365,7 @@ export default function SettingsPage() {
                   <Label htmlFor="smtp-host">SMTP Host</Label>
                   <Input
                     id="smtp-host"
+                    readOnly={!canManageOrg}
                     value={smtpHost}
                     onChange={(e) => setSmtpHost(e.target.value)}
                     placeholder="smtp.gmail.com"
@@ -364,6 +375,7 @@ export default function SettingsPage() {
                   <Label htmlFor="smtp-port">Port</Label>
                   <Input
                     id="smtp-port"
+                    readOnly={!canManageOrg}
                     value={smtpPort}
                     onChange={(e) => setSmtpPort(e.target.value)}
                     placeholder="587"
@@ -376,6 +388,7 @@ export default function SettingsPage() {
                   <Label htmlFor="smtp-user">Username</Label>
                   <Input
                     id="smtp-user"
+                    readOnly={!canManageOrg}
                     value={smtpUser}
                     onChange={(e) => setSmtpUser(e.target.value)}
                     placeholder="user@gmail.com"
@@ -386,6 +399,7 @@ export default function SettingsPage() {
                   <Input
                     id="smtp-password"
                     type="password"
+                    readOnly={!canManageOrg}
                     value={smtpPassword}
                     onChange={(e) => setSmtpPassword(e.target.value)}
                     placeholder="App password or SMTP password"
@@ -398,6 +412,7 @@ export default function SettingsPage() {
                   <Label htmlFor="smtp-from">From Address</Label>
                   <Input
                     id="smtp-from"
+                    readOnly={!canManageOrg}
                     value={smtpFrom}
                     onChange={(e) => setSmtpFrom(e.target.value)}
                     placeholder="billing@yourcompany.com"
@@ -410,6 +425,7 @@ export default function SettingsPage() {
                   <Label htmlFor="smtp-from-name">Sender Name</Label>
                   <Input
                     id="smtp-from-name"
+                    readOnly={!canManageOrg}
                     value={smtpFromName}
                     onChange={(e) => setSmtpFromName(e.target.value)}
                     placeholder="Your Company Name"
@@ -423,6 +439,7 @@ export default function SettingsPage() {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="smtp-secure"
+                  disabled={!canManageOrg}
                   checked={smtpSecure}
                   onCheckedChange={(checked) =>
                     setSmtpSecure(checked === true)
@@ -433,70 +450,74 @@ export default function SettingsPage() {
                 </Label>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleSaveSmtp} disabled={isSaving}>
-                  {isSaving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save SMTP Settings
-                </Button>
-                {smtpHost && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSmtpHost("");
-                      setSmtpPort("587");
-                      setSmtpSecure(false);
-                      setSmtpUser("");
-                      setSmtpPassword("");
-                      setSmtpFrom("");
-                      setSmtpFromName("");
-                    }}
-                  >
-                    Reset to System Default
+              {canManageOrg && (
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveSmtp} disabled={isSaving}>
+                    {isSaving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save SMTP Settings
                   </Button>
-                )}
-              </div>
+                  {smtpHost && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSmtpHost("");
+                        setSmtpPort("587");
+                        setSmtpSecure(false);
+                        setSmtpUser("");
+                        setSmtpPassword("");
+                        setSmtpFrom("");
+                        setSmtpFromName("");
+                      }}
+                    >
+                      Reset to System Default
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Test Email</CardTitle>
-              <CardDescription>
-                Send a test email using your saved SMTP settings or system default
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  value={testEmailTo}
-                  onChange={(e) => setTestEmailTo(e.target.value)}
-                  placeholder="test@example.com"
-                  className="max-w-sm"
-                />
-                <Button
-                  onClick={handleTestSmtp}
-                  disabled={isTesting}
-                  variant="outline"
-                >
-                  {isTesting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Send Test Email
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {smtpHost
-                  ? "This will use your configured SMTP settings above."
-                  : 'No custom SMTP configured. Test email will be sent using the system default SMTP.'}
-              </p>
-            </CardContent>
-          </Card>
+          {canManageOrg && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Test Email</CardTitle>
+                <CardDescription>
+                  Send a test email using your saved SMTP settings or system default
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={testEmailTo}
+                    onChange={(e) => setTestEmailTo(e.target.value)}
+                    placeholder="test@example.com"
+                    className="max-w-sm"
+                  />
+                  <Button
+                    onClick={handleTestSmtp}
+                    disabled={isTesting}
+                    variant="outline"
+                  >
+                    {isTesting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="mr-2 h-4 w-4" />
+                    )}
+                    Send Test Email
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {smtpHost
+                    ? "This will use your configured SMTP settings above."
+                    : 'No custom SMTP configured. Test email will be sent using the system default SMTP.'}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Webhook Settings */}
@@ -514,6 +535,7 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <Input
                     id="webhook-url"
+                    readOnly={!canManageOrg}
                     value={webhookUrl}
                     onChange={(e) => setWebhookUrl(e.target.value)}
                     placeholder="https://your-app.com/webhooks"
@@ -560,6 +582,7 @@ export default function SettingsPage() {
                           >
                             <Checkbox
                               id={event.id}
+                              disabled={!canManageOrg}
                               checked={selectedEvents.includes(event.id)}
                               onCheckedChange={(checked) => {
                                 if (checked) {
@@ -590,14 +613,16 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <Button onClick={handleSaveWebhook} disabled={isSaving}>
-                {isSaving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save Webhook Settings
-              </Button>
+              {canManageOrg && (
+                <Button onClick={handleSaveWebhook} disabled={isSaving}>
+                  {isSaving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save Webhook Settings
+                </Button>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -632,62 +657,64 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-                <div className="flex gap-3">
-                  <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-red-900 dark:text-red-300">
-                      Regenerate API Key
-                    </h4>
-                    <p className="text-sm text-red-800 dark:text-red-400 mt-1">
-                      Regenerating your API key will invalidate your current key
-                      and may break existing integrations. Make sure to update
-                      all applications using the old key.
-                    </p>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="mt-3"
-                      onClick={async () => {
-                        if (
-                          confirm(
-                            "Are you sure? This will invalidate your current key.",
-                          )
-                        ) {
-                          try {
-                            const res = await fetch(
-                              "/api/proxy/tenants/me/api-keys",
-                              {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                credentials: "include",
-                                body: JSON.stringify({
-                                  name: "Dashboard API Key",
-                                  scopes: ["read", "write"],
-                                }),
-                              },
-                            );
-                            if (!res.ok)
-                              throw new Error("Failed to regenerate");
-                            const json = await res.json();
-                            const data = json;
-                            if (data.key) {
-                              setApiKey(data.key);
-                              setShowApiKey(true);
+              {canManageKeys && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <div className="flex gap-3">
+                    <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-red-900 dark:text-red-300">
+                        Regenerate API Key
+                      </h4>
+                      <p className="text-sm text-red-800 dark:text-red-400 mt-1">
+                        Regenerating your API key will invalidate your current key
+                        and may break existing integrations. Make sure to update
+                        all applications using the old key.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="mt-3"
+                        onClick={async () => {
+                          if (
+                            confirm(
+                              "Are you sure? This will invalidate your current key.",
+                            )
+                          ) {
+                            try {
+                              const res = await fetch(
+                                "/api/proxy/tenants/me/api-keys",
+                                {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  credentials: "include",
+                                  body: JSON.stringify({
+                                    name: "Dashboard API Key",
+                                    scopes: ["read", "write"],
+                                  }),
+                                },
+                              );
+                              if (!res.ok)
+                                throw new Error("Failed to regenerate");
+                              const json = await res.json();
+                              const data = json;
+                              if (data.key) {
+                                setApiKey(data.key);
+                                setShowApiKey(true);
+                              }
+                              toast.success("API key regenerated successfully");
+                            } catch {
+                              toast.error("Failed to regenerate API key");
                             }
-                            toast.success("API key regenerated successfully");
-                          } catch {
-                            toast.error("Failed to regenerate API key");
                           }
-                        }
-                      }}
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Regenerate API Key
-                    </Button>
+                        }}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Regenerate API Key
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="pt-4 border-t">
                 <h4 className="font-medium mb-3">API Documentation</h4>
