@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, ServiceUnavailableException } 
 import { PrismaClient } from '../../generated/prisma-tenant/client';
 import { EncryptionService } from '../../services/encryption.service';
 import { ManagedAccount, ManagedCredentials, managedConfig, ManagedPaymentsClient, OpenManagedAccount } from './adapters/managed.adapter';
+import { notificationUrls } from './money.service';
 
 /** Lowest priority, so a tenant's own provider accounts are always preferred when it has them. */
 const MANAGED_PRIORITY = 1000;
@@ -33,9 +34,9 @@ export class ManagedAccountsService {
     return { available: true, account: r.data };
   }
 
-  async open(db: PrismaClient, tenantId: string, input: Omit<OpenManagedAccount, 'externalId'>): Promise<ManagedAccount> {
+  async open(db: PrismaClient, tenantId: string, input: Omit<OpenManagedAccount, 'externalId' | 'notificationUrl'>): Promise<ManagedAccount> {
     if (await this.accountId(db)) throw new BadRequestException('This account already has managed payments');
-    const r = await this.client().openAccount({ ...input, externalId: tenantId });
+    const r = await this.client().openAccount({ ...input, externalId: tenantId, notificationUrl: notificationUrls('managed', tenantId).notificationUrl });
     if (!r.data) throw new BadRequestException(r.error ?? 'Managed payments could not open the account');
     await this.sync(db, r.data);
     this.logger.log(`Managed account ${r.data.id} opened for tenant ${tenantId} (${r.data.status})`);

@@ -53,6 +53,8 @@ export interface OpenManagedAccount {
   country: string;
   currency: string;
   bank: { code: string; accountNumber: string; accountName?: string };
+  /** Where the service reports account status changes for this tenant. */
+  notificationUrl?: string;
 }
 
 const TIMEOUT_MS = 30_000;
