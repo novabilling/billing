@@ -36,7 +36,7 @@ async function seedDemoTenant(): Promise<void> {
     data: {
       name: 'Demo User',
       slug: 'demo-company',
-      email: 'demo@novabilling.com',
+      email: 'demo@novabilling.one',
       password: '$2b$10$dummyhashedpasswordfordemo', // "password123"
       apiKey,
       webhookSecret,
@@ -191,7 +191,7 @@ async function seedDemoTenant(): Promise<void> {
 
   console.log('\nDemo tenant seeded successfully!');
   console.log('---');
-  console.log(`Email: demo@novabilling.com`);
+  console.log(`Email: demo@novabilling.one`);
   console.log(`API Key: ${apiKey}`);
   console.log(`Customers: 10`);
   console.log(`Plans: ${planDefs.length}`);
