@@ -61,10 +61,29 @@ export interface TenantAccess {
   url: string | null;
 }
 
+export interface PlanLimits {
+  customers?: number;
+  activeSubscriptions?: number;
+  invoicesPerMonth?: number;
+  teamMembers?: number;
+  disabledFeatures?: string[];
+}
+
 export interface TenantBillingState {
   status: string;
   planId: string | null;
   trialEndsAt: string | null;
+  planName?: string | null;
+  limits?: PlanLimits | null;
+  manageUrl?: string | null;
+}
+
+export interface TenantPlan {
+  name: string;
+  status: string;
+  trialEndsAt: string | null;
+  limits: PlanLimits | null;
+  manageUrl: string | null;
 }
 
 export interface PlatformTenantRow {
@@ -176,7 +195,7 @@ export interface PlatformTenantDetail {
 }
 
 export const platformApi = {
-  me: () => apiFetch<{ isPlatformAdmin: boolean; access: TenantAccess }>("/admin/me"),
+  me: () => apiFetch<{ isPlatformAdmin: boolean; access: TenantAccess; plan: TenantPlan | null }>("/admin/me"),
   overview: () => apiFetch<PlatformOverview>("/admin/overview"),
   tenants: (params: { search?: string; stage?: string; flag?: string; sort?: string } = {}) => {
     const query = new URLSearchParams(

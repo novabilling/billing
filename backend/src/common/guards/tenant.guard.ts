@@ -14,6 +14,7 @@ import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { isPlatformOperator } from '../platform-operator';
 import { assertTenantAccess } from './tenant-access';
+import { assertPlanAllows, loadPlan, mayBeLimited, routeOf, usageCounter } from './plan-limits';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -56,11 +57,18 @@ export class TenantGuard implements CanActivate {
       throw new UnauthorizedException('Tenant account is deactivated');
     }
 
-    if (!isPlatformOperator(tenant, this.configService)) {
-      assertTenantAccess(tenant, request.method, request.originalUrl ?? request.url ?? '');
-    }
+    const operator = isPlatformOperator(tenant, this.configService);
+    const path = request.originalUrl ?? request.url ?? '';
+    if (!operator) assertTenantAccess(tenant, request.method, path);
 
     const tenantDbClient = await this.tenantDb.getTenantClient(tenant.id);
+
+    const route = routeOf(path);
+    if (!operator && mayBeLimited(request.method, route)) {
+      const central = this.centralPrisma.client as never;
+      const plan = await loadPlan(central, tenant.id);
+      await assertPlanAllows(plan, request.method, route, usageCounter(central, tenantDbClient as never, tenant.id));
+    }
 
     request.tenant = tenant;
     request.tenantDb = tenantDbClient;

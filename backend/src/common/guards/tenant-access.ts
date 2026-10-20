@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { routeOf } from './plan-limits';
 
 export type AccessMode = 'FULL' | 'READ_ONLY' | 'SUSPENDED';
 
@@ -18,7 +19,7 @@ export function assertTenantAccess(
   const mode = tenant.accessMode ?? 'FULL';
   if (mode === 'FULL') return;
   const isRead = ['GET', 'HEAD', 'OPTIONS'].includes(method);
-  const route = path.split('?')[0].replace(/^\/api(?=\/)/, '').replace(/\/$/, '');
+  const route = routeOf(path);
   if (mode === 'READ_ONLY' && isRead) return;
   if (mode === 'SUSPENDED' && isRead && SUSPENDED_ALLOWED.includes(route)) return;
   throw new ForbiddenException({

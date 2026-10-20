@@ -1,7 +1,7 @@
-import { IsDateString, IsIn, IsOptional, IsString, IsUrl, MaxLength, ValidateIf } from 'class-validator';
+import { IsDateString, IsIn, IsObject, IsOptional, IsString, IsUrl, MaxLength, ValidateIf } from 'class-validator';
 
 export const ACCESS_MODES = ['FULL', 'READ_ONLY', 'SUSPENDED'] as const;
-export const BILLING_STATUSES = ['trialing', 'active', 'past_due', 'canceled'] as const;
+export const BILLING_STATUSES = ['free', 'trialing', 'active', 'past_due', 'canceled'] as const;
 
 /** Access and billing state an operator or a control plane sets on an organisation. Null clears a field. */
 export class UpdateTenantAccessDto {
@@ -36,4 +36,23 @@ export class UpdateTenantAccessDto {
   @ValidateIf((_, v) => v !== null)
   @IsDateString()
   trialEndsAt?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(100)
+  planName?: string | null;
+
+  /** See PlanLimits; unknown keys are dropped, null removes all limits. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsObject()
+  limits?: Record<string, unknown> | null;
+
+  /** Where the organisation upgrades or manages its plan. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsUrl({ protocols: ['https', 'http'], require_tld: false })
+  @MaxLength(2000)
+  manageUrl?: string | null;
 }

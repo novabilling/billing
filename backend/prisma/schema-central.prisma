@@ -142,6 +142,11 @@ model TenantBilling {
   planId           String?
   status           String    @default("active")
   trialEndsAt      DateTime?
+  // Set by the operator or its control plane: the plan's name, its limits
+  // (see common/guards/plan-limits.ts; null means none) and where to manage it.
+  planName         String?
+  limits           Json?
+  manageUrl        String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

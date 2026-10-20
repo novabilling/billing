@@ -8,6 +8,7 @@ import { getBrand } from '../../config/brand';
 import { LedgerRunnerService } from '../ledger/ledger-runner.service';
 import { PlatformAdminGuard } from './platform-admin.guard';
 import { isPlatformOperator } from '../../common/platform-operator';
+import { parseLimits } from '../../common/guards/plan-limits';
 import { PlatformService } from './platform.service';
 import { TenantMetricsService } from './tenant-metrics.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
@@ -38,7 +39,11 @@ export class PlatformController {
   /** Lets the dashboard decide whether to show the platform section. */
   @Get('me')
   @UseGuards(TenantGuard)
-  me(@Req() req: RequestWithTenant) {
+  async me(@Req() req: RequestWithTenant) {
+    const billing = await this.centralPrisma.client.tenantBilling.findUnique({
+      where: { tenantId: req.tenant.id },
+      select: { status: true, planName: true, limits: true, manageUrl: true, trialEndsAt: true },
+    });
     return {
       isPlatformAdmin: req.authMethod === 'session' && isPlatformOperator(req.tenant, this.config),
       access: {
@@ -46,6 +51,15 @@ export class PlatformController {
         reason: req.tenant.accessReason ?? null,
         url: req.tenant.accessUrl ?? null,
       },
+      plan: billing?.planName
+        ? {
+            name: billing.planName,
+            status: billing.status,
+            trialEndsAt: billing.trialEndsAt,
+            limits: parseLimits(billing.limits),
+            manageUrl: billing.manageUrl,
+          }
+        : null,
       brand: getBrand(),
     };
   }
