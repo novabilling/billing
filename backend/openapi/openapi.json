@@ -6433,7 +6433,7 @@
   },
   "info": {
     "contact": {},
-    "description": "PimaBill is a multi-tenant billing and subscription management API. It supports African and global payment providers including Stripe, Paystack, Flutterwave, and M-Pesa.\n\n## Authentication\n- **JWT (Bearer)**: Used for tenant management endpoints (`/api/tenants/me/*`, `/api/auth/*`). Obtain tokens via `/api/auth/login`.\n- **API Key**: Used for all billing resource endpoints (customers, plans, subscriptions, invoices, payments, analytics). Pass your API key in the `Authorization` header as `Bearer sk_live_...`.\n\n## Webhooks\nPayment provider webhooks are received at `/webhooks/{provider}` (no `/api` prefix). Configure your provider dashboard to point to these URLs.\nPimaBill also forwards billing events to your application via the webhook URL configured in your tenant settings.",
+    "description": "PimaBill is a multi-tenant billing and subscription management API. It supports African and global payment providers including Stripe, Paystack, Flutterwave, Pesapal, MTN MoMo and Airtel Money.\n\n## Authentication\n- **JWT (Bearer)**: Used for tenant management endpoints (`/api/tenants/me/*`, `/api/auth/*`). Obtain tokens via `/api/auth/login`.\n- **API Key**: Used for all billing resource endpoints (customers, plans, subscriptions, invoices, payments, analytics). Pass your API key in the `Authorization` header as `Bearer sk_live_...`.\n\n## Webhooks\nPayment provider webhooks are received at `/webhooks/{provider}` (no `/api` prefix). Configure your provider dashboard to point to these URLs.\nPimaBill also forwards billing events to your application via the webhook URL configured in your tenant settings.",
     "title": "PimaBill API",
     "version": "1.0.0"
   },
@@ -10849,7 +10849,7 @@
         ]
       },
       "post": {
-        "description": "Set up a payment provider (stripe, paystack, flutterwave, or mpesa) with encrypted credentials. The provider with the lowest priority number is used by default for checkout.",
+        "description": "Set up a payment provider (stripe, paystack, flutterwave, pesapal, paypal, payu or dpo) with encrypted credentials. The provider with the lowest priority number is used by default for checkout.",
         "operationId": "PaymentProvidersController_create",
         "parameters": [],
         "requestBody": {

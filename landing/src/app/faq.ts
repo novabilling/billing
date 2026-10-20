@@ -32,7 +32,7 @@ export const faq = [
   },
   {
     question: "Which currencies are supported?",
-    answer: "Over 40 currencies, including UGX, KES, NGN, GHS, TZS, RWF, ZAR, USD, EUR and GBP, with correct decimal handling for each.",
+    answer: "Any ISO 4217 currency, including UGX, KES, NGN, GHS, TZS, RWF, ZAR, USD, EUR and GBP, with the right number of decimals for each: none for UGX, two for KES, three for KWD.",
   },
   {
     question: "What do I need to self-host it?",
