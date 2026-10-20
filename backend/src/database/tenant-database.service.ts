@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma-tenant/client';
-import { migrate } from './migrations';
+import { migrateTenant } from './migrations';
 import { randomBytes } from 'crypto';
 import { CentralPrismaService } from './central-prisma.service';
 import { EncryptionService } from '../services/encryption.service';
@@ -139,7 +139,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
 
   async runTenantMigrations(connectionUrl: string): Promise<void> {
     try {
-      await migrate('tenant', connectionUrl, (line) => this.logger.log(`Tenant migrations: ${line}`));
+      await migrateTenant(connectionUrl, (line) => this.logger.log(`Tenant migrations: ${line}`));
     } catch (error) {
       this.logger.error('Tenant migrations failed', error);
       throw new InternalServerErrorException('Failed to migrate tenant database');

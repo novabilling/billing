@@ -66,3 +66,41 @@ function prisma(target: MigrationTarget, url: string, args: string[]): string {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }
+
+/**
+ * Migrates one tenant database. Tenant databases on the internal server are
+ * migrated as its admin (INTERNAL_POSTGRES_URL), not the tenant's own user:
+ * databases from before migrations existed have tables the tenant user does
+ * not own, and enum changes need the owner. Afterwards the tenant user is
+ * granted everything in the schema, so tables a migration adds are usable.
+ * Databases elsewhere are migrated with their own credentials.
+ */
+export async function migrateTenant(tenantUrl: string, log: (line: string) => void = () => undefined, adminUrl = process.env.INTERNAL_POSTGRES_URL): Promise<void> {
+  const admin = adminUrlFor(tenantUrl, adminUrl);
+  if (!admin) return migrate('tenant', tenantUrl, log);
+  await migrate('tenant', admin.url, log);
+  const client = new Client({ connectionString: admin.url });
+  await client.connect();
+  try {
+    const role = `"${admin.tenantUser.replace(/"/g, '""')}"`;
+    await client.query(`GRANT USAGE, CREATE ON SCHEMA public TO ${role}`);
+    await client.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${role}`);
+    await client.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${role}`);
+  } finally {
+    await client.end();
+  }
+}
+
+/** The admin's credentials on the tenant's database, when both are on the same server. */
+export function adminUrlFor(tenantUrl: string, adminUrl?: string): { url: string; tenantUser: string } | null {
+  if (!adminUrl) return null;
+  const tenant = new URL(tenantUrl);
+  const admin = new URL(adminUrl);
+  const port = (u: URL) => u.port || '5432';
+  if (tenant.hostname !== admin.hostname || port(tenant) !== port(admin)) return null;
+  const tenantUser = decodeURIComponent(tenant.username);
+  if (!tenantUser || tenantUser === decodeURIComponent(admin.username)) return null;
+  admin.pathname = tenant.pathname;
+  admin.search = tenant.search;
+  return { url: admin.toString(), tenantUser };
+}
