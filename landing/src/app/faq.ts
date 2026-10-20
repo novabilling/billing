@@ -4,7 +4,7 @@ import { site } from "@/lib/site";
 export const faq = [
   {
     question: `Is ${site.name} free and open source?`,
-    answer: `Yes. ${site.name} is released under the AGPL-3.0 licence. You can self-host it with Docker at no cost, or use the hosted cloud if you would rather not run servers.`,
+    answer: `Yes. ${site.name} is released under the AGPL-3.0 licence and the SDKs under MIT. You can self-host it with Docker at no cost, or use the hosted cloud if you would rather not run servers.`,
   },
   {
     question: "Can I bill customers with mobile money?",
@@ -14,7 +14,7 @@ export const faq = [
   {
     question: "Does it support usage-based and subscription billing?",
     answer:
-      "Both. Define plans with flat, tiered, package or per-unit pricing, meter usage events, apply coupons and add-ons, and invoice automatically on any billing interval.",
+      "Both. Define plans with standard, graduated, volume, package or percentage pricing, meter usage events, apply coupons and add-ons, and invoice automatically on any billing interval.",
   },
   {
     question: "Do you hold my money?",
@@ -33,5 +33,14 @@ export const faq = [
   {
     question: "Which currencies are supported?",
     answer: "Over 40 currencies, including UGX, KES, NGN, GHS, TZS, RWF, ZAR, USD, EUR and GBP, with correct decimal handling for each.",
+  },
+  {
+    question: "What do I need to self-host it?",
+    answer:
+      "Docker. One docker compose command starts PostgreSQL, Redis, the API, the background worker, the dashboard and the docs. Each organisation gets its own database.",
+  },
+  {
+    question: "How does it compare with Lago, Kill Bill or Chargebee?",
+    answer: `${site.name} covers the same ground as those subscription and usage billing tools (plans, metering, invoices, dunning) and adds mobile money, payouts, wallet transfers, crypto and a double-entry ledger in the same open-source product.`,
   },
 ];

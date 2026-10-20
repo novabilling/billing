@@ -1,153 +1,75 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { Menu, X, Github } from "lucide-react";
-import clsx from "clsx";
+import { Menu } from "lucide-react";
 
 import { site } from "@/lib/site";
-import BrandMark from "@/components/brand-mark";
-
-const DASHBOARD_URL = site.dashboardUrl;
-const DOCS_URL = site.docsUrl;
-const API_REF_URL = site.apiRefUrl;
-const GITHUB_URL = site.githubUrl;
+import { BrandLockup } from "@/components/brand-mark";
 
 const navLinks = [
-  { label: "Features", href: "#features" },
+  { label: "Product", href: "#product" },
+  { label: "Developers", href: "#developers" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
-  { label: "Docs", href: DOCS_URL, external: true },
-  { label: "API Reference", href: API_REF_URL, external: true },
+  { label: "Docs", href: site.docsUrl },
 ];
 
+const linkClass = "text-sm font-medium text-ink-2 transition-colors hover:text-ink";
+
 export default function Header() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand */}
-        <Link
-          href="/"
-          className="flex items-center gap-2 font-bold text-xl tracking-tight"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
-            <BrandMark className="h-5 w-5" />
-          </span>
-          <span>
-            {site.name.slice(0, site.nameSplit)}
-            <span className="text-[var(--primary)]">{site.name.slice(site.nameSplit)}</span>
-          </span>
-        </Link>
+    <header className="sticky top-0 z-50 w-full border-b border-line bg-mist/90 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6">
+        <a href="/" aria-label={`${site.name} home`}>
+          <BrandLockup />
+        </a>
 
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) =>
-            link.external ? (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
-              >
-                {link.label}
-              </a>
-            ) : (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
-              >
-                {link.label}
-              </Link>
-            ),
-          )}
+        <nav aria-label="Main" className="hidden items-center gap-7 md:flex">
+          {navLinks.map((link) => (
+            <a key={link.href} href={link.href} className={linkClass}>
+              {link.label}
+            </a>
+          ))}
         </nav>
 
-        {/* Desktop actions */}
-        <div className="hidden md:flex items-center gap-3">
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
-          >
-            <Github className="h-4 w-4" />
+        <div className="hidden items-center gap-4 md:flex">
+          <a href={site.githubUrl} className={linkClass}>
             GitHub
           </a>
-          <a
-            href={DASHBOARD_URL}
-            className="text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
-          >
-            Sign In
+          <a href={`${site.dashboardUrl}/login`} className={linkClass}>
+            Sign in
           </a>
           <a
-            href={DASHBOARD_URL}
-            className="inline-flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--primary-light)]"
+            href={`${site.dashboardUrl}/register`}
+            className="inline-flex h-10 items-center rounded-lg bg-teal px-4 text-sm font-semibold text-on-teal transition-colors hover:bg-teal-strong"
           >
-            Get Started
+            Start free
           </a>
         </div>
 
-        {/* Mobile toggle */}
-        <button
-          className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-[var(--muted)] hover:text-[var(--fg)]"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle navigation menu"
-        >
-          {mobileOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
-          )}
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      <div
-        className={clsx(
-          "md:hidden overflow-hidden border-t border-[var(--border)] transition-all duration-300",
-          mobileOpen ? "max-h-96" : "max-h-0",
-        )}
-      >
-        <nav className="flex flex-col gap-1 px-4 py-4">
-          {navLinks.map((link) =>
-            link.external ? (
-              <a
-                key={link.href}
-                href={link.href}
-                className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--card)] hover:text-[var(--fg)]"
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </a>
-            ) : (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--card)] hover:text-[var(--fg)]"
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ),
-          )}
-          <hr className="my-2 border-[var(--border)]" />
-          <a
-            href={DASHBOARD_URL}
-            className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--card)] hover:text-[var(--fg)]"
-            onClick={() => setMobileOpen(false)}
+        <details className="group relative md:hidden">
+          <summary
+            aria-label="Menu"
+            className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-lg text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden"
           >
-            Sign In
-          </a>
-          <a
-            href={DASHBOARD_URL}
-            className="mt-1 inline-flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--primary-light)]"
-            onClick={() => setMobileOpen(false)}
+            <Menu className="h-5 w-5" aria-hidden />
+          </summary>
+          <nav
+            aria-label="Main"
+            className="absolute right-0 top-12 flex w-60 flex-col gap-1 rounded-xl border border-line bg-card p-2 shadow-lg"
           >
-            Get Started
-          </a>
-        </nav>
+            {[...navLinks, { label: "GitHub", href: site.githubUrl }, { label: "Sign in", href: `${site.dashboardUrl}/login` }].map(
+              (link) => (
+                <a key={link.href} href={link.href} className="rounded-md px-3 py-2.5 text-sm font-medium text-ink-2 hover:bg-mist hover:text-ink">
+                  {link.label}
+                </a>
+              ),
+            )}
+            <a
+              href={`${site.dashboardUrl}/register`}
+              className="mt-1 rounded-md bg-teal px-3 py-2.5 text-center text-sm font-semibold text-on-teal hover:bg-teal-strong"
+            >
+              Start free
+            </a>
+          </nav>
+        </details>
       </div>
     </header>
   );

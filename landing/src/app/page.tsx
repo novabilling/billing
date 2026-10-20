@@ -1,492 +1,153 @@
-import Link from "next/link";
-import {
-  ArrowRight,
-  Building2,
-  CreditCard,
-  FileText,
-  BarChart3,
-  Webhook,
-  CalendarClock,
-  Check,
-  ExternalLink,
-  Github,
-  Globe,
-  Shield,
-  Code2,
-  Users,
-  Layers,
-  TrendingUp,
-  Lock,
-  RefreshCw,
-  Smartphone,
-  Wallet,
-  CircleDollarSign,
-  Activity,
-  Gauge,
-  Receipt,
-  Tag,
-  Star,
-} from "lucide-react";
-import Header from "@/components/header";
-import BrandMark from "@/components/brand-mark";
+import { ArrowRight, Check, Code2, Landmark, Layers, Server, Smartphone, Users } from "lucide-react";
 
-import { site } from "@/lib/site";
+import Header from "@/components/header";
+import { BrandLockup } from "@/components/brand-mark";
+import { rails, site } from "@/lib/site";
 import { faq } from "./faq";
 
-const DASHBOARD_URL = site.dashboardUrl;
-const DOCS_URL = site.docsUrl;
-const API_REF_URL = site.apiRefUrl;
-const GITHUB_URL = site.githubUrl;
+const register = `${site.dashboardUrl}/register`;
 
-/* ================================================================
-   HERO
-   ================================================================ */
+export default function Home() {
+  return (
+    <>
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-card focus:px-3 focus:py-2">
+        Skip to content
+      </a>
+      <Header />
+      <main id="main">
+        <Hero />
+        <Rails />
+        <Steps />
+        <Pillars />
+        <Money />
+        <Developers />
+        <Pricing />
+        <Faq />
+        <ClosingCta />
+      </main>
+      <Footer />
+    </>
+  );
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="font-mono text-xs uppercase tracking-[0.08em] text-teal">{children}</p>;
+}
+
+function SectionHeading({ eyebrow, title, lede }: { eyebrow: string; title: string; lede?: string }) {
+  return (
+    <div className="max-w-2xl">
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
+      {lede && <p className="mt-4 text-lg text-ink-2">{lede}</p>}
+    </div>
+  );
+}
+
+/* Hero: the promise, two ways in, and a ledger reading as the picture. */
 function Hero() {
+  const lines = [
+    { label: "Collected", value: "1,250,000" },
+    { label: "Paid out", value: "−840,000" },
+    { label: "Provider fees", value: "−18,750" },
+  ];
   return (
-    <section className="relative overflow-hidden">
-      {/* Background effects */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(14,110,107,.12), transparent)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-0 top-0 -z-10 h-[600px] w-[600px] opacity-20"
-        style={{
-          background:
-            "radial-gradient(circle at 100% 0%, rgba(168,72,31,.15), transparent 60%)",
-        }}
-      />
-
-      <div className="mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 sm:pb-28 sm:pt-28 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
-          <div className="max-w-2xl">
-            {/* Badge */}
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-1.5 text-xs font-medium text-[var(--muted)]">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              Open source &middot; Mobile money, cards &amp; crypto &middot; Self-host or cloud
-            </div>
-
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl leading-[1.1]">
-              Open-source billing{" "}
-              <span className="text-gradient">for the way Africa pays.</span>
-            </h1>
-
-            <p className="mt-6 text-lg leading-relaxed text-[var(--muted)] max-w-xl">
-              Subscriptions, usage metering and invoices that renew over MTN
-              MoMo, Airtel Money, cards, bank or USDT &mdash; then collect, pay
-              out and reconcile it all on one ledger. Measure it. Bill it. Settle it.
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-4">
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-700/25 transition-all hover:bg-[var(--primary-light)] hover:shadow-teal-700/30 hover:gap-3"
-              >
-                <Github className="h-4 w-4" />
-                Star on GitHub{" "}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </a>
-              <a
-                href={DOCS_URL}
-                className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-sm font-semibold transition-colors hover:bg-[var(--card-hover)]"
-              >
-                Get Started <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-
-            {/* Social proof hint */}
-            <div className="mt-10 flex items-center gap-6 text-xs text-[var(--muted)]">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-[var(--accent-green)]" />
-                AGPL-3.0 licensed
-              </div>
-              <div className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-[var(--accent-blue)]" />
-                AES-256 encryption
-              </div>
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-[var(--primary)]" />
-                40+ currencies
-              </div>
-            </div>
+    <section aria-labelledby="hero-title" className="border-b border-line">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        <div>
+          <Eyebrow>Open source · {site.license} · Self-host or cloud</Eyebrow>
+          <h1 id="hero-title" className="mt-4 font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
+            Open-source billing for the way Africa pays
+          </h1>
+          <p className="mt-6 max-w-xl text-lg text-ink-2">
+            Subscriptions, usage and one-time payments over mobile money, cards, banks and crypto. Every shilling, cent
+            and satoshi posts to a double-entry ledger your finance team can reconcile.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a
+              href={register}
+              className="inline-flex h-12 items-center gap-2 rounded-lg bg-teal px-5 font-semibold text-on-teal transition-colors hover:bg-teal-strong"
+            >
+              Start free <ArrowRight className="h-4 w-4" aria-hidden />
+            </a>
+            <a
+              href={site.githubUrl}
+              className="inline-flex h-12 items-center rounded-lg border border-line bg-card px-5 font-semibold transition-colors hover:border-teal"
+            >
+              Self-host from GitHub
+            </a>
           </div>
+          <p className="mt-4 text-sm text-ink-2">
+            Or read the{" "}
+            <a href={site.docsUrl} className="font-medium text-teal underline-offset-4 hover:underline">
+              quickstart
+            </a>
+            : running locally in about five minutes.
+          </p>
+        </div>
 
-          {/* Code window */}
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-2xl bg-gradient-to-br from-[var(--primary)]/10 via-transparent to-[var(--accent-warm)]/10 blur-xl" />
-            <div className="relative rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 glow-card">
-              <div className="flex items-center gap-1.5 px-4 py-3">
-                <span className="h-3 w-3 rounded-full bg-red-400/80" />
-                <span className="h-3 w-3 rounded-full bg-yellow-400/80" />
-                <span className="h-3 w-3 rounded-full bg-green-400/80" />
-                <span className="ml-3 text-xs text-[var(--muted)]">
-                  billing.ts
+        <figure className="rounded-2xl border border-line bg-card p-6 shadow-sm">
+          <figcaption className="flex items-center justify-between font-mono text-xs uppercase tracking-[0.08em] text-ink-2">
+            <span>Ledger · this month</span>
+            <span>Example</span>
+          </figcaption>
+          <dl className="mt-5 grid gap-3 font-mono text-[15px] tabular-nums">
+            {lines.map((l) => (
+              <div key={l.label} className="flex justify-between gap-4 border-b border-line pb-3">
+                <dt className="text-ink-2">{l.label}</dt>
+                <dd>UGX {l.value}</dd>
+              </div>
+            ))}
+            <div className="flex justify-between gap-4 pt-1 font-medium text-bark">
+              <dt>Balance</dt>
+              <dd>UGX 391,250</dd>
+            </div>
+          </dl>
+          <ol className="mt-6 grid gap-3 text-sm">
+            {[
+              ["MTN MoMo renewal", "Prompt sent to 0771 234 567"],
+              ["Payment failed", "Retried by dunning, pay link sent"],
+              ["Paid", "Posted to the ledger, webhook delivered"],
+            ].map(([what, detail], i) => (
+              <li key={what} className="flex gap-3">
+                <span
+                  aria-hidden
+                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-[3px] ${i === 2 ? "bg-teal" : "bg-teal/50"}`}
+                />
+                <span>
+                  <span className="font-medium">{what}</span>
+                  <span className="block text-ink-2">{detail}</span>
                 </span>
-              </div>
-              <pre className="overflow-x-auto rounded-b-lg bg-[var(--code-bg)] p-5 text-[13px] leading-6 text-gray-300">
-                <code>{`import { PimaBillClient } from "pimabill";
-
-const pima = new PimaBillClient({
-  token: process.env.PIMABILL_API_KEY,
-});
-
-// Track usage events for metered billing
-await pima.events.create({
-  subscriptionId: "sub_abc",
-  code: "api_requests",
-  properties: { endpoint: "/v1/users" },
-});
-
-// Create a customer with prepaid wallet
-const customer = await pima.customers.create({
-  externalId: "user_123",
-  email: "amina@kampaltech.ug",
-  currency: "UGX",
-});
-
-await pima.wallets.create({
-  customerId: customer.id,
-  currency: "UGX",
-  grantedCredits: 50000,
-});`}</code>
-              </pre>
-            </div>
-          </div>
-        </div>
+              </li>
+            ))}
+          </ol>
+        </figure>
       </div>
     </section>
   );
 }
 
-/* ================================================================
-   PROVIDER LOGOS / TRUST BAR
-   ================================================================ */
-function ProviderBar() {
-  const providers = [
-    { name: "Stripe", desc: "Global cards & wallets" },
-    { name: "Paystack", desc: "Nigeria, Ghana & more" },
-    { name: "Flutterwave", desc: "Pan-African payments" },
-    { name: "DPO Group", desc: "Southern & East Africa" },
-    { name: "PayU", desc: "South Africa & global" },
-    { name: "PesaPal", desc: "East African payments" },
+/* Rails: every way the software can collect or pay out. */
+function Rails() {
+  const groups = [
+    { title: "Mobile money", items: rails.mobileMoney },
+    { title: "Cards and banks", items: rails.cardsAndBanks },
+    { title: "Crypto", items: rails.crypto },
   ];
-
   return (
-    <section className="border-t border-b border-[var(--border)] bg-[var(--card)]/50 py-10">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <p className="text-center text-xs font-medium uppercase tracking-widest text-[var(--muted)]">
-          One API. Six payment providers. Infinite reach.
-        </p>
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {providers.map((p) => (
-            <div
-              key={p.name}
-              className="flex flex-col items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-5 transition-colors hover:border-[var(--primary)]/30"
-            >
-              <CreditCard className="h-6 w-6 text-[var(--primary)]" />
-              <span className="text-sm font-semibold">{p.name}</span>
-              <span className="text-xs text-[var(--muted)] text-center">{p.desc}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   VALUE PROPOSITION -- WHY PIMABILL
-   ================================================================ */
-function WhyPimaBill() {
-  const reasons = [
-    {
-      icon: Smartphone,
-      title: "Built for how customers pay",
-      description:
-        "Renewals designed around mobile money prompts, retries and reminders, beside Stripe, Flutterwave, Paystack, PayPal and USDT or Bitcoin.",
-      color: "var(--primary)",
-    },
-    {
-      icon: Receipt,
-      title: "One ledger for every movement",
-      description:
-        "Subscriptions, usage, collections, payouts, transfers and platform fees post to a double-entry ledger your finance team can reconcile.",
-      color: "var(--accent-blue)",
-    },
-    {
-      icon: Github,
-      title: "Yours to run",
-      description:
-        "AGPL-3.0, self-hosted on Postgres, no processor lock-in. Or use the cloud, with managed payments if you have no merchant account yet.",
-      color: "var(--accent-orange)",
-    },
-  ];
-
-  return (
-    <section className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            Why {site.name}
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Billing that measures{" "}
-            <span className="text-gradient">every shilling, cent and satoshi</span>
-          </h2>
-          <p className="mt-4 text-lg text-[var(--muted)]">
-            A developer-first API, multi-tenant with team roles from day one, and
-            independent of any single payment processor.
-          </p>
-        </div>
-
-        <div className="mt-16 grid gap-8 lg:grid-cols-3">
-          {reasons.map((r) => (
-            <div
-              key={r.title}
-              className="group relative rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 transition-all hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-teal-700/5"
-            >
-              <div
-                className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl transition-colors"
-                style={{
-                  backgroundColor: `color-mix(in srgb, ${r.color} 12%, transparent)`,
-                  color: r.color,
-                }}
-              >
-                <r.icon className="h-6 w-6" />
-              </div>
-              <h3 className="text-xl font-semibold">{r.title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-                {r.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   FEATURES -- DEEP DIVE
-   ================================================================ */
-const features = [
-  {
-    icon: CalendarClock,
-    title: "Smart Subscriptions",
-    description:
-      "Free trials, upgrades, downgrades, pausing, and automated renewals. Proration handled automatically with credit notes.",
-  },
-  {
-    icon: Activity,
-    title: "Usage-Based Billing",
-    description:
-      "Track events with 6 aggregation types (COUNT, SUM, MAX, UNIQUE_COUNT, LATEST, WEIGHTED_SUM). Bill on actual usage, not estimates.",
-  },
-  {
-    icon: Gauge,
-    title: "5 Charge Models",
-    description:
-      "Standard, graduated, volume, package, and percentage pricing. Mix flat fees with usage charges on any plan.",
-  },
-  {
-    icon: Wallet,
-    title: "Prepaid Wallets",
-    description:
-      "Customer credit wallets with purchased and granted credits. Auto-deducted from invoices. Expiration support built in.",
-  },
-  {
-    icon: Receipt,
-    title: "Taxes & Overrides",
-    description:
-      "Hierarchical tax rules (org > customer > plan > charge). Per-customer plan overrides for custom pricing.",
-  },
-  {
-    icon: CreditCard,
-    title: "6 Payment Providers",
-    description:
-      "Stripe, Paystack, Flutterwave, DPO Group, PayU, and PesaPal. Encrypted credentials with automatic routing.",
-  },
-  {
-    icon: FileText,
-    title: "Invoices & Checkout",
-    description:
-      "Auto-generated PDF invoices. Hosted checkout URLs. Email delivery on every billing event. Grace periods for draft invoices.",
-  },
-  {
-    icon: BarChart3,
-    title: "Revenue Analytics",
-    description:
-      "MRR breakdown, net revenue, churn cohorts, LTV metrics, and payment success rates. Filter by date, currency, and provider.",
-  },
-  {
-    icon: Webhook,
-    title: "Webhooks & Events",
-    description:
-      "Signature-verified webhooks for every billing event. Automatic retries with exponential backoff. Full event history.",
-  },
-  {
-    icon: RefreshCw,
-    title: "Smart Dunning",
-    description:
-      "Failed payments trigger automatic retries. Configurable retry schedules with email notifications at each stage.",
-  },
-  {
-    icon: Building2,
-    title: "Multi-Tenant Isolation",
-    description:
-      "Every tenant gets a dedicated database. No data leaks, no noisy neighbors. Provision tenants with a single API call.",
-  },
-  {
-    icon: Lock,
-    title: "Enterprise Security",
-    description:
-      "AES-256 credential encryption, JWT + API key dual auth, rate limiting, and per-tenant SMTP configuration.",
-  },
-];
-
-function Features() {
-  return (
-    <section
-      id="features"
-      className="border-t border-[var(--border)] py-24 bg-[var(--card)]/30"
-    >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            Features
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Everything you need to bill globally
-          </h2>
-          <p className="mt-4 text-lg text-[var(--muted)]">
-            Subscriptions, usage metering, prepaid wallets, taxes, and more
-            &mdash; all in one open-source platform.
-          </p>
-        </div>
-
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="group rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 transition-all hover:border-[var(--primary)]/40 hover:shadow-lg hover:shadow-teal-700/5"
-            >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] transition-colors group-hover:bg-[var(--primary)] group-hover:text-white">
-                <f.icon className="h-5 w-5" />
-              </div>
-              <h3 className="font-semibold">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                {f.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   FOR TEAMS -- WHO IS IT FOR
-   ================================================================ */
-function ForTeams() {
-  const teams = [
-    {
-      icon: Code2,
-      role: "Developers",
-      headline: "Ship billing without the headaches",
-      points: [
-        "Type-safe TypeScript & Python SDKs",
-        "OpenAPI spec with Scalar interactive docs",
-        "Usage event ingestion with idempotency",
-        "Self-host with Docker in 5 minutes",
-      ],
-    },
-    {
-      icon: TrendingUp,
-      role: "Business Leaders",
-      headline: "Scale revenue across borders",
-      points: [
-        "Accept payments in 40+ currencies",
-        "6 payment providers across Africa & globally",
-        "MRR, churn, LTV, and net revenue analytics",
-        "Open source -- no per-transaction platform fees",
-      ],
-    },
-    {
-      icon: Users,
-      role: "Product Teams",
-      headline: "Launch pricing changes in minutes",
-      points: [
-        "Usage-based, flat-rate, and hybrid pricing",
-        "Prepaid wallets and promotional credits",
-        "Trial periods, coupons, and plan overrides",
-        "5 charge models for any pricing strategy",
-      ],
-    },
-    {
-      icon: Shield,
-      role: "Security & Compliance",
-      headline: "Enterprise-grade from day one",
-      points: [
-        "AES-256 encrypted provider credentials",
-        "Isolated tenant databases (no data co-mingling)",
-        "AGPL-3.0 -- full source code audit",
-        "Per-tenant SMTP and webhook configuration",
-      ],
-    },
-  ];
-
-  return (
-    <section className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            Built for your team
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            {site.name} works for everyone
-          </h2>
-          <p className="mt-4 text-lg text-[var(--muted)]">
-            Whether you&apos;re writing code or watching dashboards, {site.name}
-            gives your team the tools to move fast.
-          </p>
-        </div>
-
-        <div className="mt-16 grid gap-6 sm:grid-cols-2">
-          {teams.map((t) => (
-            <div
-              key={t.role}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 transition-all hover:border-[var(--primary)]/30"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)]/10 text-[var(--primary)]">
-                  <t.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--primary)]">
-                    {t.role}
-                  </p>
-                  <h3 className="font-semibold">{t.headline}</h3>
-                </div>
-              </div>
-              <ul className="space-y-2.5">
-                {t.points.map((point) => (
-                  <li
-                    key={point}
-                    className="flex items-start gap-2.5 text-sm text-[var(--muted)]"
-                  >
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-green)]" />
-                    {point}
+    <section aria-labelledby="rails-title" className="border-b border-line bg-card">
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <h2 id="rails-title" className="font-display text-xl font-semibold tracking-tight">
+          Built for how your customers pay
+        </h2>
+        <div className="mt-6 grid gap-8 md:grid-cols-3">
+          {groups.map((g) => (
+            <div key={g.title}>
+              <h3 className="font-mono text-xs uppercase tracking-[0.08em] text-ink-2">{g.title}</h3>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {g.items.map((r) => (
+                  <li key={r} className="rounded-full border border-line px-3 py-1 text-sm">
+                    {r}
                   </li>
                 ))}
               </ul>
@@ -498,299 +159,93 @@ function ForTeams() {
   );
 }
 
-/* ================================================================
-   CODE EXAMPLES -- DEVELOPER EXPERIENCE
-   ================================================================ */
-function DeveloperExperience() {
-  return (
-    <section className="border-t border-[var(--border)] py-24 bg-[var(--card)]/30">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-              Developer Experience
-            </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              From zero to billing in 5 minutes
-            </h2>
-            <p className="mt-4 text-lg text-[var(--muted)]">
-              Self-host with Docker or use our SDKs generated from the OpenAPI
-              spec. Full type safety, autocomplete, and comprehensive error
-              handling.
-            </p>
-
-            <ul className="mt-8 space-y-4">
-              {[
-                {
-                  label: "Deploy with Docker",
-                  detail: "docker compose up -d -- that's it",
-                },
-                {
-                  label: "Connect a payment provider",
-                  detail: "Stripe, Paystack, Flutterwave, DPO, PayU, or PesaPal",
-                },
-                {
-                  label: "Create plans & track usage",
-                  detail:
-                    "Multi-currency pricing with 5 charge models and event metering",
-                },
-                {
-                  label: "Start billing",
-                  detail:
-                    "Subscriptions, invoices, wallets, and dunning -- all automated",
-                },
-              ].map((step, i) => (
-                <li key={step.label} className="flex items-start gap-4">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-xs font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold">{step.label}</p>
-                    <p className="text-xs text-[var(--muted)]">{step.detail}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-8 flex flex-wrap gap-4">
-              <a
-                href={DOCS_URL}
-                className="group inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] transition-colors hover:text-[var(--primary-light)]"
-              >
-                Read the quickstart{" "}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </a>
-              <a
-                href={API_REF_URL}
-                className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
-              >
-                API Reference <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {/* Docker quick start */}
-            <div className="relative rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 glow-card">
-              <div className="flex items-center gap-1.5 px-4 py-3">
-                <span className="h-3 w-3 rounded-full bg-red-400/80" />
-                <span className="h-3 w-3 rounded-full bg-yellow-400/80" />
-                <span className="h-3 w-3 rounded-full bg-green-400/80" />
-                <span className="ml-3 text-xs text-[var(--muted)]">
-                  terminal
-                </span>
-              </div>
-              <pre className="overflow-x-auto rounded-b-lg bg-[var(--code-bg)] p-5 text-[13px] leading-6 text-gray-300">
-                <code>{`# Clone and run
-git clone ${GITHUB_URL}
-cd billing
-docker compose up -d
-
-# API is live at http://localhost:4000
-# Dashboard at http://localhost:4002
-# Docs at http://localhost:4003`}</code>
-              </pre>
-            </div>
-
-            {/* Usage-based billing example */}
-            <div className="relative rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 glow-card">
-              <div className="flex items-center gap-1.5 px-4 py-3">
-                <span className="h-3 w-3 rounded-full bg-red-400/80" />
-                <span className="h-3 w-3 rounded-full bg-yellow-400/80" />
-                <span className="h-3 w-3 rounded-full bg-green-400/80" />
-                <span className="ml-3 text-xs text-[var(--muted)]">
-                  usage-billing.ts
-                </span>
-              </div>
-              <pre className="overflow-x-auto rounded-b-lg bg-[var(--code-bg)] p-5 text-[13px] leading-6 text-gray-300">
-                <code>{`// Define a usage metric
-await pima.billableMetrics.create({
-  name: "API Requests",
-  code: "api_requests",
-  aggregationType: "COUNT",
-});
-
-// Attach a graduated charge to a plan
-await pima.charges.create({
-  planId: plan.id,
-  billableMetricId: metric.id,
-  chargeModel: "GRADUATED",
-  graduatedRanges: [
-    { fromValue: 0, toValue: 1000, perUnitAmount: 0 },
-    { fromValue: 1001, toValue: null, perUnitAmount: 0.002 },
-  ],
-});`}</code>
-              </pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   CURRENCIES -- GLOBAL REACH
-   ================================================================ */
-function GlobalReach() {
-  const currencies = [
-    // African
-    { code: "NGN", name: "Nigerian Naira", region: "West Africa" },
-    { code: "KES", name: "Kenyan Shilling", region: "East Africa" },
-    { code: "UGX", name: "Ugandan Shilling", region: "East Africa" },
-    { code: "GHS", name: "Ghanaian Cedi", region: "West Africa" },
-    { code: "ZAR", name: "South African Rand", region: "Southern Africa" },
-    { code: "TZS", name: "Tanzanian Shilling", region: "East Africa" },
-    { code: "RWF", name: "Rwandan Franc", region: "East Africa" },
-    { code: "EGP", name: "Egyptian Pound", region: "North Africa" },
-    { code: "ETB", name: "Ethiopian Birr", region: "East Africa" },
-    { code: "XOF", name: "CFA Franc (BCEAO)", region: "West Africa" },
-    { code: "XAF", name: "CFA Franc (BEAC)", region: "Central Africa" },
-    { code: "MAD", name: "Moroccan Dirham", region: "North Africa" },
-    { code: "DZD", name: "Algerian Dinar", region: "North Africa" },
-    { code: "ZMW", name: "Zambian Kwacha", region: "Southern Africa" },
-    { code: "BWP", name: "Botswana Pula", region: "Southern Africa" },
-    { code: "MUR", name: "Mauritian Rupee", region: "Indian Ocean" },
-    { code: "NAD", name: "Namibian Dollar", region: "Southern Africa" },
-    { code: "MZN", name: "Mozambican Metical", region: "Southern Africa" },
-    { code: "AOA", name: "Angolan Kwanza", region: "Central Africa" },
-    { code: "TND", name: "Tunisian Dinar", region: "North Africa" },
-    { code: "SOS", name: "Somali Shilling", region: "East Africa" },
-    { code: "GMD", name: "Gambian Dalasi", region: "West Africa" },
-    { code: "MWK", name: "Malawian Kwacha", region: "Southern Africa" },
-    { code: "LRD", name: "Liberian Dollar", region: "West Africa" },
-    { code: "SLL", name: "Sierra Leonean Leone", region: "West Africa" },
-    { code: "CVE", name: "Cape Verdean Escudo", region: "West Africa" },
-    { code: "SCR", name: "Seychellois Rupee", region: "Indian Ocean" },
-    { code: "SZL", name: "Swazi Lilangeni", region: "Southern Africa" },
-    // Global
-    { code: "USD", name: "US Dollar", region: "International" },
-    { code: "EUR", name: "Euro", region: "International" },
-    { code: "GBP", name: "British Pound", region: "International" },
-    { code: "CAD", name: "Canadian Dollar", region: "International" },
-    { code: "AUD", name: "Australian Dollar", region: "International" },
-    { code: "JPY", name: "Japanese Yen", region: "International" },
-    { code: "CNY", name: "Chinese Yuan", region: "International" },
-    { code: "INR", name: "Indian Rupee", region: "International" },
-    { code: "BRL", name: "Brazilian Real", region: "International" },
-  ];
-
-  return (
-    <section className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            Global Reach
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            {currencies.length} currencies. One integration.
-          </h2>
-          <p className="mt-4 text-lg text-[var(--muted)]">
-            The widest African currency coverage of any open-source billing
-            platform. Bill customers in their local currency with automatic
-            provider routing.
-          </p>
-        </div>
-
-        <div className="mt-12 flex flex-wrap justify-center gap-3">
-          {currencies.map((c) => (
-            <div
-              key={c.code}
-              className="group relative rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm transition-all hover:border-[var(--primary)]/40 hover:shadow-sm"
-            >
-              <span className="font-mono font-semibold">{c.code}</span>
-              <span className="ml-2 text-[var(--muted)]">{c.name}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Stats */}
-        <div className="mt-16 grid grid-cols-2 gap-6 sm:grid-cols-4">
-          {[
-            { value: "40+", label: "Countries supported" },
-            { value: "6", label: "Payment providers" },
-            { value: `${currencies.length}`, label: "Currencies" },
-            { value: "5", label: "Charge models" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <p className="text-3xl font-extrabold text-gradient sm:text-4xl">
-                {stat.value}
-              </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   HOW IT WORKS
-   ================================================================ */
-function HowItWorks() {
+/* Measure it. Bill it. Settle it. */
+function Steps() {
   const steps = [
     {
-      step: "01",
-      icon: Github,
-      title: "Clone & deploy",
-      description:
-        "One command to spin up the full stack with Docker. API, dashboard, docs, and worker processes -- all included.",
+      title: "Measure it",
+      body: "Send usage events from your app. Count, sum, take the maximum or count unique values per billing period, with per-customer plan overrides.",
     },
     {
-      step: "02",
-      icon: CreditCard,
-      title: "Connect providers",
-      description:
-        "Add Stripe, Paystack, Flutterwave, DPO, PayU, or PesaPal credentials. Encrypted with AES-256 at rest.",
+      title: "Bill it",
+      body: "Plans priced in any currency with trials, coupons, add-ons and proration. Invoices go out on schedule, failed payments are retried, and customers can pay from a hosted checkout link.",
     },
     {
-      step: "03",
-      icon: CircleDollarSign,
-      title: "Define pricing",
-      description:
-        "Create plans with multi-currency prices, usage charges, and prepaid wallets. 5 charge models for any strategy.",
-    },
-    {
-      step: "04",
-      icon: Wallet,
-      title: "Start billing",
-      description:
-        "Subscriptions, invoices, payments, and dunning -- all automated. Track everything in the dashboard.",
+      title: "Settle it",
+      body: "Collections, payouts and wallet transfers run on the same rails and post to a balanced double-entry ledger, checked for integrity every run.",
     },
   ];
-
   return (
-    <section className="border-t border-[var(--border)] py-24 bg-[var(--card)]/30">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            How it works
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Four steps to global billing
+    <section id="product" aria-labelledby="steps-title" className="border-b border-line">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="max-w-2xl">
+          <Eyebrow>How it works</Eyebrow>
+          <h2 id="steps-title" className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            Measure it. Bill it. Settle it.
           </h2>
+          <p className="mt-4 text-lg text-ink-2">
+            &ldquo;Pima&rdquo; is Swahili for <em>measure</em>: what usage billing and a ledger do before anyone is charged.
+          </p>
         </div>
-
-        <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="mt-12 grid gap-6 md:grid-cols-3">
           {steps.map((s, i) => (
-            <div key={s.step} className="relative">
-              {/* Connector line */}
-              {i < steps.length - 1 && (
-                <div className="absolute right-0 top-10 hidden h-px w-full translate-x-1/2 bg-[var(--border)] lg:block" />
-              )}
-              <div className="relative rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--primary)]/10">
-                  <s.icon className="h-6 w-6 text-[var(--primary)]" />
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary)]">
-                  Step {s.step}
-                </span>
-                <h3 className="mt-2 font-semibold">{s.title}</h3>
-                <p className="mt-2 text-sm text-[var(--muted)]">
-                  {s.description}
-                </p>
-              </div>
+            <li key={s.title} className="rounded-2xl border border-line bg-card p-6">
+              <span className="font-mono text-sm text-teal">0{i + 1}</span>
+              <h3 className="mt-3 font-display text-xl font-semibold">{s.title}</h3>
+              <p className="mt-3 text-ink-2">{s.body}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function Pillars() {
+  const pillars = [
+    {
+      icon: Smartphone,
+      title: "Built for how customers pay",
+      body: "Renewals designed around mobile money prompts, retries and reminders, beside cards, bank transfers, PayPal and crypto.",
+    },
+    {
+      icon: Layers,
+      title: "One ledger for every movement",
+      body: "Subscriptions, usage, collections, payouts, transfers and platform fees post to a double-entry ledger finance can reconcile.",
+    },
+    {
+      icon: Server,
+      title: "Yours to run",
+      body: `${site.license}, self-hosted on PostgreSQL, with no processor lock-in. Switch providers without rewriting your billing.`,
+    },
+    {
+      icon: Code2,
+      title: "Developer-first",
+      body: "An OpenAPI spec, TypeScript, Python and PHP SDKs, signed webhooks and idempotent money endpoints.",
+    },
+    {
+      icon: Users,
+      title: "Teams and organisations",
+      body: "Owner, admin, finance, developer and viewer roles, invitations, and several organisations from one login.",
+    },
+    {
+      icon: Landmark,
+      title: "Start without a merchant account",
+      body: "On the cloud, managed payments let you take payments before you have provider contracts; money settles to your own bank.",
+    },
+  ];
+  return (
+    <section aria-labelledby="pillars-title" className="border-b border-line bg-card">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <h2 id="pillars-title" className="max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+          Billing and money infrastructure in one open-source product
+        </h2>
+        <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {pillars.map((p) => (
+            <div key={p.title} className="border-t-2 border-teal pt-5">
+              <p.icon className="h-5 w-5 text-teal" aria-hidden />
+              <h3 className="mt-3 text-lg font-semibold">{p.title}</h3>
+              <p className="mt-2 text-ink-2">{p.body}</p>
             </div>
           ))}
         </div>
@@ -799,133 +254,201 @@ function HowItWorks() {
   );
 }
 
-/* ================================================================
-   PRICING
-   ================================================================ */
+function Money() {
+  const items = [
+    ["One-time collections", "A mobile money PIN prompt or a hosted checkout, not tied to an invoice. Retries with the same reference never charge twice."],
+    ["Payouts with controls", "Approval above a threshold, daily limits per currency, and payouts the provider cannot confirm are re-checked, never resent."],
+    ["Wallets and transfers", "Prepaid credit per customer and transfers between wallets, each one a balanced ledger entry."],
+    ["Crypto to your own wallet", "USDT on TRON, Ethereum and BNB Chain, and Bitcoin, watched on the chain. No keys and no custody."],
+    ["Platform commission", "Rates, flat fees and minimums per currency, charged to you or added to what the payer is asked for."],
+    ["Ledger health", "Zero-sum, balanced entries, cached balances and wallet parity, checked on every sync."],
+  ];
+  return (
+    <section aria-labelledby="money-title" className="border-b border-line">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <SectionHeading
+          eyebrow="Money movement"
+          title="Collect, pay out and reconcile in one place"
+          lede={`${site.name} never holds funds: every rail moves money between your payers and accounts you own.`}
+        />
+        <dl className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+          {items.map(([title, body]) => (
+            <div key={title} className="bg-card p-6">
+              <dt className="font-semibold">{title}</dt>
+              <dd className="mt-2 text-ink-2">{body}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function Developers() {
+  const facts = [
+    "OpenAPI 3 spec, committed and checked on every change",
+    "TypeScript, Python and PHP SDKs under the MIT licence",
+    "Webhooks signed with HMAC-SHA256, every attempt logged",
+    "Idempotency keys on collections, payouts and transfers",
+    "A separate database per organisation",
+  ];
+  return (
+    <section id="developers" aria-labelledby="dev-title" className="border-b border-line bg-card">
+      <div className="mx-auto grid max-w-6xl items-start gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <div>
+          <Eyebrow>Developers</Eyebrow>
+          <h2 id="dev-title" className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            A few lines to bill, collect and pay out
+          </h2>
+          <ul className="mt-8 grid gap-3">
+            {facts.map((f) => (
+              <li key={f} className="flex gap-3">
+                <Check className="mt-0.5 h-5 w-5 shrink-0 text-teal" aria-hidden />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium">
+            <a href={site.docsUrl} className="text-teal underline-offset-4 hover:underline">
+              Documentation
+            </a>
+            <a href={site.apiRefUrl} className="text-teal underline-offset-4 hover:underline">
+              API reference
+            </a>
+          </div>
+        </div>
+        <pre
+          aria-label="TypeScript example"
+          className="overflow-x-auto rounded-2xl bg-code p-6 font-mono text-[13px] leading-6 text-[#d7e3e0]"
+        >
+          <code>
+            <span className="text-[#7fd6cf]">import</span> {"{ PimaBillClient }"} <span className="text-[#7fd6cf]">from</span>{" "}
+            <span className="text-[#e9b98f]">&apos;pimabill&apos;</span>;{"\n\n"}
+            <span className="text-[#7fd6cf]">const</span> pima = <span className="text-[#7fd6cf]">new</span> PimaBillClient({"{"}
+            {"\n"}  token: process.env.PIMABILL_API_KEY!,{"\n"}
+            {"});"}
+            {"\n\n"}
+            <span className="text-[#8a9894]">{"// A monthly plan, billed in shillings"}</span>
+            {"\n"}
+            <span className="text-[#7fd6cf]">await</span> pima.subscriptions.create({"{"}
+            {"\n"}  customerId: <span className="text-[#e9b98f]">&apos;cus_123&apos;</span>,{"\n"}  planId:{" "}
+            <span className="text-[#e9b98f]">&apos;plan_growth&apos;</span>,{"\n"}  currency:{" "}
+            <span className="text-[#e9b98f]">&apos;UGX&apos;</span>,{"\n"}
+            {"});"}
+            {"\n\n"}
+            <span className="text-[#8a9894]">{"// Pay a supplier on MTN MoMo"}</span>
+            {"\n"}
+            <span className="text-[#7fd6cf]">await</span> pima.payouts.create({"{"}
+            {"\n"}  amount: <span className="text-[#e9b98f]">&apos;120000&apos;</span>,{"\n"}  currency:{" "}
+            <span className="text-[#e9b98f]">&apos;UGX&apos;</span>,{"\n"}  payee: {"{"} type:{" "}
+            <span className="text-[#e9b98f]">&apos;mobile_money&apos;</span>, msisdn:{" "}
+            <span className="text-[#e9b98f]">&apos;256771234567&apos;</span> {"}"},{"\n"}
+            {"});"}
+          </code>
+        </pre>
+      </div>
+    </section>
+  );
+}
+
 const tiers = [
   {
     name: "Community",
     price: "Free",
     period: "",
-    description: "Self-host the full platform. No limits, no strings attached.",
+    description: "Self-host the whole platform. No limits.",
     features: [
-      "All features included",
-      "Unlimited tenants & customers",
-      "All 6 payment providers",
-      "Usage-based billing & wallets",
-      "Full dashboard & analytics",
+      "Every feature included",
+      "Unlimited organisations and customers",
+      "Every payment provider",
+      "Usage billing, wallets and the ledger",
+      "Dashboard and analytics",
       "Community support on GitHub",
     ],
-    cta: "Deploy Now",
-    ctaHref: GITHUB_URL,
+    cta: "Deploy from GitHub",
+    href: site.githubUrl,
     highlighted: true,
   },
   {
     name: "Cloud",
     price: "$49",
     period: "/mo",
-    description: "We host and manage everything. You focus on your product.",
+    description: "We host and run it. You focus on your product.",
     features: [
       "Everything in Community",
       "Managed infrastructure",
-      "Automatic updates & backups",
+      "Automatic updates and backups",
       "Priority email support",
       "99.9% uptime SLA",
-      "Custom domain for dashboard",
+      "Custom domain for the dashboard",
     ],
-    cta: "Coming Soon",
-    ctaHref: "#",
+    cta: "Coming soon",
+    href: undefined,
     highlighted: false,
   },
   {
     name: "Enterprise",
     price: "Custom",
     period: "",
-    description: "For large-scale, multi-entity billing operations.",
+    description: "For large, multi-entity billing operations.",
     features: [
       "Everything in Cloud",
       "Dedicated database cluster",
-      "Custom SLA & uptime guarantee",
-      "SSO / SAML integration",
+      "Custom SLA",
+      "SSO / SAML",
       "On-premise deployment support",
-      "Dedicated account manager",
+      "A named account manager",
     ],
-    cta: "Contact Us",
-    ctaHref: `mailto:${site.contactEmail}`,
+    cta: "Contact us",
+    href: `mailto:${site.contactEmail}`,
     highlighted: false,
   },
 ];
 
 function Pricing() {
   return (
-    <section id="pricing" className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            Pricing
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Free to self-host. Forever.
+    <section id="pricing" aria-labelledby="pricing-title" className="border-b border-line">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="max-w-2xl">
+          <Eyebrow>Pricing</Eyebrow>
+          <h2 id="pricing-title" className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            Free to self-host. Always.
           </h2>
-          <p className="mt-4 text-lg text-[var(--muted)]">
-            The full platform is open source and free to deploy. Need managed
-            hosting? We&apos;ve got you covered.
-          </p>
         </div>
-
-        <div className="mt-16 grid gap-8 lg:grid-cols-3">
-          {tiers.map((tier) => (
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {tiers.map((t) => (
             <div
-              key={tier.name}
-              className={`relative flex flex-col rounded-2xl border p-8 transition-all ${
-                tier.highlighted
-                  ? "border-[var(--primary)] shadow-xl shadow-teal-700/10 scale-[1.02]"
-                  : "border-[var(--border)] hover:border-[var(--primary)]/30"
-              }`}
+              key={t.name}
+              className={`flex flex-col rounded-2xl border bg-card p-7 ${t.highlighted ? "border-teal ring-1 ring-teal" : "border-line"}`}
             >
-              {tier.highlighted && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="rounded-full bg-[var(--primary)] px-4 py-1 text-xs font-semibold text-white shadow-lg shadow-teal-700/25">
-                    Most Popular
-                  </span>
-                </div>
-              )}
-              <div>
-                <h3 className="text-lg font-semibold">{tier.name}</h3>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold">{tier.price}</span>
-                  {tier.period && (
-                    <span className="text-sm text-[var(--muted)]">
-                      {tier.period}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-3 text-sm text-[var(--muted)]">
-                  {tier.description}
-                </p>
-              </div>
-
-              <ul className="mt-8 flex-1 space-y-3">
-                {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-green)]" />
-                    {feature}
+              <h3 className="text-lg font-semibold">{t.name}</h3>
+              <p className="mt-4">
+                <span className="font-display text-4xl font-semibold">{t.price}</span>
+                {t.period && <span className="text-ink-2">{t.period}</span>}
+              </p>
+              <p className="mt-3 text-ink-2">{t.description}</p>
+              <ul className="mt-6 grid flex-1 gap-2.5 text-sm">
+                {t.features.map((f) => (
+                  <li key={f} className="flex gap-2.5">
+                    <Check className="h-4 w-4 shrink-0 translate-y-0.5 text-teal" aria-hidden />
+                    {f}
                   </li>
                 ))}
               </ul>
-
-              <a
-                href={tier.ctaHref}
-                target={tier.ctaHref.startsWith("http") ? "_blank" : undefined}
-                rel={tier.ctaHref.startsWith("http") ? "noopener noreferrer" : undefined}
-                className={`mt-8 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
-                  tier.highlighted
-                    ? "bg-[var(--primary)] text-white shadow-sm hover:bg-[var(--primary-light)] hover:shadow-md"
-                    : "border border-[var(--border)] bg-[var(--card)] hover:bg-[var(--card-hover)]"
-                }`}
-              >
-                {tier.cta}
-              </a>
+              {t.href ? (
+                <a
+                  href={t.href}
+                  className={`mt-8 inline-flex h-11 items-center justify-center rounded-lg px-4 font-semibold transition-colors ${
+                    t.highlighted ? "bg-teal text-on-teal hover:bg-teal-strong" : "border border-line hover:border-teal"
+                  }`}
+                >
+                  {t.cta}
+                </a>
+              ) : (
+                <p className="mt-8 inline-flex h-11 items-center justify-center rounded-lg border border-dashed border-line px-4 font-semibold text-ink-2">
+                  {t.cta}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -934,189 +457,23 @@ function Pricing() {
   );
 }
 
-/* ================================================================
-   COMPARISON
-   ================================================================ */
-function Comparison() {
-  const rows = [
-    { feature: "Open source", pima: true, lago: true, stripe: false },
-    { feature: "Self-hostable", pima: true, lago: true, stripe: false },
-    { feature: "Usage-based billing", pima: true, lago: true, stripe: true },
-    { feature: "Prepaid wallets", pima: true, lago: true, stripe: false },
-    { feature: "African payment providers", pima: true, lago: false, stripe: false },
-    { feature: "Multi-tenant isolation", pima: true, lago: false, stripe: false },
-    { feature: "Graduated & volume pricing", pima: true, lago: true, stripe: true },
-    { feature: "Smart dunning", pima: true, lago: true, stripe: true },
-    { feature: "Free self-hosted tier", pima: true, lago: "Limited", stripe: false },
-    { feature: "Premium self-hosted price", pima: "Free", lago: "$9,000/yr", stripe: "N/A" },
-  ];
-
-  return (
-    <section className="border-t border-[var(--border)] py-24 bg-[var(--card)]/30">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            How we compare
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            {site.name} vs. the alternatives
-          </h2>
-        </div>
-
-        <div className="mt-12 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="py-3 pr-4 text-left font-semibold">Feature</th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--primary)]">{site.name}</th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--muted)]">Lago</th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--muted)]">Stripe Billing</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.feature} className="border-b border-[var(--border)]/50">
-                  <td className="py-3 pr-4 text-[var(--muted)]">{row.feature}</td>
-                  {[row.pima, row.lago, row.stripe].map((val, i) => (
-                    <td key={i} className="px-4 py-3 text-center">
-                      {val === true ? (
-                        <Check className="mx-auto h-4 w-4 text-[var(--accent-green)]" />
-                      ) : val === false ? (
-                        <span className="text-[var(--muted)]">&mdash;</span>
-                      ) : (
-                        <span className="text-xs text-[var(--muted)]">{val}</span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   CTA -- FINAL CALL TO ACTION
-   ================================================================ */
-function FinalCTA() {
-  return (
-    <section className="border-t border-[var(--border)] py-24">
-      <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-          Ready to <span className="text-gradient">go borderless?</span>
-        </h2>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-[var(--muted)]">
-          Deploy {site.name} in minutes. Open source, self-hostable, and free
-          forever. Join the community building the future of billing.
-        </p>
-        <div className="mt-10 flex flex-wrap justify-center gap-4">
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-teal-700/25 transition-all hover:bg-[var(--primary-light)] hover:shadow-teal-700/30 hover:gap-3"
-          >
-            <Github className="h-4 w-4" />
-            Star on GitHub{" "}
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </a>
-          <a
-            href={DOCS_URL}
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-8 py-3.5 text-sm font-semibold transition-colors hover:bg-[var(--card-hover)]"
-          >
-            Read the Docs
-          </a>
-        </div>
-        <p className="mt-6 text-xs text-[var(--muted)]">
-          AGPL-3.0 licensed. All features included. No credit card required.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   MONEY MOVEMENT
-   ================================================================ */
-const moneyFeatures = [
-  {
-    icon: Smartphone,
-    title: "Mobile money, direct",
-    body: "Collect and pay out with MTN MoMo and Airtel Money APIs, or through Yo! Payments, Flutterwave and Eversend. Numbers route to the right network automatically.",
-  },
-  {
-    icon: Wallet,
-    title: "Payouts and transfers",
-    body: "Pay suppliers, sellers and refunds to mobile money and bank accounts, with approval thresholds, daily limits and wallet-to-wallet transfers.",
-  },
-  {
-    icon: CircleDollarSign,
-    title: "Crypto to your own wallet",
-    body: "Receive USDT on TRON, Ethereum or BNB Chain and Bitcoin straight to your wallet with no processor, or use Binance Pay, NOWPayments or Eversend.",
-  },
-  {
-    icon: Layers,
-    title: "Double-entry ledger",
-    body: "Every invoice, payment, payout and wallet change is mirrored as balanced ledger entries, with integrity checks you can see.",
-  },
-  {
-    icon: Shield,
-    title: "You keep your money",
-    body: "Payments land in your own provider accounts and wallets. The platform sends instructions and keeps the records; it never holds funds.",
-  },
-  {
-    icon: Users,
-    title: "Teams and organisations",
-    body: "Owner, admin, finance, developer and viewer roles, invitations, and several businesses under one login.",
-  },
-];
-
-function MoneyMovement() {
-  return (
-    <section id="money" className="border-t border-[var(--border)] py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[var(--primary)]">Beyond subscriptions</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Collect, pay out and reconcile in one place</h2>
-          <p className="mt-4 text-lg text-[var(--muted)]">
-            One-time collections, payouts and transfers on the rails your customers already use, with the books kept for you.
-          </p>
-        </div>
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {moneyFeatures.map((f) => (
-            <div key={f.title} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-              <f.icon className="h-6 w-6 text-[var(--primary)]" aria-hidden />
-              <h3 className="mt-4 font-semibold">{f.title}</h3>
-              <p className="mt-2 text-sm text-[var(--muted)]">{f.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================
-   FAQ
-   ================================================================ */
 function Faq() {
   return (
-    <section id="faq" className="border-t border-[var(--border)] py-24 bg-[var(--card)]/30">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Frequently asked questions</h2>
-        <div className="mt-12 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
+    <section id="faq" aria-labelledby="faq-title" className="border-b border-line bg-card">
+      <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+        <h2 id="faq-title" className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+          Questions
+        </h2>
+        <div className="mt-10 divide-y divide-line border-y border-line">
           {faq.map((q) => (
-            <details key={q.question} className="group p-6">
-              <summary className="cursor-pointer list-none font-semibold flex items-center justify-between gap-4">
-                {q.question}
-                <span className="text-[var(--muted)] transition-transform group-open:rotate-45" aria-hidden>
+            <details key={q.question} className="group py-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-lg font-semibold [&::-webkit-details-marker]:hidden">
+                <h3>{q.question}</h3>
+                <span aria-hidden className="font-mono text-teal transition-transform group-open:rotate-45">
                   +
                 </span>
               </summary>
-              <p className="mt-3 text-sm text-[var(--muted)]">{q.answer}</p>
+              <p className="mt-3 text-ink-2">{q.answer}</p>
             </details>
           ))}
         </div>
@@ -1125,217 +482,80 @@ function Faq() {
   );
 }
 
-/* ================================================================
-   FOOTER
-   ================================================================ */
-function Footer() {
+function ClosingCta() {
   return (
-    <footer className="border-t border-[var(--border)] bg-[var(--card)]/50 py-12">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
-          {/* Brand column */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 font-bold text-lg">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
-                <BrandMark className="h-4 w-4" />
-              </span>
-              {site.name.slice(0, site.nameSplit)}
-              <span className="text-[var(--primary)]">{site.name.slice(site.nameSplit)}</span>
-            </div>
-            <p className="mt-3 max-w-xs text-sm text-[var(--muted)]">
-              {site.tagline}. Subscriptions, usage metering, invoices, payouts
-              and wallets on one ledger.
-            </p>
-            <div className="mt-4 flex gap-3">
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--muted)] transition-colors hover:text-[var(--fg)] hover:border-[var(--primary)]/30"
-              >
-                <Github className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold">Product</h4>
-            <ul className="mt-4 space-y-2.5">
-              <li>
-                <Link
-                  href="#features"
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Features
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="#pricing"
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <a
-                  href={DASHBOARD_URL}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Dashboard
-                </a>
-              </li>
-              <li>
-                <a
-                  href={API_REF_URL}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  API Reference
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold">Developers</h4>
-            <ul className="mt-4 space-y-2.5">
-              <li>
-                <a
-                  href={DOCS_URL}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Documentation
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`${DOCS_URL}/getting-started/quickstart`}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Quickstart
-                </a>
-              </li>
-              <li>
-                <a
-                  href={GITHUB_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  GitHub
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`${DOCS_URL}/sdks/typescript`}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  TypeScript SDK
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`${DOCS_URL}/sdks/python`}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Python SDK
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold">Community</h4>
-            <ul className="mt-4 space-y-2.5">
-              <li>
-                <a
-                  href={`${GITHUB_URL}/issues`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Report a Bug
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`${GITHUB_URL}/discussions`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Discussions
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`${GITHUB_URL}/blob/main/CONTRIBUTING.md`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Contributing
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`mailto:${site.contactEmail}`}
-                  className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-                >
-                  Contact
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-[var(--border)] pt-8 sm:flex-row">
-          <p className="text-xs text-[var(--muted)]">
-            &copy; {new Date().getFullYear()} {site.name}. Released under {site.license}.
-          </p>
-          <div className="flex gap-6">
-            <Link
-              href="#"
-              className="text-xs text-[var(--muted)] hover:text-[var(--fg)]"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="#"
-              className="text-xs text-[var(--muted)] hover:text-[var(--fg)]"
-            >
-              Terms of Service
-            </Link>
+    <section aria-labelledby="cta-title">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="rounded-3xl bg-teal px-8 py-14 text-on-teal sm:px-14">
+          <h2 id="cta-title" className="max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            Billing that measures every shilling, cent and satoshi
+          </h2>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href={register} className="inline-flex h-12 items-center rounded-lg bg-on-teal px-5 font-semibold text-teal">
+              Start free
+            </a>
+            <a href={site.githubUrl} className="inline-flex h-12 items-center rounded-lg border border-on-teal/40 px-5 font-semibold">
+              Star on GitHub
+            </a>
           </div>
         </div>
       </div>
-    </footer>
+    </section>
   );
 }
 
-/* ================================================================
-   PAGE
-   ================================================================ */
-export default function Home() {
+function Footer() {
+  const columns = [
+    {
+      title: "Product",
+      links: [
+        ["How it works", "#product"],
+        ["Pricing", "#pricing"],
+        ["FAQ", "#faq"],
+      ],
+    },
+    {
+      title: "Developers",
+      links: [
+        ["Documentation", site.docsUrl],
+        ["API reference", site.apiRefUrl],
+        ["GitHub", site.githubUrl],
+      ],
+    },
+    {
+      title: "Company",
+      links: [
+        ["Contact", `mailto:${site.contactEmail}`],
+        ["Security", `${site.githubUrl}/security/policy`],
+        ["Licence", `${site.githubUrl}/blob/main/LICENSE`],
+      ],
+    },
+  ];
   return (
-    <>
-      <Header />
-      <main>
-        <Hero />
-        <ProviderBar />
-        <WhyPimaBill />
-        <Features />
-        <MoneyMovement />
-        <ForTeams />
-        <DeveloperExperience />
-        <GlobalReach />
-        <HowItWorks />
-        <Comparison />
-        <Pricing />
-        <Faq />
-        <FinalCTA />
-      </main>
-      <Footer />
-    </>
+    <footer className="border-t border-line">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+        <div>
+          <BrandLockup />
+          <p className="mt-4 max-w-xs text-sm text-ink-2">{site.tagline}.</p>
+        </div>
+        {columns.map((c) => (
+          <nav key={c.title} aria-label={c.title}>
+            <h2 className="font-mono text-xs uppercase tracking-[0.08em] text-ink-2">{c.title}</h2>
+            <ul className="mt-4 grid gap-2.5 text-sm">
+              {c.links.map(([label, href]) => (
+                <li key={label}>
+                  <a href={href} className="hover:text-teal">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))}
+      </div>
+      <p className="mx-auto max-w-6xl px-4 pb-10 text-sm text-ink-2 sm:px-6">
+        © {new Date().getFullYear()} {site.name}. Open source under {site.license}.
+      </p>
+    </footer>
   );
 }
