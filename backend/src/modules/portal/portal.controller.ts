@@ -14,6 +14,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantDb } from '../../common/decorators/tenant-db.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { PortalService } from './portal.service';
+import { PortalBillingResponse } from './dto/portal-response.dto';
 import { SubscriptionResponse } from '../subscriptions/dto/subscription-response.dto';
 import { InvoiceResponse, PaginatedInvoiceResponse, CheckoutResponse } from '../invoices/dto/invoice-response.dto';
 import { PaginatedPaymentResponse } from '../payments/dto/payment-response.dto';
@@ -45,7 +46,7 @@ export class PortalController {
     description: 'Returns subscriptions, recent invoices, payments, and summary stats for a customer. Use this to render a billing dashboard for your end-users.',
   })
   @ApiParam({ name: 'externalId', description: 'Customer external ID (your app user ID)' })
-  @ApiResponse({ status: 200, description: 'Billing overview with subscriptions, invoices, payments' })
+  @ApiResponse({ status: 200, description: 'Billing overview with subscriptions, invoices, payments', type: PortalBillingResponse })
   @ApiResponse({ status: 404, description: 'Customer not found' })
   async getBillingOverview(
     @TenantDb() db: PrismaClient,

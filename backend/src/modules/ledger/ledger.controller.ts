@@ -5,6 +5,12 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantDb } from '../../common/decorators/tenant-db.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { RequestWithTenant } from '../../common/interfaces/request-with-tenant.interface';
+import {
+  LedgerAccountResponse,
+  LedgerHealthResponse,
+  LedgerSyncResponse,
+  PaginatedLedgerEntryResponse,
+} from './dto/ledger-response.dto';
 import { LedgerService } from './ledger.service';
 import { LedgerRunnerService } from './ledger-runner.service';
 
@@ -28,7 +34,7 @@ export class LedgerController {
   })
   @ApiQuery({ name: 'currency', required: false })
   @ApiQuery({ name: 'type', required: false, enum: ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'] })
-  @ApiResponse({ status: 200, description: 'Ledger accounts' })
+  @ApiResponse({ status: 200, description: 'Ledger accounts', type: [LedgerAccountResponse] })
   async accounts(
     @TenantDb() db: PrismaClient,
     @Query('currency') currency?: string,
@@ -45,7 +51,7 @@ export class LedgerController {
   @ApiQuery({ name: 'sourceType', required: false, description: 'invoice, payment, wallet_transaction, credit_note' })
   @ApiQuery({ name: 'sourceId', required: false })
   @ApiQuery({ name: 'accountId', required: false })
-  @ApiResponse({ status: 200, description: 'Paginated journal entries' })
+  @ApiResponse({ status: 200, description: 'Paginated journal entries', type: PaginatedLedgerEntryResponse })
   async entries(
     @TenantDb() db: PrismaClient,
     @Query('page') page?: string,
@@ -71,7 +77,7 @@ export class LedgerController {
     description:
       'Zero-sum per currency, balanced entries, cached balances, and wallet parity with the existing wallet balances.',
   })
-  @ApiResponse({ status: 200, description: 'Integrity check results' })
+  @ApiResponse({ status: 200, description: 'Integrity check results', type: LedgerHealthResponse })
   async health(@TenantDb() db: PrismaClient) {
     return this.ledger.checkHealth(db);
   }
@@ -84,7 +90,7 @@ export class LedgerController {
       'Pass full=true to rebuild from the beginning (safe: postings are idempotent).',
   })
   @ApiQuery({ name: 'full', required: false })
-  @ApiResponse({ status: 201, description: 'Sync result' })
+  @ApiResponse({ status: 201, description: 'Sync result', type: LedgerSyncResponse })
   async sync(@Req() req: RequestWithTenant, @Query('full') full?: string) {
     return this.runner.syncTenant(req.tenant.id, { fromScratch: full === 'true' });
   }

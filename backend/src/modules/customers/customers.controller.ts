@@ -23,6 +23,7 @@ import { CustomerResponse, PaginatedCustomerResponse } from './dto/customer-resp
 import { SubscriptionResponse } from '../subscriptions/dto/subscription-response.dto';
 import { InvoiceResponse } from '../invoices/dto/invoice-response.dto';
 import { PaymentResponse } from '../payments/dto/payment-response.dto';
+import { PaymentMethodResponse } from '../payment-methods/dto/payment-method-response.dto';
 
 @ApiTags('Customers')
 @ApiBearerAuth('api-key')
@@ -149,7 +150,7 @@ export class CustomersController {
     description: 'Retrieve saved payment methods (cards, tokens) for a customer.',
   })
   @ApiParam({ name: 'id', description: 'Customer ID' })
-  @ApiResponse({ status: 200, description: 'List of saved payment methods' })
+  @ApiResponse({ status: 200, description: 'List of saved payment methods', type: [PaymentMethodResponse] })
   async findPaymentMethods(@TenantDb() db: PrismaClient, @Param('id') id: string) {
     return this.customersService.findPaymentMethods(db, id);
   }

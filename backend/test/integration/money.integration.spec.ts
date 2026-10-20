@@ -11,6 +11,7 @@ import { WalletsService } from '../../src/modules/wallets/wallets.service';
 import { LedgerService } from '../../src/modules/ledger/ledger.service';
 import { LedgerProjectorService } from '../../src/modules/ledger/ledger-projector.service';
 import { createMockQueue } from '../helpers/mock-queue';
+import { expectResponseShape } from '../helpers/openapi-schema';
 
 const url = process.env.LEDGER_TEST_DATABASE_URL;
 const describeDb = url ? describe : describe.skip;
@@ -26,7 +27,12 @@ describeDb('money movement (postgres)', () => {
     payout: jest.fn(),
     getPayout: jest.fn(),
   } satisfies MoneyProvider;
-  const registry = { get: jest.fn(async () => provider), pick: jest.fn(async () => 'fake'), assertNetwork: jest.fn() };
+  const registry = {
+    get: jest.fn(async () => provider),
+    pick: jest.fn(async () => 'fake'),
+    assertNetwork: jest.fn(),
+    list: jest.fn(async () => [{ provider: 'fake', capabilities: provider.capabilities }]),
+  };
   const money = new MoneyService(registry as never, new WalletsService(createMockQueue() as never), { client: {} } as never, queue as never);
   const tenant = {
     id: 't1',
@@ -219,6 +225,34 @@ describeDb('money movement (postgres)', () => {
     expect(await bal('wallet_transfers')).toBe(0n);
     expect(await bal('wallet_topup_clearing')).toBe(0n);
     expect(await bal('provider_fees:fake')).toBe(25000000n);
+  });
+
+  it('returns what the API spec describes', async () => {
+    await fund('wal_a', 100000);
+    provider.collect.mockResolvedValueOnce({ state: 'pending', providerTxnId: 'YO-9', paymentUrl: 'https://pay.example/9' });
+    const collection = await money.createCollection(db, tenant, {
+      amount: '5000',
+      currency: 'UGX',
+      payer: mm,
+      reference: 'order-9',
+      description: 'Order 9',
+      metadata: { order: 9 },
+    });
+    provider.payout.mockResolvedValueOnce({ state: 'succeeded', fee: 100 });
+    const payout = await money.createPayout(db, tenant, { amount: '1000', currency: 'UGX', payee: mm, walletId: 'wal_a' });
+    const waiting = await money.createPayout(db, tenant, { amount: '2000000', currency: 'UGX', payee: mm });
+    const transfer = await money.createTransfer(db, tenant, { fromWalletId: 'wal_a', toWalletId: 'wal_b', amount: '500' });
+    for (const movement of [collection, payout, waiting, transfer, await money.get(db, 'PAYOUT', payout.id)]) {
+      expectResponseShape(movement, 'MoneyMovementResponse');
+    }
+    expectResponseShape(await money.list(db, 'COLLECTION', {}), 'PaginatedMoneyMovementResponse');
+    expectResponseShape(await money.capabilities(db, tenant), 'MoneyCapabilitiesResponse');
+
+    await db.$executeRawUnsafe('TRUNCATE "CryptoDeposit"');
+    await db.cryptoDeposit.create({
+      data: { chain: 'tron', token: 'USDT', address: 'TAddr', txHash: '0xabc', amount: '25.000137', blockTime: new Date(), status: 'UNMATCHED' },
+    });
+    expectResponseShape(await money.listCryptoDeposits(db, {}), 'PaginatedCryptoDepositResponse');
   });
 
   describe('commission', () => {

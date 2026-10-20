@@ -750,6 +750,58 @@
         ],
         "type": "object"
       },
+      "CommissionRuleResponse": {
+        "properties": {
+          "chargeTo": {
+            "enum": [
+              "tenant",
+              "payer"
+            ],
+            "type": "string"
+          },
+          "flat": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "UGX": "500"
+            },
+            "type": "object"
+          },
+          "max": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "min": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "rateBps": {
+            "description": "Basis points: 150 = 1.5%",
+            "example": 150,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "CommissionSettingsResponse": {
+        "properties": {
+          "collection": {
+            "$ref": "#/components/schemas/CommissionRuleResponse"
+          },
+          "payout": {
+            "$ref": "#/components/schemas/CommissionRuleResponse"
+          },
+          "transfer": {
+            "$ref": "#/components/schemas/CommissionRuleResponse"
+          }
+        },
+        "type": "object"
+      },
       "CouponResponse": {
         "properties": {
           "appliesToPlanIds": {
@@ -1945,6 +1997,69 @@
         ],
         "type": "object"
       },
+      "CryptoDepositResponse": {
+        "properties": {
+          "address": {
+            "description": "Your address it arrived at",
+            "type": "string"
+          },
+          "amount": {
+            "example": "25.000137",
+            "type": "string"
+          },
+          "blockTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "chain": {
+            "example": "tron",
+            "type": "string"
+          },
+          "collectionId": {
+            "description": "The collection it paid, if any",
+            "nullable": true,
+            "type": "string"
+          },
+          "from": {
+            "description": "Sending address, when the chain reports one",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "description": "matched: paid a collection on its own; assigned: matched by a person; confirming: not yet deep enough (Bitcoin)",
+            "enum": [
+              "matched",
+              "unmatched",
+              "assigned",
+              "confirming"
+            ],
+            "type": "string"
+          },
+          "token": {
+            "example": "USDT",
+            "type": "string"
+          },
+          "txHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "chain",
+          "token",
+          "address",
+          "txHash",
+          "from",
+          "amount",
+          "blockTime",
+          "status",
+          "collectionId"
+        ],
+        "type": "object"
+      },
       "CurrencyResponse": {
         "properties": {},
         "type": "object"
@@ -2062,6 +2177,81 @@
         "required": [
           "fromValue",
           "perUnitAmount"
+        ],
+        "type": "object"
+      },
+      "InvitationInfoResponse": {
+        "properties": {
+          "email": {
+            "example": "jane@company.com",
+            "type": "string"
+          },
+          "existingUser": {
+            "description": "Whether this email already has an account (then only the password is asked for)",
+            "type": "boolean"
+          },
+          "organisation": {
+            "example": "Acme Corp",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "organisation",
+          "email",
+          "role",
+          "existingUser"
+        ],
+        "type": "object"
+      },
+      "InvitationResponse": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "example": "jane@company.com",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "invitedBy": {
+            "description": "Email of the person who sent it",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "invitedBy",
+          "expiresAt",
+          "createdAt"
         ],
         "type": "object"
       },
@@ -2293,6 +2483,336 @@
         ],
         "type": "object"
       },
+      "LedgerAccountResponse": {
+        "properties": {
+          "balance": {
+            "description": "Running balance in major units (debits positive)",
+            "example": "150000.0000",
+            "type": "string"
+          },
+          "code": {
+            "description": "Stable chart-of-accounts code, unique per currency",
+            "example": "customer_wallet:wal_123",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "example": "UGX",
+            "type": "string"
+          },
+          "customerId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "example": "Customer wallet",
+            "type": "string"
+          },
+          "provider": {
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "ASSET",
+              "LIABILITY",
+              "EQUITY",
+              "REVENUE",
+              "EXPENSE"
+            ],
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "walletId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "type",
+          "currency",
+          "balance",
+          "customerId",
+          "walletId",
+          "provider",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "LedgerCheckResponse": {
+        "properties": {
+          "details": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "informational": {
+            "description": "Reports differences without making the ledger unbalanced",
+            "type": "boolean"
+          },
+          "name": {
+            "example": "zero_sum_per_currency",
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "ok",
+          "details"
+        ],
+        "type": "object"
+      },
+      "LedgerEntryResponse": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "effectiveAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerLineResponse"
+            },
+            "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "nullable": true,
+            "type": "object"
+          },
+          "reference": {
+            "description": "Idempotency key of the posting",
+            "example": "payment:pay_123:captured",
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "example": "payment",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "INVOICE_ISSUED",
+              "INVOICE_VOIDED",
+              "PAYMENT_CAPTURED",
+              "PAYMENT_REFUNDED",
+              "WALLET_CREDITED",
+              "WALLET_DEBITED",
+              "CREDIT_NOTE_ISSUED",
+              "CREDIT_NOTE_VOIDED",
+              "COLLECTION",
+              "PAYOUT",
+              "TRANSFER",
+              "FEE",
+              "ADJUSTMENT"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "type",
+          "description",
+          "sourceType",
+          "sourceId",
+          "effectiveAt",
+          "metadata",
+          "createdAt",
+          "lines"
+        ],
+        "type": "object"
+      },
+      "LedgerHealthResponse": {
+        "properties": {
+          "balanced": {
+            "type": "boolean"
+          },
+          "checkedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerCheckResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "balanced",
+          "checkedAt",
+          "checks"
+        ],
+        "type": "object"
+      },
+      "LedgerLineAccountResponse": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "ASSET",
+              "LIABILITY",
+              "EQUITY",
+              "REVENUE",
+              "EXPENSE"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "type"
+        ],
+        "type": "object"
+      },
+      "LedgerLineResponse": {
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/LedgerLineAccountResponse"
+          },
+          "accountId": {
+            "type": "string"
+          },
+          "amount": {
+            "description": "Major units; debits positive, credits negative",
+            "example": "-150000.0000",
+            "type": "string"
+          },
+          "currency": {
+            "example": "UGX",
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entryId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entryId",
+          "accountId",
+          "amount",
+          "currency",
+          "description",
+          "account"
+        ],
+        "type": "object"
+      },
+      "LedgerProjectionErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "error"
+        ],
+        "type": "object"
+      },
+      "LedgerProjectionResponse": {
+        "properties": {
+          "duplicates": {
+            "type": "number"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerProjectionErrorResponse"
+            },
+            "type": "array"
+          },
+          "failed": {
+            "type": "number"
+          },
+          "posted": {
+            "type": "number"
+          },
+          "skipped": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "posted",
+          "duplicates",
+          "skipped",
+          "failed",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "LedgerSyncResponse": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "health": {
+            "$ref": "#/components/schemas/LedgerHealthResponse"
+          },
+          "mode": {
+            "enum": [
+              "off",
+              "shadow"
+            ],
+            "type": "string"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/LedgerProjectionResponse"
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "mode"
+        ],
+        "type": "object"
+      },
       "LoginDto": {
         "properties": {
           "email": {
@@ -2316,18 +2836,56 @@
             "example": "eyJhbGciOiJIUzI1NiIs...",
             "type": "string"
           },
+          "organisations": {
+            "description": "Every organisation you can switch to",
+            "items": {
+              "$ref": "#/components/schemas/OrganisationResponse"
+            },
+            "type": "array"
+          },
+          "permissions": {
+            "example": [
+              "read",
+              "billing.write"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "refreshToken": {
             "example": "eyJhbGciOiJIUzI1NiIs...",
             "type": "string"
           },
+          "role": {
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          },
           "tenant": {
-            "$ref": "#/components/schemas/TenantInfoResponse"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantInfoResponse"
+              }
+            ],
+            "description": "The organisation"
+          },
+          "user": {
+            "$ref": "#/components/schemas/SessionUserResponse"
           }
         },
         "required": [
+          "tenant",
+          "user",
+          "role",
+          "permissions",
           "accessToken",
-          "refreshToken",
-          "tenant"
+          "refreshToken"
         ],
         "type": "object"
       },
@@ -2376,6 +2934,61 @@
         ],
         "type": "object"
       },
+      "ManagedAccountResponse": {
+        "properties": {
+          "accountNumberLast4": {
+            "example": "4321",
+            "type": "string"
+          },
+          "bankName": {
+            "type": "string"
+          },
+          "businessName": {
+            "type": "string"
+          },
+          "country": {
+            "example": "UG",
+            "type": "string"
+          },
+          "currency": {
+            "example": "UGX",
+            "type": "string"
+          },
+          "fee": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ManagedFeeResponse"
+              }
+            ],
+            "description": "Platform fee on each payment"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the account was not approved",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending_review",
+              "active",
+              "rejected",
+              "suspended"
+            ],
+            "example": "pending_review",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "businessName",
+          "country",
+          "currency"
+        ],
+        "type": "object"
+      },
       "ManagedBankDto": {
         "properties": {
           "accountName": {
@@ -2397,6 +3010,47 @@
         ],
         "type": "object"
       },
+      "ManagedFeeResponse": {
+        "properties": {
+          "type": {
+            "enum": [
+              "percentage",
+              "flat"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "example": 2.5,
+            "type": "number"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ],
+        "type": "object"
+      },
+      "ManagedStatusResponse": {
+        "properties": {
+          "account": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ManagedAccountResponse"
+              }
+            ],
+            "nullable": true
+          },
+          "available": {
+            "description": "Whether managed payments are offered on this installation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available",
+          "account"
+        ],
+        "type": "object"
+      },
       "MessageResponse": {
         "properties": {
           "message": {
@@ -2406,6 +3060,296 @@
         },
         "required": [
           "message"
+        ],
+        "type": "object"
+      },
+      "MoneyCapabilitiesResponse": {
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/MoneyProviderResponse"
+            },
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/MoneySettingsResponse"
+          }
+        },
+        "required": [
+          "settings",
+          "providers"
+        ],
+        "type": "object"
+      },
+      "MoneyMovementResponse": {
+        "properties": {
+          "amount": {
+            "description": "Major units",
+            "example": "50000.0000",
+            "type": "string"
+          },
+          "approvedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "approvedBy": {
+            "nullable": true,
+            "type": "string"
+          },
+          "chargedAmount": {
+            "description": "What the payer was asked for, when it differs from amount",
+            "nullable": true,
+            "type": "string"
+          },
+          "commission": {
+            "description": "Platform commission on this movement",
+            "nullable": true,
+            "type": "string"
+          },
+          "commissionChargeTo": {
+            "enum": [
+              "tenant",
+              "payer"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "completedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "example": "UGX",
+            "type": "string"
+          },
+          "customerId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "fee": {
+            "description": "Provider fee, when reported",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "example": "clx1234567890",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "nullable": true,
+            "type": "object"
+          },
+          "party": {
+            "additionalProperties": true,
+            "description": "Payer (collections) or payee (payouts)",
+            "example": {
+              "msisdn": "256771234567",
+              "type": "mobile_money"
+            },
+            "nullable": true,
+            "type": "object"
+          },
+          "paymentDetails": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentDetailsResponse"
+              }
+            ],
+            "description": "Or show the payer these instructions",
+            "nullable": true
+          },
+          "paymentUrl": {
+            "description": "Send the payer here to finish a hosted payment",
+            "nullable": true,
+            "type": "string"
+          },
+          "provider": {
+            "description": "Null for wallet transfers",
+            "example": "yo",
+            "nullable": true,
+            "type": "string"
+          },
+          "providerReference": {
+            "description": "Reference sent to the provider",
+            "nullable": true,
+            "type": "string"
+          },
+          "providerStatus": {
+            "nullable": true,
+            "type": "string"
+          },
+          "providerTransactionId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "rail": {
+            "enum": [
+              "card",
+              "bank",
+              "mobile_money",
+              "paypal",
+              "yo_account",
+              "hosted",
+              "crypto",
+              "wallet"
+            ],
+            "example": "mobile_money",
+            "type": "string"
+          },
+          "reference": {
+            "description": "Your own reference, if you gave one",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "stuck: the provider could not say whether the money moved; it is re-checked, never resent",
+            "enum": [
+              "requires_approval",
+              "pending",
+              "processing",
+              "succeeded",
+              "failed",
+              "stuck",
+              "canceled"
+            ],
+            "example": "processing",
+            "type": "string"
+          },
+          "toWalletId": {
+            "description": "Transfers: the destination wallet",
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "collection",
+              "payout",
+              "transfer"
+            ],
+            "example": "collection",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "walletId": {
+            "description": "Wallet credited (collections) or debited (payouts, transfers)",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "amount",
+          "currency",
+          "provider",
+          "rail",
+          "party",
+          "description",
+          "reference",
+          "providerReference",
+          "providerTransactionId",
+          "providerStatus",
+          "paymentUrl",
+          "paymentDetails",
+          "failureReason",
+          "fee",
+          "commission",
+          "commissionChargeTo",
+          "chargedAmount",
+          "customerId",
+          "walletId",
+          "toWalletId",
+          "approvedAt",
+          "approvedBy",
+          "metadata",
+          "createdAt",
+          "updatedAt",
+          "completedAt"
+        ],
+        "type": "object"
+      },
+      "MoneyProviderResponse": {
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/ProviderCapabilitiesResponse"
+          },
+          "provider": {
+            "example": "yo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "capabilities"
+        ],
+        "type": "object"
+      },
+      "MoneySettingsResponse": {
+        "properties": {
+          "collections": {
+            "type": "boolean"
+          },
+          "commission": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommissionSettingsResponse"
+              }
+            ],
+            "description": "Set by the platform operator"
+          },
+          "payoutApprovalThreshold": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Payouts at or above this amount wait for approval",
+            "example": {
+              "UGX": "1000000"
+            },
+            "type": "object"
+          },
+          "payoutDailyLimit": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "UGX": "5000000"
+            },
+            "type": "object"
+          },
+          "payouts": {
+            "description": "Enabled by the platform operator",
+            "type": "boolean"
+          },
+          "transfers": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "collections",
+          "transfers",
+          "payouts",
+          "payoutApprovalThreshold",
+          "payoutDailyLimit",
+          "commission"
         ],
         "type": "object"
       },
@@ -2530,6 +3474,40 @@
         ],
         "type": "object"
       },
+      "OrganisationResponse": {
+        "properties": {
+          "id": {
+            "example": "clx1234567890",
+            "type": "string"
+          },
+          "name": {
+            "example": "Acme Corp",
+            "type": "string"
+          },
+          "role": {
+            "description": "Your role there",
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          },
+          "slug": {
+            "example": "acme-corp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "role"
+        ],
+        "type": "object"
+      },
       "PaginatedAddOnResponse": {
         "properties": {
           "data": {
@@ -2584,6 +3562,24 @@
         ],
         "type": "object"
       },
+      "PaginatedCryptoDepositResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CryptoDepositResponse"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
       "PaginatedCustomerResponse": {
         "properties": {
           "data": {
@@ -2607,6 +3603,42 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/InvoiceResponse"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PaginatedLedgerEntryResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntryResponse"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PaginatedMoneyMovementResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/MoneyMovementResponse"
             },
             "type": "array"
           },
@@ -2746,6 +3778,24 @@
         ],
         "type": "object"
       },
+      "PaginatedWebhookLogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookLogResponse"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
       "PaginationMeta": {
         "properties": {
           "limit": {
@@ -2770,6 +3820,18 @@
           "page",
           "limit",
           "totalPages"
+        ],
+        "type": "object"
+      },
+      "PayerOtpResponse": {
+        "properties": {
+          "pinId": {
+            "description": "Pass back as otp.pinId when creating the collection",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pinId"
         ],
         "type": "object"
       },
@@ -2803,6 +3865,45 @@
           "failed",
           "pending",
           "successRate"
+        ],
+        "type": "object"
+      },
+      "PaymentDetailsResponse": {
+        "properties": {
+          "address": {
+            "example": "TQ4b...",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Exact amount to send, in the coin",
+            "example": "25.000137",
+            "type": "string"
+          },
+          "chain": {
+            "example": "tron",
+            "type": "string"
+          },
+          "coin": {
+            "example": "USDT",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "crypto_address"
+            ],
+            "example": "crypto_address",
+            "type": "string"
+          },
+          "memo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "coin",
+          "chain",
+          "address",
+          "amount"
         ],
         "type": "object"
       },
@@ -2848,6 +3949,10 @@
           "last4": {
             "example": "4242",
             "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
           },
           "provider": {
             "example": "stripe",
@@ -3154,6 +4259,380 @@
         ],
         "type": "object"
       },
+      "PortalBillingResponse": {
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/PortalCustomerResponse"
+          },
+          "invoices": {
+            "description": "Latest 20",
+            "items": {
+              "$ref": "#/components/schemas/PortalInvoiceResponse"
+            },
+            "type": "array"
+          },
+          "payments": {
+            "description": "Latest 20",
+            "items": {
+              "$ref": "#/components/schemas/PortalPaymentResponse"
+            },
+            "type": "array"
+          },
+          "subscriptions": {
+            "description": "Active, trialing and paused",
+            "items": {
+              "$ref": "#/components/schemas/PortalSubscriptionResponse"
+            },
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PortalSummaryResponse"
+          }
+        },
+        "required": [
+          "customer",
+          "subscriptions",
+          "invoices",
+          "payments",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "PortalCustomerResponse": {
+        "properties": {
+          "country": {
+            "example": "US",
+            "type": "string"
+          },
+          "currency": {
+            "example": "USD",
+            "type": "string"
+          },
+          "email": {
+            "example": "customer@example.com",
+            "type": "string"
+          },
+          "externalId": {
+            "example": "user_12345",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "example": "Jane Doe",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "externalId",
+          "email",
+          "currency"
+        ],
+        "type": "object"
+      },
+      "PortalInvoiceResponse": {
+        "properties": {
+          "amount": {
+            "example": 49.99,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "example": "USD",
+            "type": "string"
+          },
+          "dueDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "invoiceNumber": {
+            "example": "INV-0042",
+            "type": "string"
+          },
+          "paidAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pdfUrl": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "DRAFT",
+              "PENDING",
+              "PAID",
+              "FAILED",
+              "CANCELED"
+            ],
+            "example": "PAID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "invoiceNumber",
+          "amount",
+          "currency",
+          "status",
+          "dueDate",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "PortalPaymentResponse": {
+        "properties": {
+          "amount": {
+            "example": 49.99,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "example": "USD",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "invoiceNumber": {
+            "example": "INV-0042",
+            "type": "string"
+          },
+          "provider": {
+            "example": "stripe",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "SUCCEEDED",
+              "FAILED",
+              "REFUNDED"
+            ],
+            "example": "SUCCEEDED",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "amount",
+          "currency",
+          "status",
+          "provider",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "PortalPlanResponse": {
+        "properties": {
+          "billingInterval": {
+            "enum": [
+              "HOURLY",
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "QUARTERLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "example": "Pro",
+            "type": "string"
+          },
+          "prices": {
+            "items": {
+              "$ref": "#/components/schemas/PlanPriceResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "billingInterval",
+          "prices"
+        ],
+        "type": "object"
+      },
+      "PortalSubscriptionResponse": {
+        "properties": {
+          "cancelAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "example": "USD",
+            "type": "string"
+          },
+          "currentPeriodEnd": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currentPeriodStart": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PortalPlanResponse"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "TRIALING",
+              "PAUSED"
+            ],
+            "example": "ACTIVE",
+            "type": "string"
+          },
+          "trialEnd": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "trialStart": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "plan",
+          "currency",
+          "currentPeriodStart",
+          "currentPeriodEnd",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "PortalSummaryResponse": {
+        "properties": {
+          "activeSubscriptions": {
+            "type": "number"
+          },
+          "currency": {
+            "example": "USD",
+            "type": "string"
+          },
+          "pendingInvoices": {
+            "type": "number"
+          },
+          "totalSpent": {
+            "description": "Sum of paid invoices",
+            "example": 149.97,
+            "type": "number"
+          }
+        },
+        "required": [
+          "activeSubscriptions",
+          "totalSpent",
+          "currency",
+          "pendingInvoices"
+        ],
+        "type": "object"
+      },
+      "ProviderBalanceResponse": {
+        "properties": {
+          "balances": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "UGX": "1250000.00"
+            },
+            "type": "object"
+          },
+          "provider": {
+            "example": "yo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "balances"
+        ],
+        "type": "object"
+      },
+      "ProviderCapabilitiesResponse": {
+        "properties": {
+          "balance": {
+            "description": "Reports its balance",
+            "type": "boolean"
+          },
+          "collect": {
+            "example": [
+              "mobile_money"
+            ],
+            "items": {
+              "enum": [
+                "card",
+                "bank",
+                "mobile_money",
+                "paypal",
+                "yo_account",
+                "hosted",
+                "crypto",
+                "wallet"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "payout": {
+            "example": [
+              "mobile_money",
+              "bank"
+            ],
+            "items": {
+              "enum": [
+                "card",
+                "bank",
+                "mobile_money",
+                "paypal",
+                "yo_account",
+                "hosted",
+                "crypto",
+                "wallet"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "verifyPayee": {
+            "description": "Can look up the name on a payee account",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "collect",
+          "payout",
+          "balance",
+          "verifyPayee"
+        ],
+        "type": "object"
+      },
       "ProviderTestResponse": {
         "properties": {
           "message": {
@@ -3238,21 +4717,60 @@
             "type": "string"
           },
           "apiKey": {
+            "description": "The new organisation's API key",
             "example": "sk_live_abc123...",
             "type": "string"
+          },
+          "organisations": {
+            "description": "Every organisation you can switch to",
+            "items": {
+              "$ref": "#/components/schemas/OrganisationResponse"
+            },
+            "type": "array"
+          },
+          "permissions": {
+            "example": [
+              "read",
+              "billing.write"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "refreshToken": {
             "example": "eyJhbGciOiJIUzI1NiIs...",
             "type": "string"
           },
+          "role": {
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          },
           "tenant": {
-            "$ref": "#/components/schemas/TenantInfoResponse"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantInfoResponse"
+              }
+            ],
+            "description": "The organisation"
+          },
+          "user": {
+            "$ref": "#/components/schemas/SessionUserResponse"
           }
         },
         "required": [
+          "tenant",
+          "user",
+          "role",
+          "permissions",
           "accessToken",
           "refreshToken",
-          "tenant",
           "apiKey"
         ],
         "type": "object"
@@ -3315,6 +4833,119 @@
           "invoiceCount",
           "mrr",
           "arr"
+        ],
+        "type": "object"
+      },
+      "SentInvitationResponse": {
+        "properties": {
+          "acceptUrl": {
+            "description": "The link to accept; share it yourself when email is not set up",
+            "type": "string"
+          },
+          "email": {
+            "example": "jane@company.com",
+            "type": "string"
+          },
+          "emailed": {
+            "description": "Whether the invitation email went out",
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "expiresAt",
+          "acceptUrl",
+          "emailed"
+        ],
+        "type": "object"
+      },
+      "SessionResponse": {
+        "properties": {
+          "organisations": {
+            "description": "Every organisation you can switch to",
+            "items": {
+              "$ref": "#/components/schemas/OrganisationResponse"
+            },
+            "type": "array"
+          },
+          "permissions": {
+            "example": [
+              "read",
+              "billing.write"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          },
+          "tenant": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantInfoResponse"
+              }
+            ],
+            "description": "The organisation"
+          },
+          "user": {
+            "$ref": "#/components/schemas/SessionUserResponse"
+          }
+        },
+        "required": [
+          "tenant",
+          "user",
+          "role",
+          "permissions"
+        ],
+        "type": "object"
+      },
+      "SessionUserResponse": {
+        "properties": {
+          "email": {
+            "example": "john@company.com",
+            "type": "string"
+          },
+          "id": {
+            "example": "clx1234567890",
+            "type": "string"
+          },
+          "name": {
+            "example": "John Doe",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
         ],
         "type": "object"
       },
@@ -3569,6 +5200,54 @@
           "appliedByDefault",
           "createdAt",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "TeamMemberResponse": {
+        "properties": {
+          "active": {
+            "description": "False once the person is deactivated",
+            "type": "boolean"
+          },
+          "email": {
+            "example": "jane@company.com",
+            "type": "string"
+          },
+          "joinedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "example": "Jane Doe",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "FINANCE",
+              "DEVELOPER",
+              "VIEWER"
+            ],
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "email",
+          "role",
+          "active",
+          "lastLoginAt",
+          "joinedAt"
         ],
         "type": "object"
       },
@@ -4201,6 +5880,21 @@
         ],
         "type": "object"
       },
+      "VerifyPayeeResponse": {
+        "properties": {
+          "name": {
+            "example": "JANE DOE",
+            "type": "string"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid"
+        ],
+        "type": "object"
+      },
       "WalletCustomerResponse": {
         "properties": {
           "email": {
@@ -4378,6 +6072,69 @@
           "transactionStatus",
           "creditAmount",
           "amount",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "WebhookLogResponse": {
+        "properties": {
+          "attemptCount": {
+            "example": 1,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "inbound",
+              "outbound"
+            ],
+            "type": "string"
+          },
+          "event": {
+            "example": "invoice.paid",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "provider": {
+            "description": "Inbound only: the provider that called us",
+            "example": "stripe",
+            "type": "string"
+          },
+          "response": {
+            "additionalProperties": true,
+            "description": "The endpoint's reply, as stored",
+            "type": "object"
+          },
+          "statusCode": {
+            "example": 200,
+            "type": "number"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "url": {
+            "description": "Your endpoint, or inbound:<provider>",
+            "example": "https://example.com/webhooks",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "url",
+          "payload",
+          "success",
+          "attemptCount",
+          "direction",
           "createdAt"
         ],
         "type": "object"
@@ -5329,7 +7086,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Joined and signed in"
           }
         },
         "summary": "Accept an invitation; returns tokens for that organisation",
@@ -5353,7 +7117,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationInfoResponse"
+                }
+              }
+            },
+            "description": "The invitation"
           }
         },
         "summary": "What an invitation is for, before accepting it",
@@ -5414,7 +7185,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            },
+            "description": "The new organisation, signed in"
           }
         },
         "summary": "Create another organisation, owned by you; returns tokens for it",
@@ -5537,7 +7315,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "The session"
           }
         },
         "summary": "The signed-in person, their role in this organisation, and the organisations they belong to",
@@ -5562,7 +7347,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Signed in to the other organisation"
           }
         },
         "summary": "Switch to another organisation you belong to; returns new tokens",
@@ -6036,7 +7828,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedMoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Newest first"
           }
         },
         "security": [
@@ -6075,7 +7874,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "The collection"
           }
         },
         "security": [
@@ -6104,7 +7910,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Found"
           }
         },
         "security": [
@@ -6133,7 +7946,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Canceled"
           }
         },
         "security": [
@@ -6162,7 +7982,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Status after the check"
           }
         },
         "security": [
@@ -7115,6 +8942,16 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentMethodResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "List of saved payment methods"
           }
         },
@@ -7969,6 +9806,16 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LedgerAccountResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "Ledger accounts"
           }
         },
@@ -8040,6 +9887,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedLedgerEntryResponse"
+                }
+              }
+            },
             "description": "Paginated journal entries"
           }
         },
@@ -8061,6 +9915,13 @@
         "parameters": [],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerHealthResponse"
+                }
+              }
+            },
             "description": "Integrity check results"
           }
         },
@@ -8091,6 +9952,13 @@
         ],
         "responses": {
           "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerSyncResponse"
+                }
+              }
+            },
             "description": "Sync result"
           }
         },
@@ -8111,7 +9979,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Settings and providers"
           }
         },
         "security": [
@@ -8156,7 +10031,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedCryptoDepositResponse"
+                }
+              }
+            },
+            "description": "Deposits, newest first"
           }
         },
         "security": [
@@ -8195,7 +10077,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "The collection"
           }
         },
         "security": [
@@ -8215,7 +10104,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedStatusResponse"
+                }
+              }
+            },
+            "description": "Availability and account"
           }
         },
         "security": [
@@ -8244,7 +10140,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedAccountResponse"
+                }
+              }
+            },
+            "description": "The new account"
           }
         },
         "security": [
@@ -8273,7 +10176,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderBalanceResponse"
+                }
+              }
+            },
+            "description": "Balance per currency"
           }
         },
         "security": [
@@ -8313,7 +10223,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerOtpResponse"
+                }
+              }
+            },
+            "description": "Code sent"
           }
         },
         "security": [
@@ -8352,7 +10269,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyPayeeResponse"
+                }
+              }
+            },
+            "description": "Lookup result"
           }
         },
         "security": [
@@ -8383,7 +10307,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneySettingsResponse"
+                }
+              }
+            },
+            "description": "The settings after the change"
           }
         },
         "security": [
@@ -9049,7 +10980,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedMoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Newest first"
           }
         },
         "security": [
@@ -9088,7 +11026,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "The payout"
           }
         },
         "security": [
@@ -9117,7 +11062,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Found"
           }
         },
         "security": [
@@ -9147,7 +11099,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "The payout"
           }
         },
         "security": [
@@ -9176,7 +11135,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Canceled"
           }
         },
         "security": [
@@ -9205,7 +11171,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Status after the check"
           }
         },
         "security": [
@@ -9816,6 +11789,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalBillingResponse"
+                }
+              }
+            },
             "description": "Billing overview with subscriptions, invoices, payments"
           },
           "404": {
@@ -10981,7 +12961,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Open invitations, newest first"
           }
         },
         "security": [
@@ -11009,7 +12999,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentInvitationResponse"
+                }
+              }
+            },
+            "description": "The invitation"
           }
         },
         "security": [
@@ -11038,7 +13035,7 @@
         ],
         "responses": {
           "204": {
-            "description": ""
+            "description": "Revoked"
           }
         },
         "security": [
@@ -11046,6 +13043,7 @@
             "api-key": []
           }
         ],
+        "summary": "Revoke an invitation",
         "tags": [
           "Team"
         ]
@@ -11057,7 +13055,7 @@
         "parameters": [],
         "responses": {
           "204": {
-            "description": ""
+            "description": "Left"
           }
         },
         "security": [
@@ -11065,6 +13063,7 @@
             "api-key": []
           }
         ],
+        "summary": "Leave this organisation",
         "tags": [
           "Team"
         ]
@@ -11076,7 +13075,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemberResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Members, oldest first"
           }
         },
         "security": [
@@ -11105,7 +13114,7 @@
         ],
         "responses": {
           "204": {
-            "description": ""
+            "description": "Removed"
           }
         },
         "security": [
@@ -11142,7 +13151,17 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemberResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Members after the change"
           }
         },
         "security": [
@@ -11432,6 +13451,13 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedWebhookLogResponse"
+                }
+              }
+            },
             "description": "Paginated list of webhook log entries"
           }
         },
@@ -11452,7 +13478,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedMoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Newest first"
           }
         },
         "security": [
@@ -11491,7 +13524,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "The transfer"
           }
         },
         "security": [
@@ -11520,7 +13560,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyMovementResponse"
+                }
+              }
+            },
+            "description": "Found"
           }
         },
         "security": [
