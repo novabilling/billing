@@ -1,8 +1,13 @@
 # SDK generation (Fern)
 
 SDKs are generated from the committed OpenAPI spec, `backend/openapi/openapi.json`.
-Pull-request CI only checks that the spec matches the code; SDKs are built on
-releases and on request by the **SDKs** workflow (`.github/workflows/sdks.yml`).
+Published SDKs are built on releases and on request by the **SDKs** workflow
+(`.github/workflows/sdks.yml`).
+
+Pull-request CI checks that the spec matches the code and flags breaking API
+changes. When a PR touches the spec, this folder or the docs, the **Docs and
+SDKs** workflow also generates the tier1 SDKs and type-checks every
+TypeScript and Python example in `docs/content` against them.
 
 | Group | Languages | When |
 |---|---|---|
@@ -19,11 +24,17 @@ cd backend
 npm run openapi:export   # rewrites openapi/openapi.json; commit it with your change
 ```
 
+Give every new operation an SDK name in `overrides.yml` (a unit test fails
+otherwise), and describe its response with a DTO so the SDKs return it.
+
 ## Generate locally
 
-Needs Docker and a `FERN_TOKEN`:
+Needs Docker:
 
 ```bash
 cd fern
-npx fern-api generate --local --group tier1   # output in ../sdks/ (not committed)
+npx fern-api generate --local --group tier1 --force   # output in ../sdks/ (not committed)
+
+# Then check the docs examples against them (needs pydantic and httpx):
+cd ../docs && npm ci && node scripts/check-sdk-snippets.mjs
 ```

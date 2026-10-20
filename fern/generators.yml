@@ -16,7 +16,6 @@ api:
       scheme: bearer
       token:
         name: token
-        env: PIMABILL_API_KEY
   auth: bearer
   specs:
     - openapi: ../backend/openapi/openapi.json

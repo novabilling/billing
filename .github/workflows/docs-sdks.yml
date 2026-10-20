@@ -1,0 +1,58 @@
+name: Docs and SDKs
+
+# Generates the tier1 SDKs from the committed spec and type-checks every
+# TypeScript and Python example in docs/content against them, so the docs
+# cannot drift from the API. Runs only when the spec, the SDK settings or the
+# docs change; nothing is published from here (see sdks.yml).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/openapi/openapi.json
+      - fern/**
+      - docs/**
+      - .github/workflows/docs-sdks.yml
+  push:
+    branches: [main]
+    paths:
+      - backend/openapi/openapi.json
+      - fern/**
+      - docs/**
+      - .github/workflows/docs-sdks.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-sdks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  snippets:
+    name: SDK Snippets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate SDKs
+        working-directory: fern
+        run: npx --yes fern-api@3.78.0 generate --local --group tier1 --version 0.0.0-ci --force --log-level info
+
+      - name: Install checkers
+        run: |
+          pip install pydantic==2.14.1 httpx==0.28.1
+          npm ci --prefix docs
+
+      - name: Type-check the docs examples
+        working-directory: docs
+        run: node scripts/check-sdk-snippets.mjs --sdks ../sdks

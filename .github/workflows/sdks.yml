@@ -1,7 +1,8 @@
 name: SDKs
 
 # SDKs are generated from the committed OpenAPI spec when a release is cut
-# (called from release.yml), or on request, never in pull-request CI. They
+# (called from release.yml), or on request. Pull requests only generate them
+# to type-check the docs (docs-sdks.yml); nothing is published from there. They
 # carry the system version and the MIT licence. Generated code is uploaded as
 # build artifacts; publishing to npm, PyPI and Packagist is added once the
 # SDK repositories and registry names are set up.

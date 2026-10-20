@@ -12,7 +12,8 @@
 // Code that does not use the SDK (an Express
 // webhook handler, say) is skipped by putting this line right above it:
 //   <!-- snippet-check: skip -->
-// Python needs mypy, pydantic and httpx on the path.
+// Python is checked with pyright (it follows the SDK's lazily typed
+// sub-clients, which mypy reads as Any); pydantic and httpx must be importable.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -78,7 +79,7 @@ function tsPrelude(code) {
       ),
     ),
   );
-  const needsClient = !/\b(const|let|var)\s+client\b/.test(code);
+  const needsClient = uses(code, 'client') && !/\b(const|let|var)\s+client\b/.test(code);
   const names = ['PimaBillClient', 'PimaBill', 'PimaBillError', 'PimaBillTimeoutError'].filter(
     (n) => !imported.has(n) && (new RegExp(`\\b${n}\\b`).test(code) || (needsClient && n === 'PimaBillClient')),
   );
@@ -98,10 +99,11 @@ function pyPrelude(code) {
   const assigned = (v) => new RegExp(`^\\s*${v}\\s*=`, 'm').test(code);
   const imported = (n) => new RegExp(`^\\s*from pimabill import[^\\n]*\\b${n}\\b|^\\s*${n},?\\s*$`, 'm').test(code);
   const asyncClient = /\bawait\b/.test(code);
-  const needsClient = !assigned('client');
+  const needsClient = uses(code, 'client') && !assigned('client');
   for (const n of ['PimaBill', 'AsyncPimaBill']) {
+    // The client is created before the block's own imports run, so it brings its own.
     const forClient = needsClient && n === (asyncClient ? 'AsyncPimaBill' : 'PimaBill');
-    if (!imported(n) && (uses(code, n) || forClient)) prelude.push(`from pimabill import ${n}`);
+    if (forClient || (!imported(n) && uses(code, n))) prelude.push(`from pimabill import ${n}`);
   }
   if (needsClient) prelude.push(`client = ${asyncClient ? 'AsyncPimaBill' : 'PimaBill'}(token="sk_test")`);
   for (const [v, type] of Object.entries(CARRIED)) {
@@ -161,8 +163,9 @@ writeFileSync(
 );
 symlinkSync(join(sdksDir, 'python'), join(work, 'pimabill'));
 writeFileSync(
-  join(work, 'mypy.ini'),
-  '[mypy]\nplugins = pydantic.mypy\ncheck_untyped_defs = True\n\n# Generated code; only the snippets are under test.\n[mypy-pimabill.*]\nignore_errors = True\n',
+  join(work, 'pyrightconfig.json'),
+  // Generated code is ignored; only the snippets are under test.
+  JSON.stringify({ include: ['py'], ignore: ['pimabill'], extraPaths: [work], typeCheckingMode: 'standard' }),
 );
 
 function run(cmd, args, env = {}) {
@@ -180,11 +183,10 @@ const tsc = join(docsDir, 'node_modules/.bin/tsc');
 for (const m of run(tsc, ['-p', 'tsconfig.json', '--pretty', 'false']).matchAll(/^(.+?)\((\d+),\d+\): error (.+)$/gm)) {
   errors.push([resolve(work, m[1]), Number(m[2]), m[3]]);
 }
-const mypyOut = run('mypy', ['--config-file', 'mypy.ini', '--no-error-summary', '--hide-error-context', 'py'], {
-  MYPYPATH: work,
-});
-for (const m of mypyOut.matchAll(/^(.+?):(\d+): error: (.+)$/gm))
-  errors.push([resolve(work, m[1]), Number(m[2]), m[3]]);
+const pyright = JSON.parse(run(join(docsDir, 'node_modules/.bin/pyright'), ['--outputjson']) || '{"generalDiagnostics":[]}');
+for (const d of pyright.generalDiagnostics.filter((d) => d.severity === 'error')) {
+  errors.push([d.file, d.range.start.line + 1, d.message.replace(/\s+/g, ' ')]);
+}
 
 let count = 0;
 for (const [path, line, message] of errors) {
