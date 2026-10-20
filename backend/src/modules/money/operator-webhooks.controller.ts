@@ -1,4 +1,18 @@
-import { Body, Controller, Headers, HttpCode, Logger, NotFoundException, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  Logger,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+  RawBodyRequest,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '../../generated/prisma-tenant/client';
 import { Public } from '../../common/decorators/public.decorator';
@@ -6,6 +20,7 @@ import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { MoneyService } from './money.service';
 import { ProviderRegistryService } from './provider-registry.service';
 import { NowPaymentsAdapter, NowPaymentsNotification } from './adapters/nowpayments.adapter';
+import { BinancePayAdapter, BinancePayNotification, fromTradeNo } from './adapters/binance-pay.adapter';
 import { toScaled } from '../ledger/ledger.money';
 
 const OPERATORS = new Set(['mtn_momo', 'airtel_money', 'eversend']);
@@ -76,6 +91,56 @@ export class OperatorWebhooksController {
     }
     await this.money.applyOutcome(db, tenantId, intent, outcome, 'webhook');
     return { status: 'ok' };
+  }
+
+  /**
+   * Binance Pay notifications are RSA-signed; a verified one triggers an
+   * order query, whose answer (status and amount) decides the outcome.
+   * Binance expects {"returnCode":"SUCCESS"} back.
+   */
+  @Post('binance_pay/:tenantId/callback')
+  @HttpCode(200)
+  async binancePay(@Param('tenantId') tenantId: string, @Req() req: RawBodyRequest<Request>, @Body() body: BinancePayNotification) {
+    const ok = { returnCode: 'SUCCESS', returnMessage: null };
+    const db = await this.tenantDb.getTenantClient(tenantId).catch(() => null);
+    if (!db) return ok;
+    const provider = await this.registry.get(db, 'binance_pay').catch(() => null);
+    if (!(provider instanceof BinancePayAdapter)) return ok;
+    const raw = req.rawBody?.toString('utf8') ?? JSON.stringify(body);
+    const headers = req.headers as Record<string, string | undefined>;
+    if (!(await provider.verifyNotification(raw, headers))) throw new UnauthorizedException('Invalid Binance Pay signature');
+
+    let data: { merchantTradeNo?: string; totalFee?: number | string; currency?: string } = {};
+    try {
+      data = JSON.parse(body.data ?? '{}');
+    } catch {
+      // Unreadable data: nothing to match.
+    }
+    const reference = data.merchantTradeNo ? fromTradeNo(data.merchantTradeNo) : undefined;
+    const intent = reference ? await this.money.findByProviderRef(db, 'binance_pay', { reference }) : null;
+    try {
+      await db.providerEvent.create({
+        data: {
+          provider: 'binance_pay',
+          eventKey: `webhook:${body.bizIdStr ?? body.bizId}:${body.bizStatus}`,
+          eventType: `${body.bizType ?? 'PAY'}:${body.bizStatus ?? ''}`,
+          status: intent ? 'PROCESSED' : 'IGNORED',
+          route: 'tenant',
+          intentId: intent?.id,
+          amount: data.totalFee !== undefined ? String(data.totalFee) : null,
+          currency: data.currency ?? null,
+          payload: body as never,
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
+    }
+    if (intent) {
+      await this.money.refresh(db, tenantId, intent.id).catch((error) =>
+        this.logger.warn(`Binance Pay order check failed for ${intent.id}: ${error instanceof Error ? error.message : error}`),
+      );
+    }
+    return ok;
   }
 
   @Post(':provider/:tenantId/callback')

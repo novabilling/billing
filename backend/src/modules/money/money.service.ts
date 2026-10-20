@@ -575,7 +575,7 @@ export class MoneyService {
     if (!deposit) throw new NotFoundException('Deposit not found');
     if (deposit.status !== 'UNMATCHED') throw new BadRequestException('This deposit already paid a collection');
     const intent = await this.find(db, collectionId);
-    if (intent.type !== 'COLLECTION' || !['tron_usdt', 'eth_usdt'].includes(intent.provider ?? '')) {
+    if (intent.type !== 'COLLECTION' || !['tron_usdt', 'eth_usdt', 'bsc_usdt'].includes(intent.provider ?? '')) {
       throw new BadRequestException('Deposits can only be assigned to USDT collections paid to your own wallet');
     }
     // Ethereum addresses are stored lowercase; TRON's are case-sensitive but never differ only by case.

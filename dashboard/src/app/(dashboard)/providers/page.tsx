@@ -45,6 +45,8 @@ const providerInfo: Record<string, { logo: string; color: string }> = {
   tron_usdt: { logo: "₮", color: "bg-emerald-600" },
   eth_usdt: { logo: "Ξ", color: "bg-slate-600" },
   btc: { logo: "₿", color: "bg-orange-500" },
+  bsc_usdt: { logo: "₮", color: "bg-yellow-500" },
+  binance_pay: { logo: "◆", color: "bg-yellow-400" },
 };
 
 const credentialFields: Record<
@@ -142,6 +144,19 @@ const credentialFields: Record<
     { key: "network", label: "Network (optional)", placeholder: "mainnet or sepolia (testnet)", optional: true },
     { key: "tokenContract", label: "Token contract (testnet only)", placeholder: "0x…", optional: true },
   ],
+  bsc_usdt: [
+    { key: "address", label: "Your BNB Chain address (receives the USDT)", placeholder: "0x…" },
+    { key: "apiKey", label: "Etherscan API key", placeholder: "Free at etherscan.io; covers BNB Chain where your plan includes it" },
+    { key: "apiUrl", label: "Other explorer API (optional)", placeholder: "An Etherscan-compatible BNB Chain API, if not using Etherscan", optional: true },
+    { key: "confirmations", label: "Confirmations before paid (optional)", placeholder: "15", optional: true },
+    { key: "expiryMinutes", label: "Minutes to pay before a collection expires (optional)", placeholder: "60", optional: true },
+    { key: "network", label: "Network (optional)", placeholder: "mainnet or testnet", optional: true },
+    { key: "tokenContract", label: "Token contract (testnet only)", placeholder: "0x…", optional: true },
+  ],
+  binance_pay: [
+    { key: "apiKey", label: "Binance Pay API key", placeholder: "Merchant Admin Portal → Developers" },
+    { key: "apiSecret", label: "Binance Pay secret key", placeholder: "" },
+  ],
   btc: [
     {
       key: "xpub",
@@ -188,6 +203,8 @@ const webhookDocs: Record<string, { label: string; url: string }> = {
   tron_usdt: { label: "TronGrid", url: "https://www.trongrid.io" },
   eth_usdt: { label: "Etherscan API keys", url: "https://etherscan.io/myapikey" },
   btc: { label: "Sparrow Wallet", url: "https://sparrowwallet.com" },
+  bsc_usdt: { label: "Etherscan API keys", url: "https://etherscan.io/myapikey" },
+  binance_pay: { label: "Binance Merchant Portal", url: "https://merchant.binance.com" },
 };
 
 /**
@@ -244,6 +261,14 @@ const signatureVerification: Record<string, { method: string; detail: string }> 
     method: "On-chain",
     detail: "No notifications: transfers to your address with enough confirmations are read from Ethereum every minute",
   },
+  bsc_usdt: {
+    method: "On-chain",
+    detail: "No notifications: transfers to your address with enough confirmations are read from BNB Chain every minute",
+  },
+  binance_pay: {
+    method: "RSA-SHA256",
+    detail: "Verified with Binance's published certificate, then the order is queried from Binance to confirm status and amount",
+  },
   btc: {
     method: "On-chain",
     detail: "No notifications: each payment address is checked on the Bitcoin blockchain every minute",
@@ -285,7 +310,7 @@ function getApiBaseUrl(): string {
 function webhookUrlFor(code: string): string {
   const tenant = useAuthStore.getState().user?.tenantId;
   if (code === "yo") return `${getApiBaseUrl()}/webhooks/yo/${tenant ?? "{tenantId}"}/ipn`;
-  if (code === "mtn_momo" || code === "airtel_money" || code === "nowpayments" || code === "eversend") {
+  if (code === "mtn_momo" || code === "airtel_money" || code === "nowpayments" || code === "eversend" || code === "binance_pay") {
     return `${getApiBaseUrl()}/webhooks/${code}/${tenant ?? "{tenantId}"}/callback`;
   }
   if (autoIpnProviders.has(code)) return `${getApiBaseUrl()}/webhooks/${code}`;

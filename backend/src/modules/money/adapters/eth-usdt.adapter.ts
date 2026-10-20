@@ -3,28 +3,57 @@ import { PrismaClient } from '../../../generated/prisma-tenant/client';
 import { StablecoinWatchAdapter, WatchCredentials, WatchedTransfer } from './stablecoin-watch';
 
 /**
- * Watch-only USDT on Ethereum (ERC-20): payers send USDT straight to the
- * merchant's own Ethereum address; transfers with enough confirmations are
- * read through the Etherscan API. Matching and expiry live in
- * StablecoinWatchAdapter.
+ * Watch-only USDT on Ethereum-style chains (Ethereum, BNB Smart Chain):
+ * payers send USDT straight to the merchant's own address; transfers with
+ * enough confirmations are read through the Etherscan API (one key covers
+ * every chain it indexes) or any Etherscan-compatible explorer API.
+ * Matching and expiry live in StablecoinWatchAdapter.
  */
 export interface EthUsdtCredentials extends WatchCredentials {
   /** The merchant's own Ethereum address (0x…). */
   address: string;
-  /** Etherscan API key (free at etherscan.io). */
+  /** Etherscan API key (free at etherscan.io), or the key for `apiUrl`. */
   apiKey: string;
-  network?: 'mainnet' | 'sepolia';
-  /** Required on Sepolia, which has no official USDT. */
+  /** "mainnet", or the chain's testnet ("sepolia" for Ethereum, "testnet" for BNB Chain). */
+  network?: string;
+  /** Required on testnets, which have no official USDT. */
   tokenContract?: string;
-  /** Blocks on top before a transfer counts (default 12, about 2.5 minutes). */
+  /** Blocks on top before a transfer counts (default 12 on Ethereum, 15 on BNB Chain). */
   confirmations?: number | string;
+  /** Another Etherscan-compatible API, e.g. a BNB Chain explorer API. */
+  apiUrl?: string;
 }
 
-const NETWORKS = {
-  mainnet: { chainId: '1', usdt: '0xdac17f958d2ee523a2206206994597c13d831ec7' },
-  sepolia: { chainId: '11155111', usdt: '' },
+interface EvmChain {
+  chain: string;
+  aliases: string[];
+  label: string;
+  mainnet: { chainId: string; usdt: string };
+  testnet: { name: string; chainId: string };
+  confirmations: number;
+}
+
+export const EVM_CHAINS: Record<'ethereum' | 'bsc', EvmChain> = {
+  ethereum: {
+    chain: 'ETHEREUM',
+    aliases: ['ETHEREUM', 'ETH', 'ERC20'],
+    label: 'Ethereum',
+    mainnet: { chainId: '1', usdt: '0xdac17f958d2ee523a2206206994597c13d831ec7' },
+    testnet: { name: 'sepolia', chainId: '11155111' },
+    confirmations: 12,
+  },
+  // BNB Smart Chain's USDT ("BSC-USD") has 18 decimals; amounts are read with each transfer's own decimals.
+  bsc: {
+    chain: 'BSC',
+    aliases: ['BSC', 'BNB', 'BEP20', 'BNB SMART CHAIN', 'BINANCE SMART CHAIN'],
+    label: 'BNB Chain',
+    mainnet: { chainId: '56', usdt: '0x55d398326f99059ff775485246999027b3197955' },
+    testnet: { name: 'testnet', chainId: '97' },
+    confirmations: 15,
+  },
 };
-const API = 'https://api.etherscan.io/v2/api';
+
+const ETHERSCAN_API = 'https://api.etherscan.io/v2/api';
 const TIMEOUT_MS = 20_000;
 const PAGE_SIZE = 200;
 const MAX_PAGES = 5;
@@ -50,10 +79,9 @@ export function isEthereumAddress(value: string): boolean {
 }
 
 export class EthUsdtAdapter extends StablecoinWatchAdapter {
-  readonly name = 'eth_usdt';
-  protected readonly chain = 'ETHEREUM';
-  protected readonly chainAliases = ['ETHEREUM', 'ETH', 'ERC20'];
+  readonly name: string = 'eth_usdt';
   protected readonly coin = 'USDT';
+  protected readonly preset: EvmChain = EVM_CHAINS.ethereum;
 
   declare protected readonly credentials: EthUsdtCredentials;
 
@@ -61,12 +89,24 @@ export class EthUsdtAdapter extends StablecoinWatchAdapter {
     super(credentials, db, fetchImpl);
   }
 
-  private get network() {
-    return NETWORKS[this.credentials.network === 'sepolia' ? 'sepolia' : 'mainnet'];
+  protected get chain() {
+    return this.preset.chain;
+  }
+
+  protected get chainAliases() {
+    return this.preset.aliases;
+  }
+
+  private get testnet() {
+    return Boolean(this.credentials.network) && this.credentials.network!.toLowerCase() === this.preset.testnet.name;
+  }
+
+  private get chainId() {
+    return this.testnet ? this.preset.testnet.chainId : this.preset.mainnet.chainId;
   }
 
   protected get scanKey() {
-    return `eth:${this.network.chainId}`;
+    return `evm:${this.chainId}`;
   }
 
   /** Ethereum addresses compare case-insensitively; store them lowercase. */
@@ -75,12 +115,12 @@ export class EthUsdtAdapter extends StablecoinWatchAdapter {
   }
 
   private get contract() {
-    return (this.credentials.tokenContract || this.network.usdt).toLowerCase();
+    return (this.credentials.tokenContract || (this.testnet ? '' : this.preset.mainnet.usdt)).toLowerCase();
   }
 
   private get confirmations() {
     const n = Number(this.credentials.confirmations);
-    return n > 0 ? n : 12;
+    return n > 0 ? n : this.preset.confirmations;
   }
 
   protected isValidAddress(address: string): boolean {
@@ -88,7 +128,7 @@ export class EthUsdtAdapter extends StablecoinWatchAdapter {
   }
 
   protected setupProblem(): string | undefined {
-    if (!this.credentials.apiKey) return 'Add an Etherscan API key to this connection';
+    if (!this.credentials.apiKey) return `Add an ${this.credentials.apiUrl ? 'explorer' : 'Etherscan'} API key to this connection`;
     if (!this.contract) return 'Set the USDT token contract for this test network';
     return undefined;
   }
@@ -98,7 +138,7 @@ export class EthUsdtAdapter extends StablecoinWatchAdapter {
     const out: WatchedTransfer[] = [];
     for (let page = 1; page <= MAX_PAGES; page++) {
       const params = new URLSearchParams({
-        chainid: this.network.chainId,
+        chainid: this.chainId,
         module: 'account',
         action: 'tokentx',
         contractaddress: this.contract,
@@ -110,15 +150,18 @@ export class EthUsdtAdapter extends StablecoinWatchAdapter {
       });
       let response: Response;
       try {
-        response = await this.fetchImpl(`${API}?${params}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        response = await this.fetchImpl(`${this.credentials.apiUrl || ETHERSCAN_API}?${params}`, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
       } catch (error) {
-        throw new Error(`Could not reach Etherscan: ${error instanceof Error ? error.message : error}`);
+        throw new Error(`Could not reach the ${this.preset.label} explorer API: ${error instanceof Error ? error.message : error}`);
       }
       const body = (await response.json().catch(() => ({}))) as { status?: string; message?: string; result?: Erc20Transfer[] | string };
-      if (!response.ok) throw new Error(`Etherscan returned HTTP ${response.status}`);
+      if (!response.ok) throw new Error(`${this.preset.label} explorer API returned HTTP ${response.status}`);
       if (body.status !== '1') {
         if (Array.isArray(body.result) || /no transactions found/i.test(body.message ?? '')) break;
-        throw new Error(`Etherscan: ${typeof body.result === 'string' ? body.result : body.message}`);
+        throw new Error(`${this.preset.label} explorer API: ${typeof body.result === 'string' ? body.result : body.message}`);
       }
       const rows = Array.isArray(body.result) ? body.result : [];
       let reachedSince = false;
@@ -140,4 +183,10 @@ export class EthUsdtAdapter extends StablecoinWatchAdapter {
     }
     return out.sort((a, b) => a.time - b.time);
   }
+}
+
+/** Watch-only USDT (BEP-20) on BNB Smart Chain: same mechanics as Ethereum, its own chain id and token. */
+export class BscUsdtAdapter extends EthUsdtAdapter {
+  readonly name: string = 'bsc_usdt';
+  protected readonly preset: EvmChain = EVM_CHAINS.bsc;
 }

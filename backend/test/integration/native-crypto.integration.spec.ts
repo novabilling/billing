@@ -6,7 +6,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../src/generated/prisma-tenant/client';
 import { MoneyService } from '../../src/modules/money/money.service';
-import { EthUsdtAdapter } from '../../src/modules/money/adapters/eth-usdt.adapter';
+import { BscUsdtAdapter, EthUsdtAdapter } from '../../src/modules/money/adapters/eth-usdt.adapter';
 import { BtcAdapter, deriveAddress } from '../../src/modules/money/adapters/btc.adapter';
 import { resetScanThrottle } from '../../src/modules/money/adapters/stablecoin-watch';
 import { MoneyProvider } from '../../src/modules/money/types';
@@ -95,6 +95,40 @@ describeDb('native crypto (postgres)', () => {
       await refresh(a.id);
       const [deposit] = (await money.listCryptoDeposits(db, { status: 'unmatched' })).data;
       expect(await money.assignCryptoDeposit(db, 't1', deposit.id, b.id)).toMatchObject({ status: 'succeeded' });
+    });
+  });
+
+  describe('USDT on BNB Chain', () => {
+    const MERCHANT = '0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed';
+    const BSC_USDT = '0x55d398326f99059ff775485246999027b3197955';
+    let rows: Record<string, unknown>[] = [];
+    const urls: string[] = [];
+    const fetch = jest.fn(async (u: string) => {
+      urls.push(u);
+      return json({ status: '1', message: 'OK', result: rows });
+    });
+
+    it('reads 18-decimal BEP-20 transfers on chain 56 and settles the matching collection', async () => {
+      adapter = new BscUsdtAdapter({ address: MERCHANT, apiKey: 'k' }, db, fetch as never);
+      const c = await money.createCollection(db, tenant, { amount: '15', currency: 'USDT', payer: { type: 'crypto', chain: 'BSC' } });
+      expect(c.paymentDetails).toMatchObject({ coin: 'USDT', chain: 'BSC', address: MERCHANT });
+      const [w, f = ''] = c.paymentDetails!.amount.split('.');
+      rows = [
+        {
+          hash: '0xbsc1',
+          timeStamp: String(Math.floor(Date.now() / 1000)),
+          from: '0xpayer',
+          to: MERCHANT,
+          value: (BigInt(w) * 10n ** 18n + BigInt((f + '0'.repeat(18)).slice(0, 18))).toString(),
+          tokenDecimal: '18',
+          contractAddress: BSC_USDT,
+          confirmations: '15',
+        },
+      ];
+      resetScanThrottle();
+      expect(await money.refresh(db, 't1', c.id)).toMatchObject({ status: 'succeeded', providerTransactionId: '0xbsc1' });
+      expect(urls[0]).toContain('chainid=56');
+      expect(urls[0]).toContain(`contractaddress=${BSC_USDT}`);
     });
   });
 

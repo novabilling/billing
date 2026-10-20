@@ -21,6 +21,7 @@ const statusVariant: Record<CryptoDeposit["status"], "default" | "secondary" | "
 function explorerUrl(d: CryptoDeposit): string {
   const hash = d.txHash.split(":")[0];
   if (d.chain === "ETHEREUM") return `https://etherscan.io/tx/${hash}`;
+  if (d.chain === "BSC") return `https://bscscan.com/tx/${hash}`;
   if (d.chain === "BITCOIN") return `https://mempool.space/tx/${hash}`;
   return `https://tronscan.org/#/transaction/${hash}`;
 }
@@ -45,7 +46,7 @@ export function CryptoDeposits() {
         moneyApi.list("collection", { status: "processing" }),
       ]);
       setRows(deposits.data);
-      setOpen(collections.data.filter((c) => c.provider === "tron_usdt" || c.provider === "eth_usdt"));
+      setOpen(collections.data.filter((c) => ["tron_usdt", "eth_usdt", "bsc_usdt"].includes(c.provider ?? "")));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not load deposits");
       setRows([]);
@@ -77,7 +78,7 @@ export function CryptoDeposits() {
         <div className="space-y-1">
           <CardTitle>Crypto deposits</CardTitle>
           <CardDescription>
-            Crypto received at your own wallet addresses (USDT on TRON or Ethereum, Bitcoin), checked every minute. Funds
+            Crypto received at your own wallet addresses (USDT on TRON, Ethereum or BNB Chain, and Bitcoin), checked every minute. Funds
             are already in your wallet; this list only shows which collection each one paid.
           </CardDescription>
         </div>

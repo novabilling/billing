@@ -81,7 +81,7 @@ export default function MoneyPage() {
     );
   }
   if (!settings) return <div className="animate-shimmer h-96 rounded-lg" />;
-  const watchesChain = providers.some((p) => ["tron_usdt", "eth_usdt", "btc"].includes(p.provider));
+  const watchesChain = providers.some((p) => ["tron_usdt", "eth_usdt", "bsc_usdt", "btc"].includes(p.provider));
 
   return (
     <div className="space-y-6">
@@ -619,7 +619,7 @@ function CreateDialog({
                 <>
                   {["USDT", "USDC"].includes(form.currency.toUpperCase()) ? (
                     <>
-                      {field("chain", "Chain (optional)", { placeholder: "e.g. TRON or ETHEREUM; your first connection if blank" })}
+                      {field("chain", "Chain (optional)", { placeholder: "TRON, ETHEREUM, BSC, or BINANCE for Binance Pay" })}
                       {field("name", "Payer name (optional)")}
                       <p className="text-xs text-muted-foreground">
                         A {form.currency.toUpperCase()} deposit address is created in your Eversend account. Share it with the payer;

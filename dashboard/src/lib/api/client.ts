@@ -219,6 +219,8 @@ const providerDescriptions: Record<string, string> = {
   eversend: "Mobile money and stablecoin (USDT, USDC) collections, and mobile money and bank payouts across Africa",
   tron_usdt: "USDT on TRON straight to your own wallet address. We only watch the chain; no processor, no custody",
   eth_usdt: "USDT on Ethereum straight to your own wallet address. We only watch the chain; no processor, no custody",
+  bsc_usdt: "USDT on BNB Smart Chain straight to your own wallet address. We only watch the chain; no processor, no custody",
+  binance_pay: "Payers pay from their Binance account (app, QR or link): no network fee, settles instantly to your Binance Pay balance",
   btc: "Bitcoin straight to your own wallet: a fresh address per payment from your wallet's public key, priced in your currency",
 };
 
@@ -237,6 +239,8 @@ const providerDisplayNames: Record<string, string> = {
   eversend: "Eversend",
   tron_usdt: "USDT on TRON (own wallet)",
   eth_usdt: "USDT on Ethereum (own wallet)",
+  bsc_usdt: "USDT on BNB Chain (own wallet)",
+  binance_pay: "Binance Pay",
   btc: "Bitcoin (own wallet)",
 };
 
@@ -864,6 +868,24 @@ export const apiClient = {
           isConfigured: false,
           isActive: false,
           priority: 15,
+        },
+        {
+          id: "default_bsc_usdt",
+          name: "USDT on BNB Chain (own wallet)",
+          code: "bsc_usdt" as const,
+          description: providerDescriptions.bsc_usdt,
+          isConfigured: false,
+          isActive: false,
+          priority: 16,
+        },
+        {
+          id: "default_binance_pay",
+          name: "Binance Pay",
+          code: "binance_pay" as const,
+          description: providerDescriptions.binance_pay,
+          isConfigured: false,
+          isActive: false,
+          priority: 17,
         },
       ];
 

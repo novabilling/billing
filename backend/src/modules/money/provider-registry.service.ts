@@ -10,22 +10,37 @@ import { AirtelMoneyAdapter, AirtelMoneyCredentials } from './adapters/airtel-mo
 import { NowPaymentsAdapter, NowPaymentsCredentials } from './adapters/nowpayments.adapter';
 import { EVERSEND_COINS, EversendAdapter, EversendCredentials } from './adapters/eversend.adapter';
 import { TronUsdtAdapter, TronUsdtCredentials } from './adapters/tron-usdt.adapter';
-import { EthUsdtAdapter, EthUsdtCredentials } from './adapters/eth-usdt.adapter';
+import { BscUsdtAdapter, EthUsdtAdapter, EthUsdtCredentials } from './adapters/eth-usdt.adapter';
+import { BINANCE_PAY_COINS, BinancePayAdapter, BinancePayCredentials } from './adapters/binance-pay.adapter';
 import { BtcAdapter, BtcCredentials } from './adapters/btc.adapter';
 import { detectNetwork } from './msisdn';
 import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
 /** Providers that only move money (no invoice checkout). */
-export const MONEY_ONLY_PROVIDERS = ['yo', 'mtn_momo', 'airtel_money', 'nowpayments', 'eversend', 'tron_usdt', 'eth_usdt', 'btc'];
+export const MONEY_ONLY_PROVIDERS = [
+  'yo',
+  'mtn_momo',
+  'airtel_money',
+  'nowpayments',
+  'eversend',
+  'binance_pay',
+  'tron_usdt',
+  'eth_usdt',
+  'bsc_usdt',
+  'btc',
+];
 
 /** Watch-only providers: payments go straight to the merchant's own wallet; we read the chain. */
-export const WATCH_ONLY_PROVIDERS = ['tron_usdt', 'eth_usdt', 'btc'];
+export const WATCH_ONLY_PROVIDERS = ['tron_usdt', 'eth_usdt', 'bsc_usdt', 'btc'];
 
 /** Crypto providers that collect in the stablecoin itself rather than at a fiat price. */
 const STABLECOIN_PROVIDERS: Record<string, { coins: string[]; chains?: string[] }> = {
   eversend: { coins: EVERSEND_COINS },
   tron_usdt: { coins: ['USDT'], chains: ['TRON', 'TRC20', 'TRX'] },
   eth_usdt: { coins: ['USDT'], chains: ['ETHEREUM', 'ETH', 'ERC20'] },
+  bsc_usdt: { coins: ['USDT'], chains: ['BSC', 'BNB', 'BEP20', 'BNB SMART CHAIN', 'BINANCE SMART CHAIN'] },
+  // Paid from the payer's Binance account rather than on a chain.
+  binance_pay: { coins: BINANCE_PAY_COINS.filter((c) => ['USDT', 'USDC', 'FDUSD'].includes(c)), chains: ['BINANCE', 'BINANCE PAY', 'BINANCE_PAY'] },
 };
 
 /** Crypto providers that price in the merchant's currency, and the chains they take (none listed: any). */
@@ -81,10 +96,11 @@ export class ProviderRegistryService {
         if (!chains) return true;
         return (!chain || chains.includes(chain)) && (!payCoin || payCoin === 'BTC');
       });
-      // A chain the merchant receives on directly beats a processor for it: no fee, no middleman.
+      // A connection made for the named chain (the merchant's own wallet, or Binance Pay) beats a
+      // processor that takes any chain: no extra fee, no middleman.
       if (chain) {
-        const direct = candidates.find((p) => WATCH_ONLY_PROVIDERS.includes(p.provider));
-        if (direct) candidates = [direct];
+        const named = candidates.filter((p) => (STABLECOIN_PROVIDERS[p.provider]?.chains ?? FIAT_PRICED_PROVIDERS[p.provider])?.includes(chain));
+        if (named.length) candidates = named;
       }
     }
     if (rail === 'mobile_money' && party?.type === 'mobile_money') {
@@ -116,7 +132,7 @@ export class ProviderRegistryService {
     if (name === 'nowpayments') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
-    if (WATCH_ONLY_PROVIDERS.includes(name)) {
+    if (WATCH_ONLY_PROVIDERS.includes(name) || name === 'binance_pay') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
     if (name === 'eversend') {
@@ -158,6 +174,13 @@ export class ProviderRegistryService {
     if (name === 'eth_usdt') {
       if (!db) throw new Error('USDT on Ethereum needs the tenant database');
       return new EthUsdtAdapter(credentials as unknown as EthUsdtCredentials, db);
+    }
+    if (name === 'bsc_usdt') {
+      if (!db) throw new Error('USDT on BNB Chain needs the tenant database');
+      return new BscUsdtAdapter(credentials as unknown as EthUsdtCredentials, db);
+    }
+    if (name === 'binance_pay') {
+      return new BinancePayAdapter(credentials as unknown as BinancePayCredentials);
     }
     if (name === 'btc') {
       if (!db) throw new Error('Bitcoin needs the tenant database');
