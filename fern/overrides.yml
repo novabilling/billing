@@ -1,3 +1,11 @@
+# SDKs default to the hosted API; pass baseUrl / base_url (or the Local
+# environment) for a self-hosted or local server.
+servers:
+  - url: https://api.novabilling.one
+    x-fern-server-name: Production
+  - url: http://localhost:4000
+    x-fern-server-name: Local
+
 paths:
   # ==================== Auth ====================
   /api/auth/login:

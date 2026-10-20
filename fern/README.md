@@ -38,3 +38,10 @@ npx fern-api generate --local --group tier1 --force   # output in ../sdks/ (not 
 # Then check the docs examples against them (needs pydantic and httpx):
 cd ../docs && npm ci && node scripts/check-sdk-snippets.mjs
 ```
+
+## Known generator limits
+
+- TypeScript keeps the header's wire name for the idempotency key:
+  `client.payouts.create({ ..., "Idempotency-Key": key })` (Python: `idempotency_key=`).
+- PHP exception classes are named after the Fern organisation
+  (`PimabillException`, `PimabillApiException`); the client is `PimaBillClient`.

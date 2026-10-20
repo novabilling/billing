@@ -100,12 +100,12 @@ function pyPrelude(code) {
   const imported = (n) => new RegExp(`^\\s*from pimabill import[^\\n]*\\b${n}\\b|^\\s*${n},?\\s*$`, 'm').test(code);
   const asyncClient = /\bawait\b/.test(code);
   const needsClient = uses(code, 'client') && !assigned('client');
-  for (const n of ['PimaBill', 'AsyncPimaBill']) {
+  for (const n of ['PimaBillClient', 'AsyncPimaBillClient']) {
     // The client is created before the block's own imports run, so it brings its own.
-    const forClient = needsClient && n === (asyncClient ? 'AsyncPimaBill' : 'PimaBill');
+    const forClient = needsClient && n === (asyncClient ? 'AsyncPimaBillClient' : 'PimaBillClient');
     if (forClient || (!imported(n) && uses(code, n))) prelude.push(`from pimabill import ${n}`);
   }
-  if (needsClient) prelude.push(`client = ${asyncClient ? 'AsyncPimaBill' : 'PimaBill'}(token="sk_test")`);
+  if (needsClient) prelude.push(`client = ${asyncClient ? 'AsyncPimaBillClient' : 'PimaBillClient'}(token="sk_test")`);
   for (const [v, type] of Object.entries(CARRIED)) {
     if (uses(code, v) && !assigned(v)) {
       prelude.push(`from pimabill import ${type}`, `from typing import cast`, `${v} = cast(${type}, None)`);

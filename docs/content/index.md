@@ -172,9 +172,9 @@ Install an SDK and create your first subscription.
 
   ```python [Python]
   import os
-  from pimabill import PimaBill
+  from pimabill import PimaBillClient
 
-  pima = PimaBill(token=os.environ["PIMABILL_API_KEY"])
+  pima = PimaBillClient(token=os.environ["PIMABILL_API_KEY"])
 
   # Create a customer
   customer = pima.customers.create(

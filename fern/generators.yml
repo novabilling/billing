@@ -46,7 +46,7 @@ groups:
           location: local-file-system
           path: ../sdks/python
         config:
-          client_class_name: PimaBill
+          client_class_name: PimaBillClient
           package_name: pimabill
           timeout_in_seconds: 60
 
@@ -59,6 +59,8 @@ groups:
           path: ../sdks/php
         config:
           namespace: PimaBill
+          clientName: PimaBillClient
+          packageName: pimabill/pimabill-php
 
   tier2:
     generators:
@@ -94,7 +96,7 @@ groups:
           location: local-file-system
           path: ../sdks/ruby
         config:
-          client_class_name: PimaBill
+          client_class_name: PimaBillClient
           module_name: PimaBill
 
       - name: fernapi/fern-csharp-sdk
