@@ -115,6 +115,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The server folder is not a git checkout, so ship the compose file with each deploy.
+      - name: Copy compose file
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: docker-compose.prod.yml
+          target: /tmp/pimabill-deploy
+          overwrite: true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -122,10 +133,15 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
+            set -e
             cd ${{ secrets.DEPLOY_PATH || '~/novabilling' }}
 
-            # Pull latest code (for docker-compose.yml updates)
-            git pull origin main
+            # Keep the previous compose file, then use the one from this commit
+            [ -f docker-compose.prod.yml ] && cp docker-compose.prod.yml docker-compose.prod.yml.bak
+            mv /tmp/pimabill-deploy/docker-compose.prod.yml docker-compose.prod.yml
+
+            # Pull images from this repo's owner, whatever .env says
+            export GHCR_OWNER=${{ github.repository_owner }}
 
             # Log in to GHCR
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
