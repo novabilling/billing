@@ -30,12 +30,13 @@ import {
 } from "lucide-react";
 import Header from "@/components/header";
 
-const DASHBOARD_URL =
-  process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:4002";
-const DOCS_URL = process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:4003";
-const API_REF_URL =
-  process.env.NEXT_PUBLIC_API_REF_URL || "http://localhost:4000/api/reference";
-const GITHUB_URL = "https://github.com/novabilling/billing";
+import { site } from "@/lib/site";
+import { faq } from "./faq";
+
+const DASHBOARD_URL = site.dashboardUrl;
+const DOCS_URL = site.docsUrl;
+const API_REF_URL = site.apiRefUrl;
+const GITHUB_URL = site.githubUrl;
 
 /* ================================================================
    HERO
@@ -236,7 +237,7 @@ function WhyNova() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">
-            Why NovaBilling
+            Why {site.name}
           </p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
             The billing platform{" "}
@@ -453,10 +454,10 @@ function ForTeams() {
             Built for your team
           </p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            NovaBilling works for everyone
+            {site.name} works for everyone
           </h2>
           <p className="mt-4 text-lg text-[var(--muted)]">
-            Whether you&apos;re writing code or watching dashboards, NovaBilling
+            Whether you&apos;re writing code or watching dashboards, {site.name}
             gives your team the tools to move fast.
           </p>
         </div>
@@ -581,8 +582,8 @@ function DeveloperExperience() {
               </div>
               <pre className="overflow-x-auto rounded-b-lg bg-[var(--code-bg)] p-5 text-[13px] leading-6 text-gray-300">
                 <code>{`# Clone and run
-git clone https://github.com/novabilling/billing
-cd novabilling
+git clone ${GITHUB_URL}
+cd billing
 docker compose up -d
 
 # API is live at http://localhost:4000
@@ -850,7 +851,7 @@ const tiers = [
       "Dedicated account manager",
     ],
     cta: "Contact Us",
-    ctaHref: "mailto:hello@novabilling.co",
+    ctaHref: `mailto:${site.contactEmail}`,
     highlighted: false,
   },
 ];
@@ -958,7 +959,7 @@ function Comparison() {
             How we compare
           </p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            NovaBilling vs. the alternatives
+            {site.name} vs. the alternatives
           </h2>
         </div>
 
@@ -967,7 +968,7 @@ function Comparison() {
             <thead>
               <tr className="border-b border-[var(--border)]">
                 <th className="py-3 pr-4 text-left font-semibold">Feature</th>
-                <th className="px-4 py-3 text-center font-semibold text-[var(--primary)]">NovaBilling</th>
+                <th className="px-4 py-3 text-center font-semibold text-[var(--primary)]">{site.name}</th>
                 <th className="px-4 py-3 text-center font-semibold text-[var(--muted)]">Lago</th>
                 <th className="px-4 py-3 text-center font-semibold text-[var(--muted)]">Stripe Billing</th>
               </tr>
@@ -1008,7 +1009,7 @@ function FinalCTA() {
           Ready to <span className="text-gradient">go borderless?</span>
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-[var(--muted)]">
-          Deploy NovaBilling in minutes. Open source, self-hostable, and free
+          Deploy {site.name} in minutes. Open source, self-hostable, and free
           forever. Join the community building the future of billing.
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-4">
@@ -1032,6 +1033,93 @@ function FinalCTA() {
         <p className="mt-6 text-xs text-[var(--muted)]">
           AGPL-3.0 licensed. All features included. No credit card required.
         </p>
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================
+   MONEY MOVEMENT
+   ================================================================ */
+const moneyFeatures = [
+  {
+    icon: Smartphone,
+    title: "Mobile money, direct",
+    body: "Collect and pay out with MTN MoMo and Airtel Money APIs, or through Yo! Payments, Flutterwave and Eversend. Numbers route to the right network automatically.",
+  },
+  {
+    icon: Wallet,
+    title: "Payouts and transfers",
+    body: "Pay suppliers, sellers and refunds to mobile money and bank accounts, with approval thresholds, daily limits and wallet-to-wallet transfers.",
+  },
+  {
+    icon: CircleDollarSign,
+    title: "Crypto to your own wallet",
+    body: "Receive USDT on TRON, Ethereum or BNB Chain and Bitcoin straight to your wallet with no processor, or use Binance Pay, NOWPayments or Eversend.",
+  },
+  {
+    icon: Layers,
+    title: "Double-entry ledger",
+    body: "Every invoice, payment, payout and wallet change is mirrored as balanced ledger entries, with integrity checks you can see.",
+  },
+  {
+    icon: Shield,
+    title: "You keep your money",
+    body: "Payments land in your own provider accounts and wallets. The platform sends instructions and keeps the records; it never holds funds.",
+  },
+  {
+    icon: Users,
+    title: "Teams and organisations",
+    body: "Owner, admin, finance, developer and viewer roles, invitations, and several businesses under one login.",
+  },
+];
+
+function MoneyMovement() {
+  return (
+    <section id="money" className="border-t border-[var(--border)] py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[var(--primary)]">Beyond subscriptions</p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Collect, pay out and reconcile in one place</h2>
+          <p className="mt-4 text-lg text-[var(--muted)]">
+            One-time collections, payouts and transfers on the rails your customers already use, with the books kept for you.
+          </p>
+        </div>
+        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {moneyFeatures.map((f) => (
+            <div key={f.title} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+              <f.icon className="h-6 w-6 text-[var(--primary)]" aria-hidden />
+              <h3 className="mt-4 font-semibold">{f.title}</h3>
+              <p className="mt-2 text-sm text-[var(--muted)]">{f.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ================================================================
+   FAQ
+   ================================================================ */
+function Faq() {
+  return (
+    <section id="faq" className="border-t border-[var(--border)] py-24 bg-[var(--card)]/30">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Frequently asked questions</h2>
+        <div className="mt-12 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
+          {faq.map((q) => (
+            <details key={q.question} className="group p-6">
+              <summary className="cursor-pointer list-none font-semibold flex items-center justify-between gap-4">
+                {q.question}
+                <span className="text-[var(--muted)] transition-transform group-open:rotate-45" aria-hidden>
+                  +
+                </span>
+              </summary>
+              <p className="mt-3 text-sm text-[var(--muted)]">{q.answer}</p>
+            </details>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -1191,7 +1279,7 @@ function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:hello@novabilling.co"
+                  href={`mailto:${site.contactEmail}`}
                   className="text-sm text-[var(--muted)] hover:text-[var(--fg)]"
                 >
                   Contact
@@ -1203,7 +1291,7 @@ function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-[var(--border)] pt-8 sm:flex-row">
           <p className="text-xs text-[var(--muted)]">
-            &copy; {new Date().getFullYear()} NovaBilling. Released under AGPL-3.0.
+            &copy; {new Date().getFullYear()} {site.name}. Released under {site.license}.
           </p>
           <div className="flex gap-6">
             <Link
@@ -1237,12 +1325,14 @@ export default function Home() {
         <ProviderBar />
         <WhyNova />
         <Features />
+        <MoneyMovement />
         <ForTeams />
         <DeveloperExperience />
         <GlobalReach />
         <HowItWorks />
         <Comparison />
         <Pricing />
+        <Faq />
         <FinalCTA />
       </main>
       <Footer />
