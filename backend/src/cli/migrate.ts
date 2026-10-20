@@ -9,7 +9,7 @@
 import 'dotenv/config';
 import { createDecipheriv } from 'crypto';
 import { Client } from 'pg';
-import { baselineNeeded, migrate } from '../database/migrations';
+import { baselineNeeded, migrate, migrateTenant } from '../database/migrations';
 
 function decrypt(encrypted: string): string {
   const key = process.env.ENCRYPTION_KEY;
@@ -17,6 +17,13 @@ function decrypt(encrypted: string): string {
   const [ivHex, data] = encrypted.split(':');
   const decipher = createDecipheriv('aes-256-cbc', Buffer.from(key, 'hex'), Buffer.from(ivHex, 'hex'));
   return decipher.update(data, 'hex', 'utf8') + decipher.final('utf8');
+}
+
+/** Prisma ends its errors with a backtrace; show the error lines instead. */
+function errorSummary(text: string): string {
+  const lines = text.trim().split('\n').map((l) => l.trim()).filter(Boolean);
+  const errors = lines.filter((l) => /error|denied|P\d{4}|must be owner|does not exist/i.test(l) && !/^\d+: /.test(l) && !l.startsWith('at '));
+  return (errors.length ? errors : lines.slice(-3)).slice(0, 4).join('\n  ');
 }
 
 async function central(dryRun: boolean) {
@@ -46,11 +53,11 @@ async function tenants(dryRun: boolean): Promise<number> {
         console.log(`${label}: would baseline [${(await baselineNeeded('tenant', url)).join(', ')}] then deploy`);
         continue;
       }
-      await migrate('tenant', url, (line) => console.log(`${label}: ${line}`));
+      await migrateTenant(url, (line) => console.log(`${label}: ${line}`));
     } catch (error) {
       failed++;
       const e = error as { stderr?: string; message?: string };
-      console.error(`${label}: FAILED\n  ${String(e.stderr || e.message).trim().split('\n').slice(-3).join('\n  ')}`);
+      console.error(`${label}: FAILED\n  ${errorSummary(String(e.stderr || e.message))}`);
     }
   }
   console.log(`\n${rows.length - failed}/${rows.length} tenant database(s) up to date`);
