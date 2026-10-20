@@ -1,8 +1,10 @@
 /**
- * Apply migrations: `node dist/cli/migrate.js central|tenants|all [--dry-run]`
+ * Apply migrations: `node dist/cli/migrate.js central|tenants|all [--dry-run] [--allow-tenant-failures]`
  * (or `npm run migrate:central` / `npm run migrate:tenants` in development).
  * Tenants are found through the central database; one failing tenant is
- * reported and does not stop the others.
+ * reported and does not stop the others. With --allow-tenant-failures (how
+ * the API container starts) only a central failure exits non-zero, so one
+ * broken tenant database cannot keep the API down for everyone.
  */
 import 'dotenv/config';
 import { createDecipheriv } from 'crypto';
@@ -58,13 +60,15 @@ async function tenants(dryRun: boolean): Promise<number> {
 async function main() {
   const target = process.argv[2];
   const dryRun = process.argv.includes('--dry-run');
+  const allowTenantFailures = process.argv.includes('--allow-tenant-failures');
   if (!['central', 'tenants', 'all'].includes(target)) {
     console.error('Usage: migrate central|tenants|all [--dry-run]');
     process.exit(2);
   }
   if (target !== 'tenants') await central(dryRun);
   const failed = target !== 'central' ? await tenants(dryRun) : 0;
-  process.exit(failed ? 1 : 0);
+  if (failed && allowTenantFailures) console.error(`${failed} tenant database(s) failed to migrate; starting anyway (see above).`);
+  process.exit(failed && !allowTenantFailures ? 1 : 0);
 }
 
 main().catch((error) => {

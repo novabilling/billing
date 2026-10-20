@@ -50,4 +50,5 @@ RUN mkdir -p /app/uploads/invoices
 EXPOSE 4000
 
 # Migrations, not db push: central first, then every tenant database, then the API.
-CMD ["sh", "-c", "node dist/cli/migrate.js all && node dist/main"]
+# A failing tenant database is logged but does not stop the API; a central failure does.
+CMD ["sh", "-c", "node dist/cli/migrate.js all --allow-tenant-failures && node dist/main"]
