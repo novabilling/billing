@@ -5,9 +5,10 @@ import { Prisma, PrismaClient, WalletTransactionKind } from '../../generated/pri
 
 type WalletTx = Prisma.TransactionClient;
 
-const INBOUND_KINDS = new Set<WalletTransactionKind>(['PURCHASED', 'GRANTED', 'PAYOUT_REVERSED', 'TRANSFERRED_IN']);
+const INBOUND_KINDS = new Set<WalletTransactionKind>(['PURCHASED', 'GRANTED', 'PAYOUT_REVERSED', 'TRANSFERRED_IN', 'REFUNDED']);
 import { CreateWalletDto, UpdateWalletDto, TopUpWalletDto } from './dto/create-wallet.dto';
 import { WEBHOOK_QUEUE, WebhookJobType } from '../../queues/billing.queue';
+import { dec, Dec } from '../billing/pricing';
 
 @Injectable()
 export class WalletsService {
@@ -19,12 +20,15 @@ export class WalletsService {
 
   // --- Conversion helpers ---
 
+  // Decimal arithmetic, rounded to the 4 places the columns hold.
   private creditsToAmount(credits: number, rateAmount: number): number {
-    return Math.round(credits * rateAmount * 10000) / 10000;
+    return dec(credits).mul(dec(rateAmount)).toDecimalPlaces(4, Dec.ROUND_HALF_UP).toNumber();
   }
 
   private amountToCredits(amount: number, rateAmount: number): number {
-    return Math.round((amount / rateAmount) * 10000) / 10000;
+    const rate = dec(rateAmount);
+    if (rate.lte(0)) throw new BadRequestException('Wallet rate must be positive');
+    return dec(amount).div(rate).toDecimalPlaces(4, Dec.ROUND_HALF_UP).toNumber();
   }
 
   // --- CRUD ---
@@ -342,6 +346,13 @@ export class WalletsService {
   ): Promise<number> {
     if (invoiceAmount <= 0) return 0;
 
+    // Once per invoice: a retried job gets back what was already deducted.
+    const previous = await db.walletTransaction.findMany({
+      where: { invoiceId, transactionStatus: 'INVOICED' },
+      select: { amount: true },
+    });
+    if (previous.length) return previous.reduce((sum, t) => sum.add(dec(t.amount)), new Dec(0)).toNumber();
+
     const wallets = await db.wallet.findMany({
       where: {
         customerId,
@@ -353,29 +364,50 @@ export class WalletsService {
       orderBy: { createdAt: 'asc' },
     });
 
-    let remaining = invoiceAmount;
-    let totalDeducted = 0;
+    let remaining = dec(invoiceAmount);
+    let totalDeducted = new Dec(0);
 
     for (const wallet of wallets) {
-      if (remaining <= 0) break;
+      if (remaining.lte(0)) break;
 
-      const walletBalance = Number(wallet.balance);
-      const deductAmount = Math.min(remaining, walletBalance);
-      const deductCredits = this.amountToCredits(deductAmount, Number(wallet.rateAmount));
-
-      if (deductAmount <= 0) continue;
+      const deductAmount = Dec.min(remaining, dec(wallet.balance));
+      if (deductAmount.lte(0)) continue;
+      const deductCredits = this.amountToCredits(deductAmount.toNumber(), Number(wallet.rateAmount));
 
       await this.removeCredits(db, wallet.id, deductCredits, 'INVOICED', tenantId, invoiceId);
 
-      remaining -= deductAmount;
-      totalDeducted += deductAmount;
+      remaining = remaining.sub(deductAmount);
+      totalDeducted = totalDeducted.add(deductAmount);
 
       this.logger.log(
         `Wallet ${wallet.id}: deducted ${deductCredits} credits (${deductAmount} ${currency}) for invoice ${invoiceId}`,
       );
     }
 
-    return totalDeducted;
+    return totalDeducted.toNumber();
+  }
+
+  /** Give back the credits an invoice used, when it is voided. Once per invoice. */
+  async refundInvoice(db: PrismaClient, invoiceId: string): Promise<number> {
+    const used = await db.walletTransaction.findMany({ where: { invoiceId, transactionStatus: 'INVOICED' } });
+    let refunded = new Dec(0);
+    for (const txn of used) {
+      const done = await db.walletTransaction.findFirst({
+        where: { invoiceId, walletId: txn.walletId, transactionStatus: 'REFUNDED' },
+        select: { id: true },
+      });
+      if (done) continue;
+      await db.$transaction((tx) =>
+        this.applyChange(tx, txn.walletId, {
+          credits: Number(txn.creditAmount),
+          kind: 'REFUNDED',
+          invoiceId,
+          metadata: { reason: 'invoice_voided' },
+        }),
+      );
+      refunded = refunded.add(dec(txn.amount));
+    }
+    return refunded.toNumber();
   }
 
   // --- Expiration (called by cron) ---

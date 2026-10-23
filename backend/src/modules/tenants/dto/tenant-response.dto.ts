@@ -14,14 +14,24 @@ export class TenantResponse {
   @ApiProperty({ example: 'john@company.com' })
   email: string;
 
-  @ApiProperty({ example: 'sk_live_abc123...' })
-  apiKey: string;
+  @ApiPropertyOptional({
+    example: 'sk_live_****a1b2',
+    nullable: true,
+    type: String,
+    description: 'The organisation key, masked: keys are stored hashed and shown in full only when created or rotated',
+  })
+  apiKey?: string | null;
 
   @ApiPropertyOptional({ example: 'https://example.com/webhooks' })
   webhookUrl?: string;
 
-  @ApiPropertyOptional({ example: 'whsec_abc123...' })
-  webhookSecret?: string;
+  @ApiPropertyOptional({
+    example: 'whsec_abc123...',
+    nullable: true,
+    type: String,
+    description: 'Only for people who manage developer settings, and API keys with write access; null otherwise',
+  })
+  webhookSecret?: string | null;
 
   @ApiProperty({ example: true })
   isActive: boolean;

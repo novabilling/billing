@@ -159,23 +159,25 @@ export class PayUProvider extends BasePaymentProvider {
     }
   }
 
+  /**
+   * PayU IPNs are not signed, so the IPN only names the transaction: its
+   * outcome and amount come from a getTransaction call with our credentials,
+   * looked up by our own merchant reference.
+   */
   async handleWebhook(payload: Record<string, unknown>, _signature: string): Promise<WebhookData> {
-    // PayU IPN (Instant Payment Notification)
     const merchantReference = String(payload.MerchantReference || '');
-    const transactionState = String(payload.TransactionState || '');
-    const amountInCents = Number(payload.AmountInCents || 0);
-    const currencyCode = String(payload.CurrencyCode || '');
-    const payUReference = String(payload.PayUReference || '');
+    if (!merchantReference) throw new Error('PayU notification without a merchant reference');
 
-    const result: WebhookData = {
-      status: transactionState === 'SUCCESSFUL' ? 'succeeded' : 'failed',
-      transactionId: payUReference,
-      amount: fromSmallestUnit(amountInCents, currencyCode || 'USD'),
-      currency: currencyCode,
+    const verified = await this.getPaymentStatus(merchantReference);
+    return {
+      status: verified.status,
+      transactionId: verified.transactionId !== merchantReference ? verified.transactionId : String(payload.PayUReference || ''),
+      amount: verified.amount,
+      currency: verified.currency,
       invoiceId: merchantReference,
+      // The status came from PayU for exactly this reference.
+      referenceVerified: true,
     };
-
-    return result;
   }
 
   async testConnection(): Promise<boolean> {

@@ -1,6 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { CentralPrismaService } from '../database/central-prisma.service';
+import { safePost } from '../common/net/safe-url';
+
+/**
+ * Signature headers for an outbound webhook. `X-Webhook-Signature-V2` signs
+ * `<timestamp>.<body>`, so a receiver that checks the timestamp is recent
+ * cannot be replayed; `X-Webhook-Signature` (body only) is kept for receivers
+ * that have not moved to v2 yet.
+ */
+export function webhookHeaders(secret: string | null, body: string, event: string, now = Date.now()): Record<string, string> {
+  const timestamp = String(Math.floor(now / 1000));
+  return {
+    'Content-Type': 'application/json',
+    'X-Event-Type': event,
+    'X-Webhook-Timestamp': timestamp,
+    'X-Webhook-Signature': secret ? createHmac('sha256', secret).update(body).digest('hex') : '',
+    'X-Webhook-Signature-V2': secret ? `t=${timestamp},v1=${createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')}` : '',
+  };
+}
 
 @Injectable()
 export class WebhookService {
@@ -29,10 +47,6 @@ export class WebhookService {
       timestamp: new Date().toISOString(),
     });
 
-    const signature = tenant.webhookSecret
-      ? createHmac('sha256', tenant.webhookSecret).update(body).digest('hex')
-      : '';
-
     let statusCode: number | null = null;
     let responseBody: string | null = null;
     let success = false;
@@ -40,19 +54,10 @@ export class WebhookService {
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const response = await fetch(tenant.webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Webhook-Signature': signature,
-            'X-Event-Type': event,
-          },
-          body,
-          signal: AbortSignal.timeout(10000),
-        });
+        const response = await safePost(tenant.webhookUrl, body, webhookHeaders(tenant.webhookSecret, body, event));
 
         statusCode = response.status;
-        responseBody = await response.text().catch(() => null);
+        responseBody = response.body || null;
         success = response.ok;
 
         if (success) break;
@@ -92,7 +97,8 @@ export class WebhookService {
   }
 
   verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
-    const expected = createHmac('sha256', secret).update(payload).digest('hex');
-    return expected === signature;
+    const expected = Buffer.from(createHmac('sha256', secret).update(payload).digest('hex'));
+    const given = Buffer.from(signature);
+    return expected.length === given.length && timingSafeEqual(expected, given);
   }
 }

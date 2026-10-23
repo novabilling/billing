@@ -1,5 +1,27 @@
 import * as Joi from 'joi';
 
+/** Values from the example files and old defaults: never acceptable secrets. */
+const KNOWN_PLACEHOLDERS = [
+  /change-?me/i,
+  /^generate-/i,
+  /^0123456789abcdef/i,
+  /^secret$/i,
+  /^password$/i,
+];
+
+/** A real secret in production: not a placeholder, and long enough to resist guessing. */
+function secret(minLength: number) {
+  return Joi.string()
+    .required()
+    .custom((value: string, helpers) => {
+      if (process.env.NODE_ENV !== 'production') return value;
+      if (KNOWN_PLACEHOLDERS.some((p) => p.test(value))) return helpers.error('secret.placeholder');
+      if (value.length < minLength) return helpers.error('string.min', { limit: minLength });
+      return value;
+    }, 'production secret')
+    .messages({ 'secret.placeholder': '{{#label}} is still a placeholder; generate a real secret (openssl rand -hex 32)' });
+}
+
 export const validationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').required(),
 
@@ -11,15 +33,16 @@ export const validationSchema = Joi.object({
 
   REDIS_URL: Joi.string().required(),
 
-  JWT_SECRET: Joi.string().required(),
+  JWT_SECRET: secret(32),
 
   JWT_EXPIRATION: Joi.string().default('1h'),
 
-  JWT_REFRESH_SECRET: Joi.string().required(),
+  // Must differ from JWT_SECRET, so a refresh token can never pass as an access token.
+  JWT_REFRESH_SECRET: secret(32).invalid(Joi.ref('JWT_SECRET')).messages({ 'any.invalid': 'JWT_REFRESH_SECRET must differ from JWT_SECRET' }),
 
   JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
 
-  ENCRYPTION_KEY: Joi.string().length(64).required(),
+  ENCRYPTION_KEY: secret(64).length(64).hex(),
 
   EMAIL_HOST: Joi.string().optional().allow(''),
 
@@ -55,6 +78,10 @@ export const validationSchema = Joi.object({
   BRAND_SLUG: Joi.string().optional().allow(''),
   BRAND_SUPPORT_EMAIL: Joi.string().optional().allow(''),
   BRAND_WEBSITE: Joi.string().optional().allow(''),
+
+  // Lets webhook URLs and SMTP hosts point at private addresses (self-hosted, internal receivers only).
+  ALLOW_PRIVATE_WEBHOOK_URLS: Joi.string().valid('true', 'false').optional(),
+  DASHBOARD_URL: Joi.string().uri().optional(),
 
   LEDGER_MODE: Joi.string().valid('off', 'shadow').optional().default('shadow'),
 });

@@ -1024,9 +1024,9 @@
             "type": "string"
           },
           "scopes": {
+            "description": "\"read\" (reads only) or \"write\" (everything) for the whole API, or per resource: \"customers:read\", \"invoices:write\"",
             "example": [
-              "read",
-              "write"
+              "read"
             ],
             "items": {
               "type": "string"
@@ -5503,10 +5503,6 @@
       },
       "TenantInfoResponse": {
         "properties": {
-          "apiKey": {
-            "example": "sk_live_abc123...",
-            "type": "string"
-          },
           "createdAt": {
             "type": "string"
           },
@@ -5540,9 +5536,6 @@
           "updatedAt": {
             "type": "string"
           },
-          "webhookSecret": {
-            "type": "string"
-          },
           "webhookUrl": {
             "example": "https://example.com/webhooks",
             "type": "string"
@@ -5553,7 +5546,6 @@
           "name",
           "slug",
           "email",
-          "apiKey",
           "isActive",
           "createdAt",
           "updatedAt"
@@ -5563,7 +5555,9 @@
       "TenantResponse": {
         "properties": {
           "apiKey": {
-            "example": "sk_live_abc123...",
+            "description": "The organisation key, masked: keys are stored hashed and shown in full only when created or rotated",
+            "example": "sk_live_****a1b2",
+            "nullable": true,
             "type": "string"
           },
           "createdAt": {
@@ -5600,7 +5594,9 @@
             "type": "string"
           },
           "webhookSecret": {
+            "description": "Only for people who manage developer settings, and API keys with write access; null otherwise",
             "example": "whsec_abc123...",
+            "nullable": true,
             "type": "string"
           },
           "webhookUrl": {
@@ -5613,7 +5609,6 @@
           "name",
           "slug",
           "email",
-          "apiKey",
           "isActive",
           "createdAt",
           "updatedAt"
@@ -12276,6 +12271,45 @@
         ]
       }
     },
+    "/api/portal/customers/{externalId}/invoices/{invoiceId}/pdf": {
+      "get": {
+        "operationId": "PortalController_getInvoicePdf",
+        "parameters": [
+          {
+            "description": "Customer external ID",
+            "in": "path",
+            "name": "externalId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Invoice ID",
+            "in": "path",
+            "name": "invoiceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The PDF"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Download one of the customer's invoices as PDF",
+        "tags": [
+          "Customer Portal"
+        ]
+      }
+    },
     "/api/portal/customers/{externalId}/payments": {
       "get": {
         "description": "Returns a paginated list of all payments made by the customer.",
@@ -12325,6 +12359,37 @@
           }
         ],
         "summary": "List customer payments",
+        "tags": [
+          "Customer Portal"
+        ]
+      }
+    },
+    "/api/portal/customers/{externalId}/sessions": {
+      "post": {
+        "description": "Issues a short-lived token that opens the portal for this one customer, and the hosted portal URL that uses it. Hand customers this link, never your API key.",
+        "operationId": "PortalController_createSession",
+        "parameters": [
+          {
+            "description": "Customer external ID",
+            "in": "path",
+            "name": "externalId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Token, URL and expiry"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Create a customer portal link",
         "tags": [
           "Customer Portal"
         ]
@@ -13584,6 +13649,27 @@
         ]
       }
     },
+    "/api/tenants/me/api-key/rotate": {
+      "post": {
+        "description": "Replaces the API key created with the organisation. The old key stops working at once; the new one is shown only in this response.",
+        "operationId": "TenantsController_rotateApiKey",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The new key, shown once"
+          }
+        },
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "summary": "Rotate the organisation's API key",
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
     "/api/tenants/me/api-keys": {
       "get": {
         "description": "Retrieve all API keys for the tenant. Keys are masked for security — only the last 8 characters are shown.",
@@ -13817,6 +13903,27 @@
           }
         ],
         "summary": "List webhook logs",
+        "tags": [
+          "Tenants"
+        ]
+      }
+    },
+    "/api/tenants/me/webhook-secret/rotate": {
+      "post": {
+        "description": "Replaces the secret used to sign outbound webhooks. Update your receiver before the next event.",
+        "operationId": "TenantsController_rotateWebhookSecret",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The new secret"
+          }
+        },
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "summary": "Rotate the webhook signing secret",
         "tags": [
           "Tenants"
         ]
@@ -14323,7 +14430,7 @@
     },
     "/webhooks/dpo": {
       "post": {
-        "description": "Receives payment callback notifications from DPO Group (DirectPay Online). Verifies the transaction token status and updates payment accordingly.",
+        "description": "Receives payment callbacks from DPO Group. The transaction is verified with DPO before anything changes.",
         "operationId": "WebhooksController_dpo",
         "parameters": [],
         "responses": {
@@ -14339,14 +14446,14 @@
     },
     "/webhooks/flutterwave": {
       "post": {
-        "description": "Receives payment event notifications from Flutterwave. Verified using the verif-hash header against the configured encryption key.",
+        "description": "Receives payment event notifications from Flutterwave. The verif-hash header must match the secret hash saved with your Flutterwave credentials; the outcome is then confirmed with Flutterwave.",
         "operationId": "WebhooksController_flutterwave",
         "parameters": [
           {
             "description": "Flutterwave verification hash",
             "in": "header",
             "name": "verif-hash",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -14381,7 +14488,7 @@
     },
     "/webhooks/paystack": {
       "post": {
-        "description": "Receives payment event notifications from Paystack. The signature is verified using HMAC-SHA512 with the provider's secret key. On success, updates the payment/invoice status and sends customer notifications.",
+        "description": "Receives payment event notifications from Paystack. The signature is verified using HMAC-SHA512 of the raw body with the provider's secret key.",
         "operationId": "WebhooksController_paystack",
         "parameters": [
           {
@@ -14407,7 +14514,7 @@
     },
     "/webhooks/payu": {
       "post": {
-        "description": "Receives Instant Payment Notifications (IPN) from PayU South Africa. Updates payment status based on the transaction state.",
+        "description": "Receives IPNs from PayU South Africa. The transaction is looked up with PayU before anything changes.",
         "operationId": "WebhooksController_payu",
         "parameters": [],
         "responses": {
@@ -14423,7 +14530,7 @@
     },
     "/webhooks/pesapal": {
       "post": {
-        "description": "Receives IPN (Instant Payment Notification) callbacks from Pesapal. Fetches transaction status using the OrderTrackingId and updates payment.",
+        "description": "Receives IPN callbacks from Pesapal. The transaction status is fetched from Pesapal before anything changes.",
         "operationId": "WebhooksController_pesapal",
         "parameters": [],
         "responses": {
@@ -14439,7 +14546,7 @@
     },
     "/webhooks/stripe": {
       "post": {
-        "description": "Receives event notifications from Stripe (e.g. checkout.session.completed, payment_intent.succeeded). Verified using the stripe-signature header with the configured webhook secret.",
+        "description": "Receives event notifications from Stripe (e.g. checkout.session.completed, payment_intent.succeeded). Every notification must carry a valid stripe-signature for the configured webhook secret.",
         "operationId": "WebhooksController_stripe",
         "parameters": [
           {

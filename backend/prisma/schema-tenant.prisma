@@ -149,6 +149,9 @@ model Subscription {
   startedAt          DateTime           @default(now())
   metadata                Json?
   lastProgressiveBillingAt DateTime?
+  // The date periods are counted from, so monthly periods keep their day of
+  // the month (Jan 31 → Feb 28 → Mar 31) instead of drifting.
+  billingAnchor           DateTime?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
 
@@ -178,6 +181,14 @@ model Invoice {
   paidAt         DateTime?
   pdfUrl         String?
   metadata       Json?
+  // Set on invoices the billing engine creates: one invoice per key, however
+  // often the job runs. E.g. "<subscription>:renewal:<period end>".
+  billingKey     String?       @unique
+  // start | renewal | plan_change | progressive | cancellation (null: created by hand)
+  kind           String?
+  // The billing period this invoice belongs to.
+  periodStart    DateTime?
+  periodEnd      DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -191,6 +202,13 @@ model Invoice {
   @@index([subscriptionId])
   @@index([status])
   @@index([dueDate])
+  @@index([subscriptionId, kind, periodStart])
+}
+
+// Counters handed out atomically, e.g. the next invoice number.
+model Sequence {
+  name  String @id
+  value Int    @default(0)
 }
 
 model Payment {
@@ -512,6 +530,7 @@ enum WalletTransactionKind {
   PAYOUT_REVERSED   // A failed payout returned to the wallet
   TRANSFERRED_OUT   // Moved to another wallet
   TRANSFERRED_IN    // Received from another wallet
+  REFUNDED          // Credits returned when the invoice they paid was voided
 }
 
 model Wallet {
@@ -789,6 +808,8 @@ enum ProviderEventStatus {
   DUPLICATE
   IGNORED
   FAILED
+  // A success whose amount or currency did not match: not applied, needs review.
+  HELD
 }
 
 // One row per verified provider notification that matched this tenant.
@@ -880,6 +901,8 @@ model MoneyIntent {
   // Amount actually requested from the payer / sent to the provider when it
   // differs from `amount` (commission passed to the payer).
   chargedAmount     Decimal?          @db.Decimal(19, 4)
+  // Who asked for it (a person's email, or "api_key"); approval must come from someone else.
+  createdBy         String?
   approvedAt        DateTime?
   approvedBy        String?
   lastCheckedAt     DateTime?

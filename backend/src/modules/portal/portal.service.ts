@@ -75,7 +75,8 @@ export class PortalService {
         status: inv.status,
         dueDate: inv.dueDate,
         paidAt: inv.paidAt,
-        pdfUrl: inv.pdfUrl,
+        // Downloaded through the portal route, with the same credentials.
+        pdfUrl: inv.pdfUrl ? `/api/portal/customers/${encodeURIComponent(customer.externalId)}/invoices/${inv.id}/pdf` : null,
         createdAt: inv.createdAt,
       })),
       payments: payments.map((p) => ({
@@ -111,6 +112,7 @@ export class PortalService {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
+    const customer = await db.customer.findUniqueOrThrow({ where: { id: customerId }, select: { externalId: true } });
 
     const where: Record<string, unknown> = { customerId };
     if (query.status) where.status = query.status;
@@ -134,7 +136,8 @@ export class PortalService {
         status: inv.status,
         dueDate: inv.dueDate,
         paidAt: inv.paidAt,
-        pdfUrl: inv.pdfUrl,
+        // Downloaded through the portal route, with the same credentials.
+        pdfUrl: inv.pdfUrl ? `/api/portal/customers/${encodeURIComponent(customer.externalId)}/invoices/${inv.id}/pdf` : null,
         createdAt: inv.createdAt,
       })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -151,6 +154,7 @@ export class PortalService {
     if (invoice.customerId !== customerId) throw new NotFoundException('Invoice not found');
     if (invoice.status === 'PAID') throw new BadRequestException('Invoice is already paid');
     if (invoice.status === 'CANCELED') throw new BadRequestException('Invoice has been voided');
+    if (Number(invoice.amount) <= 0) throw new BadRequestException('Nothing to pay on this invoice');
 
     const providerConfig = await db.paymentProvider.findFirst({
       where: { isActive: true, providerName: { in: CHECKOUT_PROVIDER_NAMES } },
@@ -179,7 +183,8 @@ export class PortalService {
       currency: invoice.currency,
       email: invoice.customer.email,
       customerName: invoice.customer.name ?? undefined,
-      reference: invoiceId,
+      // Each attempt has its own reference (providers refuse a reused one); webhooks match it to this payment.
+      reference: payment.id,
       callbackUrl,
       paymentOptions: 'card',
       metadata: { invoiceId, paymentId: payment.id },

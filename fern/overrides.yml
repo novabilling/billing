@@ -82,6 +82,14 @@ paths:
     delete:
       x-fern-sdk-group-name: apiKeys
       x-fern-sdk-method-name: delete
+  /api/tenants/me/api-key/rotate:
+    post:
+      x-fern-sdk-group-name: apiKeys
+      x-fern-sdk-method-name: rotateOrganisationKey
+  /api/tenants/me/webhook-secret/rotate:
+    post:
+      x-fern-sdk-group-name: tenants
+      x-fern-sdk-method-name: rotateWebhookSecret
 
   # ==================== Currencies ====================
   /api/currencies:
@@ -580,6 +588,14 @@ paths:
     get:
       x-fern-sdk-group-name: portal
       x-fern-sdk-method-name: getPayments
+  /api/portal/customers/{externalId}/sessions:
+    post:
+      x-fern-sdk-group-name: portal
+      x-fern-sdk-method-name: createSession
+  /api/portal/customers/{externalId}/invoices/{invoiceId}/pdf:
+    get:
+      x-fern-sdk-group-name: portal
+      x-fern-sdk-method-name: getInvoicePdf
   /api/portal/customers/{externalId}/invoices/{invoiceId}/checkout:
     post:
       x-fern-sdk-group-name: portal

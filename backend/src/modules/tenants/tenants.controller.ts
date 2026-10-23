@@ -1,7 +1,9 @@
 import { Controller, Get, Patch, Post, Delete, Body, Param, Req, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { RequirePermission } from '../../common/auth/permissions';
+import { can, RequirePermission } from '../../common/auth/permissions';
+import { scopesAllow } from '../../common/auth/api-keys';
+import { RequestWithTenant } from '../../common/interfaces/request-with-tenant.interface';
 import { TenantsService } from './tenants.service';
 import { UpdateTenantDto, CreateApiKeyBodyDto } from './dto/update-tenant.dto';
 import { TenantResponse, ApiKeyResponse, TenantUsageResponse, PaginatedWebhookLogResponse } from './dto/tenant-response.dto';
@@ -26,8 +28,33 @@ export class TenantsController {
       "Retrieve the authenticated tenant's profile including settings and webhook configuration.",
   })
   @ApiResponse({ status: 200, description: 'Tenant profile details', type: TenantResponse })
-  async getMe(@Req() req: TenantRequest) {
-    return this.tenantsService.getTenant(req.tenant.id);
+  async getMe(@Req() req: RequestWithTenant) {
+    const includeSecrets = req.member
+      ? can(req.member.role, 'settings.developer')
+      : scopesAllow(req.apiKeyScopes ?? [], 'POST', '/tenants');
+    return this.tenantsService.getTenant(req.tenant.id, { includeSecrets });
+  }
+
+  @Post('me/api-key/rotate')
+  @RequirePermission('settings.developer')
+  @ApiOperation({
+    summary: "Rotate the organisation's API key",
+    description: 'Replaces the API key created with the organisation. The old key stops working at once; the new one is shown only in this response.',
+  })
+  @ApiResponse({ status: 201, description: 'The new key, shown once' })
+  async rotateApiKey(@Req() req: TenantRequest) {
+    return this.tenantsService.rotateApiKey(req.tenant.id);
+  }
+
+  @Post('me/webhook-secret/rotate')
+  @RequirePermission('settings.developer')
+  @ApiOperation({
+    summary: 'Rotate the webhook signing secret',
+    description: 'Replaces the secret used to sign outbound webhooks. Update your receiver before the next event.',
+  })
+  @ApiResponse({ status: 201, description: 'The new secret' })
+  async rotateWebhookSecret(@Req() req: TenantRequest) {
+    return this.tenantsService.rotateWebhookSecret(req.tenant.id);
   }
 
   @Patch('me')

@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import {
   BasePaymentProvider,
   ChargeParams,
@@ -113,8 +114,18 @@ export class FlutterwaveProvider extends BasePaymentProvider {
     }
   }
 
+  private async verifyTransaction(id: string) {
+    const response = await fetch(`${this.baseUrl}/transactions/${encodeURIComponent(id)}/verify`, {
+      headers: { Authorization: `Bearer ${this.credentials.secretKey}` },
+    });
+    if (!response.ok) throw new Error(`Flutterwave verify returned ${response.status}`);
+    const data = (await response.json()).data ?? {};
+    const status: WebhookData['status'] = data.status === 'successful' ? 'succeeded' : data.status === 'failed' ? 'failed' : 'pending';
+    return { status, amount: Number(data.amount || 0), currency: String(data.currency || ''), reference: data.tx_ref ? String(data.tx_ref) : undefined };
+  }
+
   async getPaymentStatus(transactionId: string): Promise<PaymentStatusResult> {
-    const response = await fetch(`${this.baseUrl}/transactions/${transactionId}/verify`, {
+    const response = await fetch(`${this.baseUrl}/transactions/${encodeURIComponent(transactionId)}/verify`, {
       headers: {
         Authorization: `Bearer ${this.credentials.secretKey}`,
       },
@@ -136,28 +147,38 @@ export class FlutterwaveProvider extends BasePaymentProvider {
   }
 
   async handleWebhook(payload: Record<string, unknown>, signature: string): Promise<WebhookData> {
-    // Verify Flutterwave secret hash (verif-hash header must match stored secretHash)
-    if (this.credentials.secretHash) {
-      if (!signature || signature !== this.credentials.secretHash) {
-        throw new Error('Invalid Flutterwave webhook signature');
-      }
+    // The verif-hash header must match the secret hash set in the Flutterwave
+    // dashboard and saved with these credentials. Without one nothing is accepted.
+    if (!this.credentials.secretHash) {
+      throw new Error('Flutterwave secret hash is not configured; cannot verify notifications');
+    }
+    const expected = Buffer.from(String(this.credentials.secretHash));
+    const given = Buffer.from(signature || '');
+    if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
+      throw new Error('Invalid Flutterwave webhook signature');
     }
 
     const data = payload.data as Record<string, unknown> | undefined;
     const card = data?.card as Record<string, unknown> | undefined;
+    const id = String(data?.id || '');
+    if (!id) throw new Error('Flutterwave webhook without a transaction id');
+
+    // The outcome, amount and our reference come from Flutterwave's verify API, not the notification.
+    const verified = await this.verifyTransaction(id);
 
     const result: WebhookData = {
-      status: data?.status === 'successful' ? 'succeeded' : 'failed',
-      transactionId: String(data?.id || ''),
-      amount: Number(data?.amount || 0),
-      currency: String(data?.currency || ''),
-      invoiceId: String(data?.tx_ref || ''),
+      status: verified.status,
+      transactionId: id,
+      amount: verified.amount,
+      currency: verified.currency,
+      invoiceId: verified.reference,
+      referenceVerified: Boolean(verified.reference),
     };
 
     // Extract card token from successful payment (for recurring billing)
     // Flutterwave returns card.token on successful card charges
-    if (data?.status === 'successful' && card?.token) {
-      const customer = data.customer as Record<string, unknown> | undefined;
+    if (verified.status === 'succeeded' && card?.token) {
+      const customer = data?.customer as Record<string, unknown> | undefined;
       result.paymentMethodToken = {
         token: String(card.token),
         last4: String(card.last_4digits || ''),
@@ -231,6 +252,7 @@ export class FlutterwaveProvider extends BasePaymentProvider {
       this.logger.error('Flutterwave chargePaymentMethod failed', error);
       return {
         success: false,
+        ambiguous: true,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

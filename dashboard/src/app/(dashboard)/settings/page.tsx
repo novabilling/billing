@@ -19,6 +19,7 @@ import { useCan } from "@/lib/permissions";
 import { apiClient } from "@/lib/api/client";
 import { brand } from "@/lib/brand";
 import { BrandMark } from "@/components/brand-mark";
+import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 
 function maskApiKey(key: string): string {
   if (!key || key.length < 12) return key;
@@ -39,7 +40,6 @@ export default function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [lastLoginAt, setLastLoginAt] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
 
   // SMTP settings
@@ -134,9 +134,19 @@ export default function SettingsPage() {
     }
   }
 
-  function handleCopyApiKey() {
-    navigator.clipboard.writeText(apiKey);
-    toast.success("API key copied to clipboard");
+  async function handleRotateWebhookSecret() {
+    if (!confirm("Rotate the webhook secret? Your receiver must use the new secret from the next event.")) return;
+    try {
+      const res = await fetch("/api/proxy/tenants/me/webhook-secret/rotate", { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      const data = json.data?.data || json.data || json;
+      setWebhookSecret(data.webhookSecret || "");
+      setShowWebhookSecret(true);
+      toast.success("Webhook secret rotated");
+    } catch {
+      toast.error("Failed to rotate the webhook secret");
+    }
   }
 
   function handleCopyWebhookSecret() {
@@ -564,8 +574,15 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Use this secret to verify webhook signatures from {brand.name}
+                    Use this secret to verify webhook signatures from {brand.name}. Verify the
+                    X-Webhook-Signature-V2 header (signs the timestamp too) and reject old timestamps.
                   </p>
+                  {canManageKeys && (
+                    <Button variant="outline" size="sm" onClick={handleRotateWebhookSecret}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Rotate secret
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -630,94 +647,10 @@ export default function SettingsPage() {
 
         {/* API Keys */}
         <TabsContent value="api" className="space-y-4">
+          <ApiKeysPanel maskedKey={apiKey || null} canManage={canManageKeys} />
           <Card>
-            <CardHeader>
-              <CardTitle>API Keys</CardTitle>
-              <CardDescription>
-                Manage your API keys for integration
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Live API Key</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={showApiKey ? apiKey : maskApiKey(apiKey)}
-                    readOnly
-                    className="font-mono"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                  >
-                    {showApiKey ? "Hide" : "Show"}
-                  </Button>
-                  <Button variant="outline" onClick={handleCopyApiKey}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {canManageKeys && (
-                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-                  <div className="flex gap-3">
-                    <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-red-900 dark:text-red-300">
-                        Regenerate API Key
-                      </h4>
-                      <p className="text-sm text-red-800 dark:text-red-400 mt-1">
-                        Regenerating your API key will invalidate your current key
-                        and may break existing integrations. Make sure to update
-                        all applications using the old key.
-                      </p>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="mt-3"
-                        onClick={async () => {
-                          if (
-                            confirm(
-                              "Are you sure? This will invalidate your current key.",
-                            )
-                          ) {
-                            try {
-                              const res = await fetch(
-                                "/api/proxy/tenants/me/api-keys",
-                                {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  credentials: "include",
-                                  body: JSON.stringify({
-                                    name: "Dashboard API Key",
-                                    scopes: ["read", "write"],
-                                  }),
-                                },
-                              );
-                              if (!res.ok)
-                                throw new Error("Failed to regenerate");
-                              const json = await res.json();
-                              const data = json;
-                              if (data.key) {
-                                setApiKey(data.key);
-                                setShowApiKey(true);
-                              }
-                              toast.success("API key regenerated successfully");
-                            } catch {
-                              toast.error("Failed to regenerate API key");
-                            }
-                          }
-                        }}
-                      >
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Regenerate API Key
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4 border-t">
+            <CardContent className="space-y-4 pt-6">
+              <div>
                 <h4 className="font-medium mb-3">API Documentation</h4>
                 <p className="text-sm text-muted-foreground mb-3">
                   Learn how to integrate {brand.name} into your application

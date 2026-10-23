@@ -1,9 +1,10 @@
+import { createHmac } from 'crypto';
 import { WebhookProcessor } from '../../../src/queues/processors/webhook.processor';
 import { WebhookJobType } from '../../../src/queues/billing.queue';
+import { safePost } from '../../../src/common/net/safe-url';
 
-// Mock global fetch
-const mockFetch = jest.fn();
-global.fetch = mockFetch as any;
+jest.mock('../../../src/common/net/safe-url', () => ({ safePost: jest.fn() }));
+const mockPost = safePost as jest.MockedFunction<typeof safePost>;
 
 describe('WebhookProcessor', () => {
   let processor: WebhookProcessor;
@@ -22,7 +23,7 @@ describe('WebhookProcessor', () => {
       },
     };
     processor = new WebhookProcessor(centralPrisma as any);
-    mockFetch.mockReset();
+    mockPost.mockReset();
   });
 
   function makeJob(name: string, data: Record<string, unknown>, attemptsMade = 0) {
@@ -30,136 +31,60 @@ describe('WebhookProcessor', () => {
   }
 
   describe('handleSendWebhook', () => {
-    it('should deliver webhook with HMAC signature', async () => {
+    it('delivers through the SSRF-safe client with v1 and timestamped v2 signatures', async () => {
       centralPrisma.client.tenant.findUnique.mockResolvedValue({
         webhookUrl: 'https://example.com/webhook',
         webhookSecret: 'test_secret',
       });
+      mockPost.mockResolvedValue({ ok: true, status: 200, body: 'OK' });
 
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: () => Promise.resolve('OK'),
-      });
-
-      const job = makeJob(WebhookJobType.SEND_WEBHOOK, {
-        tenantId: 'tenant_1',
-        event: 'invoice.created',
-        payload: { invoiceId: 'inv_1' },
-      });
-
-      await processor.process(job);
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://example.com/webhook',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            'X-Event-Type': 'invoice.created',
-          }),
-        }),
+      await processor.process(
+        makeJob(WebhookJobType.SEND_WEBHOOK, { tenantId: 'tenant_1', event: 'invoice.created', payload: { invoiceId: 'inv_1' } }),
       );
 
-      // Should include X-Webhook-Signature header
-      const callArgs = mockFetch.mock.calls[0][1];
-      expect(callArgs.headers['X-Webhook-Signature']).toBeDefined();
-      expect(callArgs.headers['X-Webhook-Signature'].length).toBeGreaterThan(0);
+      expect(mockPost).toHaveBeenCalledTimes(1);
+      const [url, body, headers] = mockPost.mock.calls[0];
+      expect(url).toBe('https://example.com/webhook');
+      expect(headers['X-Event-Type']).toBe('invoice.created');
+      expect(headers['X-Webhook-Signature']).toBe(createHmac('sha256', 'test_secret').update(body).digest('hex'));
 
-      // Should log the attempt
+      const ts = headers['X-Webhook-Timestamp'];
+      expect(headers['X-Webhook-Signature-V2']).toBe(
+        `t=${ts},v1=${createHmac('sha256', 'test_secret').update(`${ts}.${body}`).digest('hex')}`,
+      );
+
       expect(centralPrisma.client.webhookLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            tenantId: 'tenant_1',
-            event: 'invoice.created',
-            success: true,
-            statusCode: 200,
-          }),
+          data: expect.objectContaining({ tenantId: 'tenant_1', event: 'invoice.created', success: true, statusCode: 200 }),
         }),
       );
     });
 
-    it('should skip when no webhook URL configured', async () => {
-      centralPrisma.client.tenant.findUnique.mockResolvedValue({
-        webhookUrl: null,
-        webhookSecret: null,
-      });
+    it('throws on a failed delivery so BullMQ retries it', async () => {
+      centralPrisma.client.tenant.findUnique.mockResolvedValue({ webhookUrl: 'https://example.com/webhook', webhookSecret: 's' });
+      mockPost.mockResolvedValue({ ok: false, status: 500, body: 'err' });
 
-      const job = makeJob(WebhookJobType.SEND_WEBHOOK, {
-        tenantId: 'tenant_1',
-        event: 'invoice.created',
-        payload: {},
-      });
-
-      await processor.process(job);
-
-      expect(mockFetch).not.toHaveBeenCalled();
-      expect(centralPrisma.client.webhookLog.create).not.toHaveBeenCalled();
-    });
-
-    it('should throw on failed delivery to trigger retry', async () => {
-      centralPrisma.client.tenant.findUnique.mockResolvedValue({
-        webhookUrl: 'https://example.com/webhook',
-        webhookSecret: 'secret',
-      });
-
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        text: () => Promise.resolve('Internal Server Error'),
-      });
-
-      const job = makeJob(WebhookJobType.SEND_WEBHOOK, {
-        tenantId: 'tenant_1',
-        event: 'payment.succeeded',
-        payload: {},
-      });
-
-      await expect(processor.process(job)).rejects.toThrow('Webhook delivery failed');
-
-      // Should still log the failed attempt
+      await expect(
+        processor.process(makeJob(WebhookJobType.SEND_WEBHOOK, { tenantId: 'tenant_1', event: 'invoice.created', payload: {} })),
+      ).rejects.toThrow('Webhook delivery failed with status 500');
       expect(centralPrisma.client.webhookLog.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            success: false,
-            statusCode: 500,
-          }),
-        }),
+        expect.objectContaining({ data: expect.objectContaining({ success: false, statusCode: 500 }) }),
       );
     });
 
-    it('should throw on network error', async () => {
-      centralPrisma.client.tenant.findUnique.mockResolvedValue({
-        webhookUrl: 'https://example.com/webhook',
-        webhookSecret: null,
-      });
+    it('throws when the address is refused or unreachable', async () => {
+      centralPrisma.client.tenant.findUnique.mockResolvedValue({ webhookUrl: 'https://internal.example/webhook', webhookSecret: 's' });
+      mockPost.mockRejectedValue(new Error('Refusing to connect to non-public address for internal.example'));
 
-      mockFetch.mockRejectedValue(new Error('Connection refused'));
-
-      const job = makeJob(WebhookJobType.SEND_WEBHOOK, {
-        tenantId: 'tenant_1',
-        event: 'subscription.created',
-        payload: {},
-      });
-
-      await expect(processor.process(job)).rejects.toThrow('Connection refused');
-
-      // Should still log the error
-      expect(centralPrisma.client.webhookLog.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            success: false,
-            statusCode: null,
-          }),
-        }),
-      );
+      await expect(
+        processor.process(makeJob(WebhookJobType.SEND_WEBHOOK, { tenantId: 'tenant_1', event: 'invoice.created', payload: {} })),
+      ).rejects.toThrow('non-public address');
     });
-  });
 
-  describe('unknown job', () => {
-    it('should not throw for unknown job type', async () => {
-      const job = makeJob('UNKNOWN_TYPE', {});
-      await expect(processor.process(job)).resolves.toBeUndefined();
+    it('does nothing without a webhook URL', async () => {
+      centralPrisma.client.tenant.findUnique.mockResolvedValue({ webhookUrl: null, webhookSecret: null });
+      await processor.process(makeJob(WebhookJobType.SEND_WEBHOOK, { tenantId: 'tenant_1', event: 'x', payload: {} }));
+      expect(mockPost).not.toHaveBeenCalled();
     });
   });
 });

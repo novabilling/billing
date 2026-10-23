@@ -14,14 +14,8 @@ export class TenantInfoResponse {
   @ApiProperty({ example: 'john@company.com' })
   email: string;
 
-  @ApiProperty({ example: 'sk_live_abc123...' })
-  apiKey: string;
-
   @ApiPropertyOptional({ example: 'https://example.com/webhooks' })
   webhookUrl?: string;
-
-  @ApiPropertyOptional()
-  webhookSecret?: string;
 
   @ApiProperty({ example: true })
   isActive: boolean;

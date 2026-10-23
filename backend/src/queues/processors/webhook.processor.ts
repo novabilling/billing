@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { createHmac } from 'crypto';
 import { CentralPrismaService } from '../../database/central-prisma.service';
+import { safePost } from '../../common/net/safe-url';
+import { webhookHeaders } from '../../services/webhook.service';
 import { WEBHOOK_QUEUE, WebhookJobType, SendWebhookData } from '../billing.queue';
 
 @Processor(WEBHOOK_QUEUE)
@@ -38,29 +39,16 @@ export class WebhookProcessor extends WorkerHost {
 
     const body = JSON.stringify({ event, data: payload, timestamp: new Date().toISOString() });
 
-    const signature = tenant.webhookSecret
-      ? createHmac('sha256', tenant.webhookSecret).update(body).digest('hex')
-      : '';
-
     let statusCode: number | null = null;
     let responseBody: string | null = null;
     let success = false;
     let errorMessage: string | null = null;
 
     try {
-      const response = await fetch(tenant.webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Signature': signature,
-          'X-Event-Type': event,
-        },
-        body,
-        signal: AbortSignal.timeout(10000),
-      });
+      const response = await safePost(tenant.webhookUrl, body, webhookHeaders(tenant.webhookSecret, body, event));
 
       statusCode = response.status;
-      responseBody = await response.text().catch(() => null);
+      responseBody = response.body || null;
       success = response.ok;
 
       if (!success) {

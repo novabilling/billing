@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CronLockService } from '../../common/scheduling/cron-lock.service';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CentralPrismaService } from '../../database/central-prisma.service';
@@ -35,13 +36,20 @@ export class LedgerRunnerService {
     private readonly tenantDb: TenantDatabaseService,
     private readonly centralPrisma: CentralPrismaService,
     private readonly config: ConfigService,
+    private readonly cronLock?: CronLockService,
   ) {}
 
   get mode(): LedgerMode {
     return this.config.get<string>('LEDGER_MODE') === 'off' ? 'off' : 'shadow';
   }
 
+  /** Scheduled on every process; the lock lets one of them run it. */
   @Cron(CronExpression.EVERY_10_MINUTES)
+  async scheduledSyncAllTenants(): Promise<void> {
+    if (!this.cronLock) return void (await this.syncAllTenants());
+    await this.cronLock.runExclusive('ledger-sync', 9 * 60_000, () => this.syncAllTenants());
+  }
+
   async syncAllTenants(): Promise<void> {
     if (this.mode === 'off' || this.running) return;
     this.running = true;

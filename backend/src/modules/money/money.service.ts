@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomBytes } from 'crypto';
@@ -54,6 +54,8 @@ export interface CreatePayoutInput {
   reference?: string;
   walletId?: string;
   metadata?: Record<string, unknown>;
+  /** Who asked for it: a person's email, or "api_key". */
+  createdBy?: string;
 }
 
 export interface CreateTransferInput {
@@ -171,7 +173,6 @@ export class MoneyService {
     const existing = await this.byClientReference(db, 'PAYOUT', input.reference);
     if (existing) return this.present(existing);
 
-    await this.checkDailyLimit(db, settings, currency, amount);
     const threshold = settings.payoutApprovalThreshold[currency];
     const needsApproval = threshold !== undefined && toScaled(amount) >= toScaled(threshold);
 
@@ -191,6 +192,7 @@ export class MoneyService {
         clientReference: input.reference,
         walletId: input.walletId,
         metadata: input.metadata,
+        createdBy: input.createdBy ?? null,
         providerReference: newReference('pay'),
       },
       async (tx, row) => {
@@ -198,6 +200,9 @@ export class MoneyService {
           await this.wallets.applyAmountInTransaction(tx, row.walletId, Number(amount), 'WITHDRAWN', { moneyIntentId: row.id });
         }
       },
+      // The daily limit is checked under a lock, in the same transaction as the
+      // new payout, so concurrent payouts cannot together exceed it.
+      (tx) => this.checkDailyLimit(tx, settings, currency, amount),
     );
     if (intent.existing) return this.present(intent.row);
     this.emit(tenant.id, needsApproval ? 'payout.requires_approval' : 'payout.created', intent.row);
@@ -206,8 +211,22 @@ export class MoneyService {
     return this.present(await this.submitPayout(db, tenant.id, intent.row.id, provider));
   }
 
+  /**
+   * Approve a payout waiting for approval. The person who asked for it cannot
+   * approve it, unless they are the organisation's only possible approver.
+   */
   async approvePayout(db: PrismaClient, tenant: TenantRef, id: string, approvedBy: string) {
     this.requireFeature(tenant, 'payouts');
+    const pending = await this.find(db, id);
+    if (pending.createdBy && pending.createdBy.toLowerCase() === approvedBy.toLowerCase()) {
+      const approvers = await this.centralPrisma.client.membership.count({
+        where: { tenantId: tenant.id, role: { in: ['OWNER', 'ADMIN', 'FINANCE'] }, user: { isActive: true } },
+      });
+      if (approvers > 1) {
+        throw new ForbiddenException('Someone other than the person who requested this payout must approve it');
+      }
+      this.logger.warn(`Payout ${id} approved by its requester ${approvedBy}: the organisation has no other approver`);
+    }
     const claimed = await db.moneyIntent.updateMany({
       where: { id, type: 'PAYOUT', status: 'REQUIRES_APPROVAL' },
       data: { status: 'PENDING', approvedAt: new Date(), approvedBy },
@@ -429,11 +448,22 @@ export class MoneyService {
     provider: string,
     route: string,
     payload: Record<string, unknown>,
-    data: { status: 'succeeded' | 'failed' | 'pending'; transactionId: string; amount: number; currency: string; invoiceId?: string },
+    data: {
+      status: 'succeeded' | 'failed' | 'pending';
+      transactionId: string;
+      amount: number;
+      currency: string;
+      invoiceId?: string;
+      referenceVerified?: boolean;
+    },
   ): Promise<boolean> {
     let intent: MoneyIntent | null;
     try {
-      intent = await this.findByProviderRef(db, provider, { providerTxnId: data.transactionId, reference: data.invoiceId });
+      // Our reference only counts when the provider vouched for it (signed, or from its API).
+      intent = await this.findByProviderRef(db, provider, {
+        providerTxnId: data.transactionId,
+        reference: data.referenceVerified ? data.invoiceId : undefined,
+      });
     } catch (error) {
       // Tenant database not yet synced to the money-movement schema.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') return false;
@@ -442,10 +472,11 @@ export class MoneyService {
     if (!intent || intent.type !== 'COLLECTION') return false;
 
     const expected = intent.chargedAmount ?? intent.amount;
-    const amountDiffers = data.amount > 0 && toScaled(data.amount) !== toScaled(expected);
+    // A success that reports no amount cannot be checked, so it is held too.
+    const amountDiffers = !(data.amount > 0) || toScaled(data.amount) !== toScaled(expected);
     const currencyDiffers = Boolean(data.currency) && data.currency.toUpperCase() !== intent.currency;
     const mismatch = data.status === 'succeeded' && (amountDiffers || currencyDiffers)
-      ? `provider reported ${data.amount} ${data.currency}, expected ${expected.toString()} ${intent.currency}`
+      ? `provider reported ${data.amount || 'no amount'} ${data.currency}, expected ${expected.toString()} ${intent.currency}`
       : null;
 
     try {
@@ -671,9 +702,11 @@ export class MoneyService {
     return wallet;
   }
 
-  private async checkDailyLimit(db: PrismaClient, settings: MoneySettings, currency: string, amount: string) {
+  private async checkDailyLimit(db: Prisma.TransactionClient, settings: MoneySettings, currency: string, amount: string) {
     const limit = settings.payoutDailyLimit[currency];
     if (limit === undefined) return;
+    // The lock function returns void, which Prisma cannot read back: cast it.
+    await db.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout-daily-limit:${currency}`}))::text AS locked`;
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
     const today = await db.moneyIntent.aggregate({
@@ -695,9 +728,11 @@ export class MoneyService {
     db: PrismaClient,
     data: Omit<Prisma.MoneyIntentUncheckedCreateInput, 'party' | 'metadata'> & { party?: Party; metadata?: Record<string, unknown> },
     withinTransaction?: (tx: Prisma.TransactionClient, row: MoneyIntent) => Promise<void>,
+    beforeCreate?: (tx: Prisma.TransactionClient) => Promise<void>,
   ): Promise<{ row: MoneyIntent; existing: boolean }> {
     try {
       const row = await db.$transaction(async (tx) => {
+        if (beforeCreate) await beforeCreate(tx);
         const created = await tx.moneyIntent.create({
           data: { ...data, party: data.party as never, metadata: data.metadata as never },
         });

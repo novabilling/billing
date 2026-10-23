@@ -46,9 +46,23 @@ const COUNTED_LABELS: Record<Counted, string> = {
   teamMembers: 'team members',
 };
 
-/** The route without the global prefix, query string or trailing slash. */
+/**
+ * The route without the global prefix, query string or trailing slashes,
+ * lowercased and decoded: Express matches routes case-insensitively, so
+ * `/api/Customers` must count as `/customers`.
+ */
 export function routeOf(path: string): string {
-  return path.split('?')[0].replace(/^\/api(?=\/)/, '').replace(/\/$/, '');
+  let route = path.split('?')[0].split('#')[0];
+  try {
+    route = decodeURIComponent(route);
+  } catch {
+    // Malformed escapes: match on the raw path.
+  }
+  return route
+    .toLowerCase()
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\/api(?=\/)/, '')
+    .replace(/\/+$/, '');
 }
 
 export function featureOf(route: string): PlanFeature | undefined {

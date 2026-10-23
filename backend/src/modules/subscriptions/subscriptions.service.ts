@@ -1,7 +1,10 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { PrismaClient } from '../../generated/prisma-tenant/client';
+import { Prisma, PrismaClient } from '../../generated/prisma-tenant/client';
+import { billingKey, jobIdFor } from '../billing/billing-keys';
+import { firstPeriodEnd, fractionOfPeriod } from '../billing/period';
+import { dec, Dec, roundMoney } from '../billing/pricing';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { CancelSubscriptionDto } from './dto/cancel-subscription.dto';
@@ -15,7 +18,19 @@ import {
   EmailJobType,
   BillingJobType,
   GenerateInvoiceData,
+  BaseCharge,
+  InvoiceKind,
 } from '../../queues/billing.queue';
+
+/** Rough length of each interval in days, to compare plans billed on different intervals. */
+const INTERVAL_DAYS: Record<string, number> = {
+  HOURLY: 1 / 24,
+  DAILY: 1,
+  WEEKLY: 7,
+  MONTHLY: 30.4375,
+  QUARTERLY: 91.3125,
+  YEARLY: 365.25,
+};
 
 interface SubscriptionQuery {
   status?: string;
@@ -122,7 +137,8 @@ export class SubscriptionsService {
     const now = dto.startDate ? new Date(dto.startDate) : new Date();
     const periodEnd = dto.currentPeriodEnd
       ? new Date(dto.currentPeriodEnd)
-      : this.calculatePeriodEnd(now, plan.billingInterval);
+      : firstPeriodEnd(now, plan.billingInterval);
+    if (periodEnd <= now) throw new BadRequestException('currentPeriodEnd must be after the start date');
 
     const hasTrial = dto.trialDays && dto.trialDays > 0;
     const trialEnd = hasTrial
@@ -141,6 +157,8 @@ export class SubscriptionsService {
         status: resolvedStatus,
         currentPeriodStart: now,
         currentPeriodEnd: hasTrial ? trialEnd! : periodEnd,
+        // Periods are counted from here; a trial starts counting when it ends.
+        billingAnchor: hasTrial ? null : now,
         trialStart: hasTrial ? now : null,
         trialEnd: trialEnd,
         metadata: (dto.metadata ?? undefined) as any,
@@ -204,11 +222,14 @@ export class SubscriptionsService {
     // IN_ARREARS invoices are generated at period end by the billing cron job
     if (!hasTrial && subscription.status === 'ACTIVE' && subscription.billingTiming === 'IN_ADVANCE') {
       this.logger.log(`Queueing immediate invoice for IN_ADVANCE subscription ${subscription.id}`);
-      await this.billingQueue.add(BillingJobType.GENERATE_INVOICE, {
+      await this.queueInvoice({
         tenantId,
         subscriptionId: subscription.id,
         customerId: dto.customerId,
-      } as GenerateInvoiceData);
+        kind: 'start',
+        billingKey: billingKey(subscription.id, 'start', now),
+        bases: [{ planId: plan.id, periodStart: now.toISOString(), periodEnd: periodEnd.toISOString() }],
+      });
     }
 
     return subscription;
@@ -245,62 +266,15 @@ export class SubscriptionsService {
     let updated;
     if (dto.cancelAt === 'now') {
       const now = new Date();
-
-      // Issue pro-rated credit note for unused days
-      const plan = await db.plan.findUnique({
-        where: { id: subscription.planId },
-        include: { prices: true },
+      const moved = await db.subscription.updateMany({
+        where: { id, status: subscription.status, currentPeriodStart: subscription.currentPeriodStart },
+        data: { status: 'CANCELED', canceledAt: now },
       });
-      if (plan) {
-        const price = plan.prices.find(
-          (p: any) => p.currency.toUpperCase() === ((subscription as any).currency || 'USD').toUpperCase(),
-        );
-        if (price) {
-          const totalDays = this.daysBetween(subscription.currentPeriodStart, subscription.currentPeriodEnd);
-          const usedDays = this.daysBetween(subscription.currentPeriodStart, now);
-          const remainingDays = Math.max(0, totalDays - usedDays);
-
-          if (remainingDays > 0 && totalDays > 0) {
-            const creditAmount = (Number(price.amount) * remainingDays) / totalDays;
-            if (creditAmount > 0) {
-              const lastInvoice = await db.invoice.findFirst({
-                where: { subscriptionId: id },
-                orderBy: { createdAt: 'desc' },
-              });
-              if (lastInvoice) {
-                await db.creditNote.create({
-                  data: {
-                    invoiceId: lastInvoice.id,
-                    customerId: subscription.customerId,
-                    amount: creditAmount,
-                    currency: (subscription as any).currency || 'USD',
-                    reason: 'ORDER_CHANGE',
-                    status: 'FINALIZED',
-                    metadata: {
-                      type: 'cancellation_proration',
-                      planName: plan.name,
-                      remainingDays,
-                      totalDays,
-                    },
-                  },
-                });
-                this.logger.log(
-                  `Pro-rated credit note: ${creditAmount} for ${remainingDays}/${totalDays} unused days on subscription ${id}`,
-                );
-              }
-            }
-          }
-        }
+      if (moved.count === 0) throw new BadRequestException('Subscription changed meanwhile; reload and try again');
+      if (subscription.status === 'ACTIVE' || subscription.status === 'PAST_DUE') {
+        await this.closePeriodEarly(db, tenantId, subscription, now, 'cancellation', []);
       }
-
-      updated = await db.subscription.update({
-        where: { id },
-        data: {
-          status: 'CANCELED',
-          canceledAt: now,
-        },
-        include: { customer: true, plan: true },
-      });
+      updated = await db.subscription.findUniqueOrThrow({ where: { id }, include: { customer: true, plan: true } });
     } else {
       updated = await db.subscription.update({
         where: { id },
@@ -464,59 +438,57 @@ export class SubscriptionsService {
       throw new BadRequestException(`New plan has no price for currency ${subscription.currency}`);
     }
 
+    if (subscription.status !== 'ACTIVE' && subscription.status !== 'TRIALING') {
+      throw new BadRequestException(`A ${subscription.status.toLowerCase()} subscription cannot change plan`);
+    }
+    if (dto.newPlanId === subscription.planId) throw new BadRequestException('The subscription is already on this plan');
+
     const now = new Date();
-    const isUpgrade = Number(newPrice.amount) > Number(oldPrice?.amount || 0);
+    // Compare price per day, so a yearly plan is not an "upgrade" from a monthly one just for costing more per invoice.
+    const perDay = (amount: unknown, interval: string) => dec(amount as string).div(INTERVAL_DAYS[interval] ?? 30.4375);
+    const isUpgrade = perDay(newPrice.amount, newPlan.billingInterval).gt(perDay(oldPrice?.amount ?? 0, subscription.plan.billingInterval));
 
-    if (isUpgrade) {
-      // Upgrade: apply immediately with proration
-      const totalDays = this.daysBetween(subscription.currentPeriodStart, subscription.currentPeriodEnd);
-      const usedDays = this.daysBetween(subscription.currentPeriodStart, now);
-      const remainingDays = Math.max(0, totalDays - usedDays);
-
-      // Create credit note for unused days on old plan
-      if (oldPrice && remainingDays > 0 && totalDays > 0) {
-        const creditAmount = (Number(oldPrice.amount) * remainingDays) / totalDays;
-
-        if (creditAmount > 0) {
-          const lastInvoice = await db.invoice.findFirst({
-            where: { subscriptionId: id },
-            orderBy: { createdAt: 'desc' },
-          });
-
-          if (lastInvoice) {
-            await db.creditNote.create({
-              data: {
-                invoiceId: lastInvoice.id,
-                customerId: subscription.customerId,
-                amount: creditAmount,
-                currency: subscription.currency,
-                reason: 'ORDER_CHANGE',
-                status: 'FINALIZED',
-                metadata: {
-                  type: 'proration_credit',
-                  oldPlanId: subscription.planId,
-                  oldPlanName: subscription.plan.name,
-                  remainingDays,
-                  totalDays,
-                },
-              },
-            });
-          }
-        }
-      }
-
-      const periodEnd = this.calculatePeriodEnd(now, newPlan.billingInterval);
-
+    if (subscription.status === 'TRIALING') {
+      // Nothing has been billed during a trial: switch plans, and billing starts with the new one.
       const updated = await db.subscription.update({
         where: { id },
-        data: {
-          previousPlanId: subscription.planId,
-          planId: dto.newPlanId,
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
+        data: { previousPlanId: subscription.planId, planId: newPlan.id, billingTiming: newPlan.billingTiming },
         include: { customer: true, plan: true },
       });
+      await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
+        tenantId,
+        event: 'subscription.plan_changed',
+        payload: { subscriptionId: id, customerId: subscription.customerId, oldPlanId: subscription.planId, newPlanId: newPlan.id, effectiveImmediately: true },
+      });
+      return updated;
+    }
+
+    if (isUpgrade) {
+      // Upgrade: close the current period now (credit what was paid in advance and
+      // not used, bill usage so far), and start a new period on the new plan.
+      const periodEnd = firstPeriodEnd(now, newPlan.billingInterval);
+      const moved = await db.subscription.updateMany({
+        where: { id, status: 'ACTIVE', currentPeriodStart: subscription.currentPeriodStart },
+        data: {
+          previousPlanId: subscription.planId,
+          planId: newPlan.id,
+          billingTiming: newPlan.billingTiming,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          billingAnchor: now,
+          lastProgressiveBillingAt: null,
+          metadata: this.withoutPendingChange(subscription.metadata),
+        },
+      });
+      if (moved.count === 0) throw new BadRequestException('Subscription changed meanwhile; reload and try again');
+
+      const newBases: BaseCharge[] =
+        newPlan.billingTiming === 'IN_ADVANCE'
+          ? [{ planId: newPlan.id, periodStart: now.toISOString(), periodEnd: periodEnd.toISOString() }]
+          : [];
+      await this.closePeriodEarly(db, tenantId, subscription, now, 'plan_change', newBases);
+
+      const updated = await db.subscription.findUniqueOrThrow({ where: { id }, include: { customer: true, plan: true } });
 
       // Notify tenant via webhook
       await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
@@ -554,7 +526,6 @@ export class SubscriptionsService {
       const updated = await db.subscription.update({
         where: { id },
         data: {
-          previousPlanId: subscription.planId,
           metadata: {
             ...(subscription.metadata as any || {}),
             pendingPlanChange: {
@@ -600,37 +571,90 @@ export class SubscriptionsService {
     }
   }
 
-  private calculatePeriodEnd(start: Date, interval: string): Date {
-    const end = new Date(start);
-
-    switch (interval) {
-      case 'HOURLY':
-        end.setHours(end.getHours() + 1);
-        break;
-      case 'DAILY':
-        end.setDate(end.getDate() + 1);
-        break;
-      case 'WEEKLY':
-        end.setDate(end.getDate() + 7);
-        break;
-      case 'MONTHLY':
-        end.setMonth(end.getMonth() + 1);
-        break;
-      case 'QUARTERLY':
-        end.setMonth(end.getMonth() + 3);
-        break;
-      case 'YEARLY':
-        end.setFullYear(end.getFullYear() + 1);
-        break;
-      default:
-        end.setMonth(end.getMonth() + 1);
-    }
-
-    return end;
+  private withoutPendingChange(metadata: Prisma.JsonValue | null): Prisma.InputJsonValue {
+    const { pendingPlanChange: _pending, ...rest } = ((metadata as Record<string, unknown> | null) ?? {});
+    return rest as Prisma.InputJsonValue;
   }
 
-  private daysBetween(start: Date, end: Date): number {
-    const msPerDay = 24 * 60 * 60 * 1000;
-    return Math.max(0, Math.round((end.getTime() - start.getTime()) / msPerDay));
+  private async queueInvoice(data: GenerateInvoiceData): Promise<void> {
+    await this.billingQueue.add(BillingJobType.GENERATE_INVOICE, data, data.billingKey ? { jobId: jobIdFor(data.billingKey) } : undefined);
+  }
+
+  /**
+   * Ends the current period at `now` (an immediate cancellation, or an
+   * upgrade): credits the unused part of what was billed in advance for it,
+   * and invoices usage so far plus the used part of an in-arrears price,
+   * together with any new charges (`extraBases`).
+   */
+  private async closePeriodEarly(
+    db: PrismaClient,
+    tenantId: string,
+    sub: { id: string; customerId: string; planId: string; currency: string; billingTiming: string; currentPeriodStart: Date; currentPeriodEnd: Date },
+    now: Date,
+    kind: InvoiceKind,
+    extraBases: BaseCharge[],
+  ): Promise<void> {
+    const start = sub.currentPeriodStart;
+    const end = sub.currentPeriodEnd;
+    const unused = 1 - fractionOfPeriod(start, end, start, now);
+
+    if (sub.billingTiming === 'IN_ADVANCE' && unused > 0) {
+      const advance = await this.advanceBilling(db, sub.id, start);
+      if (advance) {
+        const credit = roundMoney(advance.amount.mul(unused), sub.currency);
+        if (credit.gt(0)) {
+          await db.creditNote.create({
+            data: {
+              invoiceId: advance.invoiceId,
+              customerId: sub.customerId,
+              amount: credit,
+              currency: sub.currency,
+              reason: 'ORDER_CHANGE',
+              status: 'FINALIZED',
+              metadata: {
+                type: kind === 'cancellation' ? 'cancellation_proration' : 'proration_credit',
+                oldPlanId: sub.planId,
+                unusedFraction: Number(unused.toFixed(6)),
+                periodStart: start.toISOString(),
+                periodEnd: end.toISOString(),
+              },
+            },
+          });
+          this.logger.log(`Credit note of ${credit} ${sub.currency} for the unused part of subscription ${sub.id}'s period`);
+        }
+      }
+    }
+
+    const bases: BaseCharge[] = [...extraBases];
+    if (sub.billingTiming === 'IN_ARREARS' && unused < 1) {
+      bases.unshift({ planId: sub.planId, periodStart: start.toISOString(), periodEnd: end.toISOString(), fraction: 1 - unused });
+    }
+    await this.queueInvoice({
+      tenantId,
+      subscriptionId: sub.id,
+      customerId: sub.customerId,
+      kind,
+      billingKey: billingKey(sub.id, kind, now),
+      bases,
+      usage: { planId: sub.planId, periodStart: start.toISOString(), from: start.toISOString(), to: now.toISOString() },
+    });
+  }
+
+  /** The invoice that billed this period's price in advance, and the amount it billed for it. */
+  private async advanceBilling(db: PrismaClient, subscriptionId: string, periodStart: Date): Promise<{ invoiceId: string; amount: Dec } | null> {
+    const candidates = await db.invoice.findMany({
+      where: { subscriptionId, status: { in: ['DRAFT', 'PENDING', 'PAID', 'FAILED'] }, createdAt: { gte: new Date(periodStart.getTime() - 7 * 24 * 3600_000) } },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+    const iso = periodStart.toISOString();
+    for (const invoice of candidates) {
+      const items = (((invoice.metadata as Record<string, unknown> | null)?.items ?? []) as { type?: string; amount?: string; unitAmount?: number | string; quantity?: number; periodStart?: string }[]);
+      const plan = items.find((i) => i.type === 'plan' && i.periodStart === iso)
+        // Invoices from before lines carried their period: the newest one billed since the period began.
+        ?? (invoice.createdAt >= periodStart ? items.find((i) => i.type === 'plan' && !i.periodStart) : undefined);
+      if (plan) return { invoiceId: invoice.id, amount: dec(plan.amount ?? dec(plan.unitAmount ?? 0).mul(plan.quantity ?? 1)) };
+    }
+    return null;
   }
 }

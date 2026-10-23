@@ -7,16 +7,14 @@
  * broken tenant database cannot keep the API down for everyone.
  */
 import 'dotenv/config';
-import { createDecipheriv } from 'crypto';
+import { decryptValue } from '../services/crypto';
 import { Client } from 'pg';
 import { baselineNeeded, migrate, migrateTenant } from '../database/migrations';
 
 function decrypt(encrypted: string): string {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) throw new Error('ENCRYPTION_KEY not set');
-  const [ivHex, data] = encrypted.split(':');
-  const decipher = createDecipheriv('aes-256-cbc', Buffer.from(key, 'hex'), Buffer.from(ivHex, 'hex'));
-  return decipher.update(data, 'hex', 'utf8') + decipher.final('utf8');
+  return decryptValue(encrypted, key);
 }
 
 /** Prisma ends its errors with a backtrace; show the error lines instead. */

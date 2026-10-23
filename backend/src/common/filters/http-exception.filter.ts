@@ -49,13 +49,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
+      // Unexpected errors (database, network, bugs) are logged in full but not
+      // described to the client: their messages can reveal queries and hosts.
       this.logger.error(`Unhandled exception: ${exception.message}`, exception.stack);
     }
 
     if (status >= 500) {
       this.logger.error(
-        `${request.method} ${request.url} - ${status}: ${message}`,
+        `${request.method} ${request.url} - ${status}: ${exception instanceof Error ? exception.message : message}`,
         exception instanceof Error ? exception.stack : undefined,
       );
     }

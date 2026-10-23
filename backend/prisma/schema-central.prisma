@@ -29,7 +29,10 @@ model Tenant {
   slug         String   @unique
   email        String
   password     String?
-  apiKey       String   @unique @default(cuid())
+  // Legacy plaintext key, cleared once hashed; only apiKeyHash is used to authenticate.
+  apiKey       String?  @unique
+  apiKeyHash   String?  @unique
+  apiKeyLast4  String?
   webhookUrl   String?
   webhookSecret String?
   isActive     Boolean  @default(true)
@@ -54,7 +57,6 @@ model Tenant {
   memberships        Membership[]
   invitations        Invitation[]
 
-  @@index([apiKey])
   @@index([slug])
   @@index([email])
 }
@@ -68,6 +70,8 @@ model User {
   password    String
   isActive    Boolean      @default(true)
   lastLoginAt DateTime?
+  // Sessions issued before this are rejected (password reset or change).
+  passwordChangedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   memberships Membership[]
@@ -156,8 +160,12 @@ model TenantBilling {
 model ApiKey {
   id        String    @id @default(cuid())
   tenantId  String
-  key       String    @unique
+  // Legacy plaintext key, cleared once hashed; only keyHash is used to authenticate.
+  key       String?   @unique
+  keyHash   String?   @unique
+  last4     String?
   name      String
+  // "read" allows GET/HEAD/OPTIONS only; "write" allows everything.
   scopes    String[]
   lastUsed  DateTime?
   expiresAt DateTime?
@@ -166,7 +174,6 @@ model ApiKey {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
-  @@index([key])
 }
 
 model WebhookLog {

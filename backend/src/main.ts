@@ -3,7 +3,6 @@ import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import helmet from 'helmet';
-import { join } from 'path';
 import { AppModule } from './app.module';
 import { validationPipe } from './common/pipes/validation.pipe';
 import { getBrand } from './config/brand';
@@ -16,10 +15,8 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  // Serve uploaded PDFs as static files
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads/',
-  });
+  // Invoice PDFs are not served as static files: they hold customer details,
+  // so they are downloaded through the authenticated invoice and portal routes.
 
   // Security — relax CSP for the Scalar API reference UI
   app.use(

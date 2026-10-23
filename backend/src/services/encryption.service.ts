@@ -1,54 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  Cipher,
-  Decipher,
-} from 'crypto';
+import { randomBytes } from 'crypto';
+import { decryptValue, encryptValue } from './crypto';
 
 @Injectable()
 export class EncryptionService {
-  private readonly encryptionKey: Buffer;
-  private readonly algorithm = 'aes-256-cbc' as const;
+  private readonly keyHex: string;
 
   constructor(private readonly configService: ConfigService) {
     const keyHex = this.configService.get<string>('ENCRYPTION_KEY');
     if (!keyHex) {
       throw new Error('ENCRYPTION_KEY environment variable is not set');
     }
-    this.encryptionKey = Buffer.from(keyHex, 'hex');
+    this.keyHex = keyHex;
   }
 
   encrypt(text: string): string {
-    const iv: Buffer = randomBytes(16);
-    const cipher: Cipher = createCipheriv(this.algorithm, this.encryptionKey, iv);
-
-    let encrypted: string = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-
-    return `${iv.toString('hex')}:${encrypted}`;
+    return encryptValue(text, this.keyHex);
   }
 
   decrypt(encrypted: string): string {
-    const [ivHex, encryptedText] = encrypted.split(':');
-
-    if (!ivHex || !encryptedText) {
-      throw new Error('Invalid encrypted text format. Expected "iv:encryptedData".');
-    }
-
-    const iv: Buffer = Buffer.from(ivHex, 'hex');
-    const decipher: Decipher = createDecipheriv(
-      this.algorithm,
-      this.encryptionKey,
-      iv,
-    );
-
-    let decrypted: string = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    return decrypted;
+    return decryptValue(encrypted, this.keyHex);
   }
 
   generateApiKey(): string {

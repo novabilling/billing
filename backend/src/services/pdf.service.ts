@@ -403,8 +403,23 @@ export class PdfService {
     return filePath;
   }
 
+  /**
+   * Where an invoice's PDF is downloaded: the authenticated API route (PDFs
+   * are not served publicly). Takes the saved filename, `invoice-<id>.pdf`.
+   */
   getPublicUrl(filename: string): string {
-    return `/uploads/invoices/${filename}`;
+    const id = filename.replace(/^invoice-/, '').replace(/\.pdf$/, '');
+    return `/api/invoices/${encodeURIComponent(id)}/pdf`;
+  }
+
+  /** A previously saved invoice PDF, for attaching to emails; null if this instance has none. */
+  async readInvoicePdf(invoiceId: string): Promise<Buffer | null> {
+    if (!/^[A-Za-z0-9_-]+$/.test(invoiceId)) return null;
+    try {
+      return await fs.promises.readFile(path.join(this.storagePath, `invoice-${invoiceId}.pdf`));
+    } catch {
+      return null;
+    }
   }
 
   /**

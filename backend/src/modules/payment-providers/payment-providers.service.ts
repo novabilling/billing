@@ -48,7 +48,21 @@ export class PaymentProvidersService {
     };
   }
 
+  /** Credentials without which a provider's payment notifications can never be verified. */
+  private assertVerifiable(providerName: string, credentials: Record<string, unknown>) {
+    const required: Record<string, [string, string]> = {
+      stripe: ['webhookSecret', "Stripe's webhook signing secret (whsec_...)"],
+      flutterwave: ['secretHash', 'the webhook secret hash set in your Flutterwave dashboard'],
+      paypal: ['webhookId', 'the PayPal webhook id'],
+    };
+    const need = required[providerName.toLowerCase()];
+    if (need && !String(credentials[need[0]] ?? '').trim()) {
+      throw new BadRequestException(`${need[0]} is required: ${need[1]}. Without it, payment notifications cannot be verified.`);
+    }
+  }
+
   async create(db: PrismaClient, dto: CreateProviderDto) {
+    this.assertVerifiable(dto.providerName, dto.credentials as Record<string, unknown>);
     const existing = await db.paymentProvider.findUnique({
       where: { providerName: dto.providerName },
     });
@@ -156,6 +170,7 @@ export class PaymentProvidersService {
         }
       }
 
+      this.assertVerifiable(provider.providerName, newCredentials as Record<string, unknown>);
       data.credentials = this.encryptionService.encrypt(JSON.stringify(newCredentials));
     }
 

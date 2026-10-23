@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { createDecipheriv } from 'crypto';
+import { decryptValue } from '../src/services/crypto';
 
 const centralDb = new PrismaClient({
   datasources: {
@@ -11,13 +11,7 @@ function decrypt(encrypted: string): string {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) throw new Error('ENCRYPTION_KEY not set');
 
-  const [ivHex, encryptedHex] = encrypted.split(':');
-  const iv = Buffer.from(ivHex, 'hex');
-  const keyBuffer = Buffer.from(key, 'hex');
-  const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-  let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  return decryptValue(encrypted, key);
 }
 
 async function healthCheckDatabases(): Promise<void> {

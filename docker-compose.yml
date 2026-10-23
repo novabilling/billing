@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: central
       POSTGRES_USER: central
-      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD:-centralpass}
+      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in .env}
     volumes:
       - central_db_data:/var/lib/postgresql/data
     ports:
@@ -21,7 +21,7 @@ services:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${TENANT_DB_PASSWORD:-tenantpass}
+      POSTGRES_PASSWORD: ${TENANT_DB_PASSWORD:?Set TENANT_DB_PASSWORD in .env}
     volumes:
       - internal_tenant_db_data:/var/lib/postgresql/data
     ports:
@@ -54,10 +54,10 @@ services:
       NODE_ENV: production
       PORT: 4000
       API_BASE_URL: ${API_URL:-http://localhost:4000}
-      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:-centralpass}@central-db:5432/central
-      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
+      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in .env}@central-db:5432/central
+      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:?Set TENANT_DB_PASSWORD in .env}@internal-tenant-db:5432/postgres
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 32)}
       BRAND_NAME: ${BRAND_NAME:-}
       BRAND_SLUG: ${BRAND_SLUG:-}
       BRAND_SUPPORT_EMAIL: ${BRAND_SUPPORT_EMAIL:-}
@@ -69,15 +69,16 @@ services:
       MANAGED_PAYMENTS_WEBHOOK_SECRET: ${MANAGED_PAYMENTS_WEBHOOK_SECRET:-}
       LEDGER_MODE: ${LEDGER_MODE:-shadow}
       JWT_EXPIRATION: 1h
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env (openssl rand -hex 32)}
       JWT_REFRESH_EXPIRATION: 7d
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env (openssl rand -hex 32)}
       EMAIL_HOST: ${EMAIL_HOST:-smtp.example.com}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER:-}
       EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@novabilling.one}
       PDF_STORAGE_PATH: /app/uploads/invoices
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:4002}
       CORS_ORIGINS: ${LANDING_URL:-http://localhost:4001},${DASHBOARD_URL:-http://localhost:4002}
     ports:
       - "${API_PORT:-4000}:4000"
@@ -99,10 +100,13 @@ services:
       dockerfile: Dockerfile
     environment:
       NODE_ENV: production
-      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:-centralpass}@central-db:5432/central
-      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:-tenantpass}@internal-tenant-db:5432/postgres
+      API_BASE_URL: ${API_URL:-http://localhost:4000}
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:4002}
+      PDF_STORAGE_PATH: /app/uploads/invoices
+      CENTRAL_DATABASE_URL: postgresql://central:${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in .env}@central-db:5432/central
+      INTERNAL_POSTGRES_URL: postgresql://postgres:${TENANT_DB_PASSWORD:?Set TENANT_DB_PASSWORD in .env}@internal-tenant-db:5432/postgres
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 32)}
       BRAND_NAME: ${BRAND_NAME:-}
       BRAND_SLUG: ${BRAND_SLUG:-}
       BRAND_SUPPORT_EMAIL: ${BRAND_SUPPORT_EMAIL:-}
@@ -114,15 +118,17 @@ services:
       MANAGED_PAYMENTS_WEBHOOK_SECRET: ${MANAGED_PAYMENTS_WEBHOOK_SECRET:-}
       LEDGER_MODE: ${LEDGER_MODE:-shadow}
       JWT_EXPIRATION: 1h
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env (openssl rand -hex 32)}
       JWT_REFRESH_EXPIRATION: 7d
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env (openssl rand -hex 32)}
       EMAIL_HOST: ${EMAIL_HOST:-smtp.example.com}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER:-}
       EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@novabilling.one}
     command: node dist/main
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       central-db:
         condition: service_healthy

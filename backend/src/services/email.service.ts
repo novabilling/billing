@@ -3,6 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { CentralPrismaService } from '../database/central-prisma.service';
 import { getBrand } from '../config/brand';
+import { EncryptionService } from './encryption.service';
+import { resolvePublicHost } from '../common/net/safe-url';
+
+/** Ports a tenant's SMTP server may use. */
+export const SMTP_PORTS = [25, 465, 587, 2525];
+/** How a stored SMTP password is shown: never in full. */
+export const SMTP_PASSWORD_MASK = '********';
+const ENCRYPTED_PREFIX = 'enc:';
 
 export interface SmtpSettings {
   host: string;
@@ -24,6 +32,7 @@ export class EmailService {
   constructor(
     private readonly configService: ConfigService,
     private readonly centralPrisma: CentralPrismaService,
+    private readonly encryption: EncryptionService,
   ) {
     const host = this.configService.get<string>('EMAIL_HOST');
     if (host) {
@@ -69,12 +78,18 @@ export class EmailService {
       const smtp = settings.smtp as SmtpSettings | undefined;
 
       if (smtp?.host) {
+        const port = smtp.port || 587;
+        if (!SMTP_PORTS.includes(port)) throw new Error(`SMTP port ${port} is not allowed`);
+        // Connect to the checked public address, keeping the name for TLS.
+        const address = await resolvePublicHost(smtp.host);
+        const password = this.smtpPassword(smtp.password);
         const transporter = nodemailer.createTransport({
-          host: smtp.host,
-          port: smtp.port || 587,
+          host: address,
+          port,
           secure: smtp.secure || false,
-          ...(smtp.user && smtp.password
-            ? { auth: { user: smtp.user, pass: smtp.password } }
+          tls: { servername: smtp.host },
+          ...(smtp.user && password
+            ? { auth: { user: smtp.user, pass: password } }
             : {}),
         });
 
@@ -85,11 +100,26 @@ export class EmailService {
         return { transporter, from };
       }
     } catch (error) {
-      this.logger.warn(`Failed to load SMTP settings for tenant ${tenantId}, using system SMTP`, error);
+      this.logger.warn(`Failed to load SMTP settings for tenant ${tenantId}, using system SMTP: ${error instanceof Error ? error.message : error}`);
     }
 
     // Fallback to system SMTP
     return { transporter: this.systemTransporter, from: systemFrom };
+  }
+
+  /** Stored SMTP passwords are encrypted; older plaintext ones still work. */
+  private smtpPassword(stored?: string): string | undefined {
+    if (!stored) return undefined;
+    return stored.startsWith(ENCRYPTED_PREFIX) ? this.encryption.decrypt(stored.slice(ENCRYPTED_PREFIX.length)) : stored;
+  }
+
+  encryptSmtpPassword(password: string): string {
+    return `${ENCRYPTED_PREFIX}${this.encryption.encrypt(password)}`;
+  }
+
+  /** Drop a tenant's cached transport after its SMTP settings change. */
+  forgetTenant(tenantId: string): void {
+    this.tenantTransporters.delete(tenantId);
   }
 
   async sendMail(

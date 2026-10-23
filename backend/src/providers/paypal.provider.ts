@@ -284,6 +284,7 @@ export class PayPalProvider extends BasePaymentProvider {
       amount: money ? Number(money.value) : 0,
       currency: money?.currency_code || 'USD',
       invoiceId: resource.invoice_id || resource.purchase_units?.[0]?.invoice_id || resource.purchase_units?.[0]?.reference_id,
+      referenceVerified: true,
     };
   }
 
@@ -368,6 +369,7 @@ export class PayPalProvider extends BasePaymentProvider {
       amount: money ? Number(money.value) : 0,
       currency: money?.currency_code || 'USD',
       invoiceId: unit?.invoice_id || unit?.reference_id,
+      referenceVerified: true,
     };
   }
 

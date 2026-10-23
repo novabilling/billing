@@ -3,6 +3,11 @@ export interface PaymentResult {
   transactionId?: string;
   paymentUrl?: string;
   error?: string;
+  /**
+   * The outcome is unknown (timeout, network error, provider 5xx): the charge
+   * may have gone through. Do not retry it; wait for the webhook or a status check.
+   */
+  ambiguous?: boolean;
 }
 
 export interface RefundResult {
@@ -16,6 +21,8 @@ export interface PaymentStatusResult {
   transactionId: string;
   amount: number;
   currency: string;
+  /** Our reference for the transaction, as the provider reports it. */
+  reference?: string;
 }
 
 // Card/payment method token extracted from a successful payment
@@ -33,7 +40,14 @@ export interface WebhookData {
   transactionId: string;
   amount: number;
   currency: string;
+  /** Our reference for the payment (the payment id, or an invoice id on older payments). */
   invoiceId?: string;
+  /**
+   * True only when `invoiceId` is trustworthy: it came from a signed payload,
+   * or from the provider's own API. An unverified reference is never used to
+   * pick which payment a notification settles.
+   */
+  referenceVerified?: boolean;
   // Card token extracted from first payment (for recurring billing)
   paymentMethodToken?: PaymentMethodToken;
 }
