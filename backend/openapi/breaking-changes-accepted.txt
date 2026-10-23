@@ -61,3 +61,8 @@ POST /api/plans the `netPaymentTerms` request property `type` changed from `numb
 POST /api/collections request property `amount` list-of-types was narrowed by removing types `object` from media type `application/json`
 POST /api/payouts request property `amount` list-of-types was narrowed by removing types `object` from media type `application/json`
 POST /api/transfers request property `amount` list-of-types was narrowed by removing types `object` from media type `application/json`
+
+# Flutterwave notifications are only accepted when signed: the verif-hash header
+# was always sent by Flutterwave once a secret hash is set, and unsigned calls
+# (which could mark invoices paid) are now refused. Only Flutterwave calls this.
+POST /webhooks/flutterwave the `header` request parameter `verif-hash` became required

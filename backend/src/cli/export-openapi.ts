@@ -15,7 +15,7 @@ const PLACEHOLDERS: Record<string, string> = {
   INTERNAL_POSTGRES_URL: 'postgresql://unused@localhost/unused',
   REDIS_URL: 'redis://localhost:6379',
   JWT_SECRET: 'unused',
-  JWT_REFRESH_SECRET: 'unused',
+  JWT_REFRESH_SECRET: 'unused-refresh',
   ENCRYPTION_KEY: '0'.repeat(64),
 };
 for (const [key, value] of Object.entries(PLACEHOLDERS)) process.env[key] ??= value;
