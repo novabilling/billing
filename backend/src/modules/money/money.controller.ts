@@ -142,7 +142,7 @@ export class PayoutsController {
   @ApiHeader(IDEMPOTENCY_HEADER)
   @ApiResponse({ status: 201, description: 'The payout', type: MoneyMovementResponse })
   create(@TenantDb() db: PrismaClient, @Req() req: RequestWithTenant, @Body() dto: CreatePayoutDto) {
-    return this.money.createPayout(db, req.tenant, dto);
+    return this.money.createPayout(db, req.tenant, { ...dto, createdBy: req.member?.email ?? 'api_key' });
   }
 
   @Get()

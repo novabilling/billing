@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   BasePaymentProvider,
   ChargeParams,
@@ -128,13 +128,14 @@ export class PaystackProvider extends BasePaymentProvider {
     };
   }
 
-  async handleWebhook(payload: Record<string, unknown>, signature: string): Promise<WebhookData> {
-    // Verify HMAC signature
-    const hash = createHmac('sha512', this.credentials.secretKey)
-      .update(JSON.stringify(payload))
-      .digest('hex');
-
-    if (hash !== signature) {
+  async handleWebhook(payload: Record<string, unknown>, signature: string, rawBody?: string): Promise<WebhookData> {
+    // Paystack signs the exact bytes it sent: verify against the raw body.
+    if (!signature || !rawBody) {
+      throw new Error('Unsigned Paystack webhook');
+    }
+    const expected = Buffer.from(createHmac('sha512', this.credentials.secretKey).update(rawBody).digest('hex'));
+    const given = Buffer.from(signature);
+    if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
       throw new Error('Invalid webhook signature');
     }
 
@@ -147,6 +148,7 @@ export class PaystackProvider extends BasePaymentProvider {
       amount: fromSmallestUnit(Number(data.amount || 0), String(data.currency || 'USD')),
       currency: String(data.currency || ''),
       invoiceId: String(data.reference || ''),
+      referenceVerified: true,
     };
 
     // Extract card authorization from successful payment (for recurring billing)
@@ -205,6 +207,9 @@ export class PaystackProvider extends BasePaymentProvider {
         }),
       });
 
+      if (response.status >= 500) {
+        return { success: false, ambiguous: true, error: `Paystack returned ${response.status}` };
+      }
       const data = await response.json();
 
       if (data.status && data.data?.status === 'success') {
@@ -212,6 +217,9 @@ export class PaystackProvider extends BasePaymentProvider {
           success: true,
           transactionId: data.data?.reference,
         };
+      }
+      if (data.status && ['pending', 'ongoing', 'processing', 'queued'].includes(String(data.data?.status))) {
+        return { success: false, ambiguous: true, transactionId: data.data?.reference, error: `Charge ${data.data?.status}` };
       }
 
       return {
@@ -222,6 +230,7 @@ export class PaystackProvider extends BasePaymentProvider {
       this.logger.error('Paystack chargePaymentMethod failed', error);
       return {
         success: false,
+        ambiguous: true,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

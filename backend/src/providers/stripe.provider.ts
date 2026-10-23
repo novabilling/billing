@@ -160,10 +160,14 @@ export class StripeProvider extends BasePaymentProvider {
   }
 
   async handleWebhook(payload: Record<string, unknown>, signature: string, rawBody?: string): Promise<WebhookData> {
-    // Verify Stripe webhook signature (HMAC-SHA256)
-    if (this.credentials.webhookSecret && signature && rawBody) {
-      this.verifyStripeSignature(signature, rawBody);
+    // Every notification must be signed with the configured webhook secret.
+    if (!this.credentials.webhookSecret) {
+      throw new Error('Stripe webhook secret is not configured; cannot verify notifications');
     }
+    if (!signature || !rawBody) {
+      throw new Error('Unsigned Stripe webhook');
+    }
+    this.verifyStripeSignature(signature, rawBody);
 
     const event = payload as {
       type?: string;
@@ -180,6 +184,7 @@ export class StripeProvider extends BasePaymentProvider {
       amount: fromSmallestUnit(Number(obj.amount_total || obj.amount || 0), String(obj.currency || 'USD').toUpperCase()),
       currency: String(obj.currency || '').toUpperCase(),
       invoiceId: String((obj.metadata as Record<string, string>)?.reference || ''),
+      referenceVerified: true,
     };
 
     // Extract payment method from successful payment_intent for recurring billing
@@ -214,7 +219,7 @@ export class StripeProvider extends BasePaymentProvider {
 
     // Reject timestamps older than 5 minutes to prevent replay attacks
     const timestampAge = Math.floor(Date.now() / 1000) - Number(parts.timestamp);
-    if (timestampAge > 300) {
+    if (!Number.isFinite(timestampAge) || Math.abs(timestampAge) > 300) {
       throw new Error('Stripe webhook timestamp too old');
     }
 
@@ -345,11 +350,18 @@ export class StripeProvider extends BasePaymentProvider {
 
       const response = await fetch(`${this.baseUrl}/payment_intents`, {
         method: 'POST',
-        headers: this.authHeaders,
+        // A retried job reuses the key, so Stripe returns the first attempt instead of charging again.
+        headers: { ...this.authHeaders, 'Idempotency-Key': `charge-${params.reference}` },
         body,
       });
 
+      if (response.status >= 500) {
+        return { success: false, ambiguous: true, error: `Stripe returned ${response.status}` };
+      }
       const paymentIntent = await response.json();
+      if (paymentIntent.status === 'processing') {
+        return { success: false, ambiguous: true, transactionId: paymentIntent.id, error: 'Payment is processing' };
+      }
 
       if (paymentIntent.status === 'succeeded') {
         return {
@@ -373,6 +385,8 @@ export class StripeProvider extends BasePaymentProvider {
       this.logger.error('Stripe chargePaymentMethod failed', error);
       return {
         success: false,
+        // Network failure: the charge may have been made.
+        ambiguous: true,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

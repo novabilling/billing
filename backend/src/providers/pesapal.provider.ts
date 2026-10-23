@@ -190,7 +190,7 @@ export class PesapalProvider extends BasePaymentProvider {
       const token = await this.getAccessToken();
 
       const response = await fetch(
-        `${this.baseUrl}/api/Transactions/GetTransactionStatus?orderTrackingId=${transactionId}`,
+        `${this.baseUrl}/api/Transactions/GetTransactionStatus?orderTrackingId=${encodeURIComponent(transactionId)}`,
         {
           headers: {
             Accept: 'application/json',
@@ -216,6 +216,7 @@ export class PesapalProvider extends BasePaymentProvider {
         transactionId: data.confirmation_code || transactionId,
         amount: data.amount || 0,
         currency: data.currency || '',
+        reference: data.merchant_reference || undefined,
       };
     } catch {
       return {
@@ -227,32 +228,22 @@ export class PesapalProvider extends BasePaymentProvider {
     }
   }
 
+  /**
+   * Pesapal IPNs are not signed: the tracking id they name is looked up with
+   * Pesapal, which decides the outcome and reports our merchant reference.
+   */
   async handleWebhook(payload: Record<string, unknown>, _signature: string): Promise<WebhookData> {
-    // Pesapal IPN sends OrderTrackingId - we need to fetch the status
     const orderTrackingId = String(payload.OrderTrackingId || '');
-    const orderMerchantReference = String(payload.OrderMerchantReference || '');
+    if (!orderTrackingId) throw new Error('Pesapal notification without an OrderTrackingId');
 
-    if (orderTrackingId) {
-      const status = await this.getPaymentStatus(orderTrackingId);
-
-      const result: WebhookData = {
-        status: status.status === 'succeeded' ? 'succeeded' : 'failed',
-        transactionId: orderTrackingId,
-        amount: status.amount,
-        currency: status.currency,
-        invoiceId: orderMerchantReference,
-      };
-
-      return result;
-    }
-
-    // Fallback if webhook doesn't provide tracking ID
+    const status = await this.getPaymentStatus(orderTrackingId);
     return {
-      status: 'failed',
-      transactionId: '',
-      amount: 0,
-      currency: '',
-      invoiceId: orderMerchantReference,
+      status: status.status,
+      transactionId: orderTrackingId,
+      amount: status.amount,
+      currency: status.currency,
+      invoiceId: status.reference,
+      referenceVerified: Boolean(status.reference),
     };
   }
 

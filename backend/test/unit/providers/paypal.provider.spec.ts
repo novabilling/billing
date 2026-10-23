@@ -72,7 +72,7 @@ describe('PayPalProvider.handleWebhook', () => {
 
     expect(mockFetch.mock.calls[3][0]).toContain('/v2/checkout/orders/ORDER-1/capture');
     expect(mockFetch.mock.calls[3][1].headers['PayPal-Request-Id']).toBe('capture-ORDER-1');
-    expect(result).toEqual({ status: 'succeeded', transactionId: 'ORDER-1', amount: 25, currency: 'USD', invoiceId: 'inv_1' });
+    expect(result).toEqual({ status: 'succeeded', transactionId: 'ORDER-1', amount: 25, currency: 'USD', invoiceId: 'inv_1', referenceVerified: true });
   });
 
   it('keeps the payment pending when the capture fails', async () => {

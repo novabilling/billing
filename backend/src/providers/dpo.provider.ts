@@ -135,9 +135,9 @@ export class DpoProvider extends BasePaymentProvider {
   async getPaymentStatus(transactionId: string): Promise<PaymentStatusResult> {
     const verifyXml = `<?xml version="1.0" encoding="utf-8"?>
 <API3G>
-  <CompanyToken>${this.credentials.companyToken}</CompanyToken>
+  <CompanyToken>${escapeXml(this.credentials.companyToken)}</CompanyToken>
   <Request>verifyToken</Request>
-  <TransactionToken>${transactionId}</TransactionToken>
+  <TransactionToken>${escapeXml(transactionId)}</TransactionToken>
 </API3G>`;
 
     const response = await fetch(`${this.baseUrl}/API/v6/`, {
@@ -151,6 +151,7 @@ export class DpoProvider extends BasePaymentProvider {
     const amountMatch = xmlText.match(/<TransactionAmount>(.*?)<\/TransactionAmount>/);
     const currencyMatch = xmlText.match(/<TransactionCurrency>(.*?)<\/TransactionCurrency>/);
     const approvalMatch = xmlText.match(/<TransactionApproval>(.*?)<\/TransactionApproval>/);
+    const referenceMatch = xmlText.match(/<CompanyRef>(.*?)<\/CompanyRef>/);
 
     let status: 'succeeded' | 'pending' | 'failed' = 'pending';
     if (resultMatch?.[1] === '000' && approvalMatch?.[1] === '00') {
@@ -166,26 +167,29 @@ export class DpoProvider extends BasePaymentProvider {
       transactionId,
       amount: parseFloat(amountMatch?.[1] || '0'),
       currency: currencyMatch?.[1] || '',
+      reference: referenceMatch?.[1] || undefined,
     };
   }
 
+  /**
+   * DPO callbacks are not signed: the token they name is verified with DPO,
+   * which decides the outcome. The CompanyRef in the callback is not trusted;
+   * only the one DPO reports back for that token is.
+   */
   async handleWebhook(payload: Record<string, unknown>, _signature: string): Promise<WebhookData> {
-    // DPO sends XML webhooks - parse the payload
     const transToken = String(payload.TransToken || payload.transToken || '');
-    const companyRef = String(payload.CompanyRef || payload.companyRef || '');
+    if (!transToken) throw new Error('DPO notification without a transaction token');
 
-    // Verify token status
     const status = await this.getPaymentStatus(transToken);
 
-    const result: WebhookData = {
-      status: status.status === 'succeeded' ? 'succeeded' : 'failed',
+    return {
+      status: status.status,
       transactionId: transToken,
       amount: status.amount,
       currency: status.currency,
-      invoiceId: companyRef,
+      invoiceId: status.reference,
+      referenceVerified: Boolean(status.reference),
     };
-
-    return result;
   }
 
   async testConnection(): Promise<boolean> {
@@ -215,4 +219,8 @@ export class DpoProvider extends BasePaymentProvider {
   // DPO does NOT support merchant-initiated recurring billing.
   // TransTokens are single-use (per-transaction) and chargeTokenAuth is for
   // auth/capture settlement only. Each payment requires a new customer redirect.
+}
+
+function escapeXml(value: string): string {
+  return String(value).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]!);
 }

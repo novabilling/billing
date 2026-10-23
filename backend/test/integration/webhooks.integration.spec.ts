@@ -101,15 +101,37 @@ describeDb('provider webhooks (postgres)', () => {
     expect(ignored.error).toMatch(/already SUCCEEDED/);
   });
 
-  it('records amount and currency differences for review', async () => {
+  it('holds a success whose amount or currency differs, instead of marking the invoice paid', async () => {
     await deliver({ status: 'succeeded', transactionId: 'tx_a', amount: 60, currency: 'EUR' });
     const event = await db.providerEvent.findFirstOrThrow({ where: { paymentId: 'pay_a' } });
     expect(event.mismatch).toBe('currency EUR (expected USD), amount 60 (expected 100)');
+    expect(event.status).toBe('HELD');
+    expect(await status('pay_a')).toBe('PROCESSING');
+    expect((await db.invoice.findUniqueOrThrow({ where: { id: 'inv_a' } })).status).toBe('PENDING');
+    expect(webhookQueue.add).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ event: 'payment.held_for_review' }));
   });
 
-  it('matches by invoice reference when the transaction id is unknown', async () => {
-    await deliver({ status: 'succeeded', transactionId: '', invoiceId: 'inv_a', amount: 100, currency: 'USD' });
+  it('holds a success that reports no amount', async () => {
+    await deliver({ status: 'succeeded', transactionId: 'tx_a', amount: 0, currency: 'USD' });
+    expect(await status('pay_a')).toBe('PROCESSING');
+  });
+
+  it('matches by a verified reference (payment id, or invoice id for older payments)', async () => {
+    await deliver({ status: 'succeeded', transactionId: '', invoiceId: 'pay_b', referenceVerified: true, amount: 100, currency: 'USD' });
+    expect(await status('pay_b')).toBe('SUCCEEDED');
+    await deliver({ status: 'succeeded', transactionId: '', invoiceId: 'inv_a', referenceVerified: true, amount: 100, currency: 'USD' });
     expect(await status('pay_a')).toBe('SUCCEEDED');
-    expect(await status('pay_b')).toBe('PROCESSING');
+  });
+
+  it('never matches by an unverified reference from the payload', async () => {
+    await deliver({ status: 'succeeded', transactionId: '', invoiceId: 'inv_a', amount: 100, currency: 'USD' });
+    expect(await status('pay_a')).toBe('PROCESSING');
+  });
+
+  it('does not mark a voided invoice paid; flags the money for refund', async () => {
+    await db.invoice.update({ where: { id: 'inv_b' }, data: { status: 'CANCELED' } });
+    await deliver({ status: 'succeeded', transactionId: 'tx_b', amount: 100, currency: 'USD' });
+    expect((await db.invoice.findUniqueOrThrow({ where: { id: 'inv_b' } })).status).toBe('CANCELED');
+    expect(webhookQueue.add).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ event: 'payment.duplicate' }));
   });
 });

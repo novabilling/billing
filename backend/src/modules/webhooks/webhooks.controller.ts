@@ -1,8 +1,6 @@
 import {
   Controller,
   Post,
-  Body,
-  Headers,
   HttpCode,
   HttpStatus,
   Logger,
@@ -10,13 +8,12 @@ import {
   Param,
   Req,
   RawBodyRequest,
+  Body,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Request } from 'express';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
 import { Public } from '../../common/decorators/public.decorator';
 import { PdfService } from '../../services/pdf.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
@@ -26,6 +23,7 @@ import { ProviderFactory } from '../../providers/provider.factory';
 import { WebhookData } from '../../providers/base-payment.provider';
 import { MoneyService } from '../money/money.service';
 import { Prisma, PrismaClient } from '../../generated/prisma-tenant/client';
+import { toScaled } from '../ledger/ledger.money';
 import {
   WEBHOOK_QUEUE,
   EMAIL_QUEUE,
@@ -35,10 +33,24 @@ import {
 
 const SUPPORTED_WEBHOOK_PROVIDERS = new Set(['stripe', 'paystack', 'flutterwave', 'dpo', 'payu', 'pesapal', 'paypal']);
 
+/** Invoices a payment may still settle. */
+const PAYABLE_INVOICE: Prisma.EnumInvoiceStatusFilter['in'] = ['PENDING', 'FAILED', 'DRAFT'];
+/** Payments a notification may still settle. */
+const OPEN_PAYMENT: Prisma.EnumPaymentStatusFilter['in'] = ['PENDING', 'PROCESSING', 'FAILED'];
+
+/** How long the list of tenants using a provider is reused for the shared webhook URLs. */
+const SHARED_ROUTE_CACHE_MS = 5 * 60 * 1000;
+
+type Decision = 'process' | 'duplicate' | 'out_of_order' | 'held';
+
+/** Thrown once a notification is known to belong to a tenant, so the provider retries it. */
+class WebhookProcessingError extends Error {}
+
 @ApiTags('Webhooks')
 @Controller('webhooks')
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
+  private readonly tenantsByProvider = new Map<string, { at: number; tenants: { id: string; name: string }[] }>();
 
   constructor(
     private readonly centralPrisma: CentralPrismaService,
@@ -47,6 +59,7 @@ export class WebhooksController {
     @InjectQueue(WEBHOOK_QUEUE) private readonly webhookQueue: Queue,
     @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
     private readonly money: MoneyService,
+    private readonly pdfService?: PdfService,
   ) {}
 
   @Public()
@@ -56,22 +69,12 @@ export class WebhooksController {
     summary: 'Paystack webhook endpoint',
     description:
       'Receives payment event notifications from Paystack. ' +
-      "The signature is verified using HMAC-SHA512 with the provider's secret key. " +
-      'On success, updates the payment/invoice status and sends customer notifications.',
+      "The signature is verified using HMAC-SHA512 of the raw body with the provider's secret key.",
   })
-  @ApiHeader({
-    name: 'x-paystack-signature',
-    description: 'Paystack HMAC-SHA512 signature',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-paystack-signature', description: 'Paystack HMAC-SHA512 signature', required: true })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  async paystack(
-    @Body() payload: Record<string, unknown>,
-    @Headers('x-paystack-signature') signature: string,
-  ) {
-    this.logger.log('Paystack webhook received');
-    await this.processProviderWebhook('paystack', payload, signature);
-    return { status: 'success' };
+  async paystack(@Req() req: RawBodyRequest<Request>, @Body() payload: Record<string, unknown>) {
+    return this.shared('paystack', req, payload, { status: 'success' });
   }
 
   @Public()
@@ -80,18 +83,13 @@ export class WebhooksController {
   @ApiOperation({
     summary: 'Flutterwave webhook endpoint',
     description:
-      'Receives payment event notifications from Flutterwave. ' +
-      'Verified using the verif-hash header against the configured encryption key.',
+      'Receives payment event notifications from Flutterwave. The verif-hash header must match the secret hash ' +
+      'saved with your Flutterwave credentials; the outcome is then confirmed with Flutterwave.',
   })
-  @ApiHeader({ name: 'verif-hash', description: 'Flutterwave verification hash', required: false })
+  @ApiHeader({ name: 'verif-hash', description: 'Flutterwave verification hash', required: true })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  async flutterwave(
-    @Body() payload: Record<string, unknown>,
-    @Headers('verif-hash') signature: string,
-  ) {
-    this.logger.log('Flutterwave webhook received');
-    await this.processProviderWebhook('flutterwave', payload, signature || '');
-    return { status: 'success' };
+  async flutterwave(@Req() req: RawBodyRequest<Request>, @Body() payload: Record<string, unknown>) {
+    return this.shared('flutterwave', req, payload, { status: 'success' });
   }
 
   @Public()
@@ -99,15 +97,11 @@ export class WebhooksController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'DPO Group webhook endpoint',
-    description:
-      'Receives payment callback notifications from DPO Group (DirectPay Online). ' +
-      'Verifies the transaction token status and updates payment accordingly.',
+    description: 'Receives payment callbacks from DPO Group. The transaction is verified with DPO before anything changes.',
   })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  async dpo(@Body() payload: Record<string, unknown>) {
-    this.logger.log('DPO webhook received');
-    await this.processProviderWebhook('dpo', payload, '');
-    return { status: 'success' };
+  async dpo(@Req() req: RawBodyRequest<Request>, @Body() payload: Record<string, unknown>) {
+    return this.shared('dpo', req, payload, { status: 'success' });
   }
 
   @Public()
@@ -115,15 +109,11 @@ export class WebhooksController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'PayU webhook endpoint',
-    description:
-      'Receives Instant Payment Notifications (IPN) from PayU South Africa. ' +
-      'Updates payment status based on the transaction state.',
+    description: 'Receives IPNs from PayU South Africa. The transaction is looked up with PayU before anything changes.',
   })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  async payu(@Body() payload: Record<string, unknown>) {
-    this.logger.log('PayU webhook received');
-    await this.processProviderWebhook('payu', payload, '');
-    return { status: 'success' };
+  async payu(@Req() req: RawBodyRequest<Request>, @Body() payload: Record<string, unknown>) {
+    return this.shared('payu', req, payload, { status: 'success' });
   }
 
   @Public()
@@ -131,15 +121,11 @@ export class WebhooksController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Pesapal webhook endpoint',
-    description:
-      'Receives IPN (Instant Payment Notification) callbacks from Pesapal. ' +
-      'Fetches transaction status using the OrderTrackingId and updates payment.',
+    description: 'Receives IPN callbacks from Pesapal. The transaction status is fetched from Pesapal before anything changes.',
   })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  async pesapal(@Body() payload: Record<string, unknown>) {
-    this.logger.log('Pesapal webhook received');
-    await this.processProviderWebhook('pesapal', payload, '');
-    return { status: 'success' };
+  async pesapal(@Req() req: RawBodyRequest<Request>, @Body() payload: Record<string, unknown>) {
+    return this.shared('pesapal', req, payload, { status: 'success' });
   }
 
   @Public()
@@ -149,19 +135,12 @@ export class WebhooksController {
     summary: 'Stripe webhook endpoint',
     description:
       'Receives event notifications from Stripe (e.g. checkout.session.completed, payment_intent.succeeded). ' +
-      'Verified using the stripe-signature header with the configured webhook secret.',
+      'Every notification must carry a valid stripe-signature for the configured webhook secret.',
   })
   @ApiHeader({ name: 'stripe-signature', description: 'Stripe webhook signature', required: true })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  async stripe(
-    @Req() req: RawBodyRequest<Request>,
-    @Body() payload: Record<string, unknown>,
-    @Headers('stripe-signature') signature: string,
-  ) {
-    this.logger.log('Stripe webhook received');
-    const rawBody = req.rawBody?.toString('utf8');
-    await this.processProviderWebhook('stripe', payload, signature || '', rawBody);
-    return { received: true };
+  async stripe(@Req() req: RawBodyRequest<Request>, @Body() payload: Record<string, unknown>) {
+    return this.shared('stripe', req, payload, { received: true });
   }
 
   @Public()
@@ -175,9 +154,7 @@ export class WebhooksController {
   })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   async paypal(@Req() req: RawBodyRequest<Request>, @Body() payload: Record<string, unknown>) {
-    this.logger.log('PayPal webhook received');
-    await this.processProviderWebhook('paypal', payload, this.signatureFor('paypal', req.headers), req.rawBody?.toString('utf8'));
-    return { status: 'success' };
+    return this.shared('paypal', req, payload, { status: 'success' });
   }
 
   /**
@@ -216,6 +193,12 @@ export class WebhooksController {
     return { status: 'success' };
   }
 
+  private async shared<T>(provider: string, req: RawBodyRequest<Request>, payload: Record<string, unknown>, reply: T): Promise<T> {
+    this.logger.log(`${provider} webhook received`);
+    await this.processProviderWebhook(provider, payload, this.signatureFor(provider, req.headers), req.rawBody?.toString('utf8'));
+    return reply;
+  }
+
   /** Pull the signature material each provider sends from the request headers. */
   private signatureFor(provider: string, headers: Request['headers']): string {
     const h = (name: string) => {
@@ -243,11 +226,41 @@ export class WebhooksController {
   }
 
   /**
-   * Core webhook processing logic:
-   * 1. Find which tenant this webhook belongs to by looking up the provider config
-   * 2. Verify the webhook signature using the provider's handleWebhook method
-   * 3. Update the payment and invoice status in the tenant's database
-   * 4. Send notification emails and forward the event to the tenant's webhook URL
+   * Tenants with this provider configured. The shared URL has to try each of
+   * them; the list is cached so an unauthenticated request cannot make us open
+   * every tenant database each time.
+   */
+  private async candidates(providerName: string, onlyTenantId?: string): Promise<{ id: string; name: string }[]> {
+    if (onlyTenantId) {
+      return this.centralPrisma.client.tenant.findMany({ where: { isActive: true, id: onlyTenantId }, select: { id: true, name: true } });
+    }
+    const cached = this.tenantsByProvider.get(providerName);
+    if (cached && Date.now() - cached.at < SHARED_ROUTE_CACHE_MS) return cached.tenants;
+
+    const tenants = await this.centralPrisma.client.tenant.findMany({ where: { isActive: true }, select: { id: true, name: true } });
+    const using: { id: string; name: string }[] = [];
+    for (const tenant of tenants) {
+      try {
+        const db = await this.tenantDbService.getTenantClient(tenant.id);
+        if (await db.paymentProvider.findFirst({ where: { providerName, isActive: true }, select: { id: true } })) using.push(tenant);
+      } catch {
+        // Unreachable tenant database: skip it until the next refresh.
+      }
+    }
+    this.tenantsByProvider.set(providerName, { at: Date.now(), tenants: using });
+    return using;
+  }
+
+  /**
+   * Core webhook processing:
+   * 1. Find the tenant whose credentials verify this notification.
+   * 2. Match it to a payment, by the provider's transaction id or a verified reference.
+   * 3. Settle the payment and invoice together (compare-and-set), or hold it for
+   *    review when the amount or currency does not match.
+   * 4. Notify the customer and the tenant.
+   *
+   * Once a notification is known to be a tenant's, a failure answers 500 so
+   * the provider redelivers it instead of the payment being lost.
    */
   private async processProviderWebhook(
     providerName: string,
@@ -256,263 +269,282 @@ export class WebhooksController {
     rawBody?: string,
     onlyTenantId?: string,
   ): Promise<void> {
-    // The per-tenant URL names its tenant; the shared legacy URL has to try
-    // every active tenant that has this provider configured.
     const route = onlyTenantId ? 'tenant' : 'shared';
-    const tenants = await this.centralPrisma.client.tenant.findMany({
-      where: { isActive: true, ...(onlyTenantId && { id: onlyTenantId }) },
-      select: { id: true, name: true },
-    });
+    if (await this.tryTenants(await this.candidates(providerName, onlyTenantId), providerName, route, payload, signature, rawBody)) return;
 
-    for (const tenant of tenants) {
-      try {
-        const db = await this.tenantDbService.getTenantClient(tenant.id);
-
-        const providerConfig = await db.paymentProvider.findFirst({
-          where: { providerName, isActive: true },
-        });
-
-        if (!providerConfig) continue;
-
-        const credentials = JSON.parse(this.encryptionService.decrypt(providerConfig.credentials));
-        const provider = ProviderFactory.create(providerName, credentials);
-
-        // Log the inbound webhook event for this tenant
-        // Convention: url = "inbound:{providerName}" to distinguish from outbound logs
-        let webhookData;
-        try {
-          webhookData = await provider.handleWebhook(payload, signature, rawBody);
-
-          // Record successful inbound delivery
-          await this.centralPrisma.client.webhookLog.create({
-            data: {
-              tenantId: tenant.id,
-              event: `inbound.${providerName}.${String(payload.event || payload.type || 'webhook')}`,
-              url: `inbound:${providerName}`,
-              payload: payload as any,
-              success: true,
-              statusCode: 200,
-              attemptCount: 1,
-            },
-          });
-        } catch (error) {
-          // Signature verification or parse error for this tenant; do not persist
-          // a per-tenant failed inbound log entry to avoid polluting logs when the
-          // webhook belongs to a different tenant.
-          this.logger.warn(
-            `Webhook signature verification failed for tenant ${tenant.id}: ${
-              error instanceof Error ? error.message : 'Unknown'
-            }`,
-          );
-          continue;
-        }
-
-        const payment = await this.findPayment(db, providerName, webhookData);
-
-        if (!payment) {
-          // Not an invoice payment: it may be a one-time collection started
-          // through this provider's hosted checkout.
-          if (await this.money.handleCheckoutNotification(db, tenant.id, providerName, route, payload, webhookData)) {
-            return;
-          }
-          this.logger.debug(
-            `No matching payment found for tenant ${tenant.id}, txn ${webhookData.transactionId}`,
-          );
-          continue;
-        }
-
-        const decision = await this.recordEvent(db, providerName, route, payload, webhookData, payment);
-        if (decision !== 'process') {
-          this.logger.log(
-            `Skipped ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} (${decision})`,
-          );
-          return;
-        }
-
-        // Update payment status
-        // 'pending' means the provider has acknowledged the payment but final
-        // confirmation hasn't arrived yet (e.g. PayPal CHECKOUT.ORDER.APPROVED).
-        // In this case we keep the payment in PROCESSING and only record the
-        // transaction ID — no invoice update or customer notification yet.
-        if (webhookData.status === 'pending') {
-          if (webhookData.transactionId) {
-            await db.payment.update({
-              where: { id: payment.id },
-              data: { providerTransactionId: webhookData.transactionId },
-            });
-          }
-          // Forward the pending event so tenants can observe it
-          await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
-            tenantId: tenant.id,
-            event: 'payment.pending',
-            payload: {
-              paymentId: payment.id,
-              invoiceId: payment.invoiceId,
-              amount: Number(payment.amount),
-              currency: payment.currency,
-              provider: providerName,
-              transactionId: webhookData.transactionId,
-            },
-          });
-          this.logger.log(
-            `Processed ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} → PROCESSING (pending)`,
-          );
-          return;
-        }
-
-        const newStatus = webhookData.status === 'succeeded' ? 'SUCCEEDED' : 'FAILED';
-        // Payment and invoice change together or not at all.
-        await db.$transaction([
-          db.payment.update({
-            where: { id: payment.id },
-            data: {
-              status: newStatus,
-              ...(webhookData.transactionId && { providerTransactionId: webhookData.transactionId }),
-              ...(webhookData.status === 'failed' && {
-                failureReason: 'Payment failed via webhook',
-              }),
-            },
-          }),
-          ...(webhookData.status === 'succeeded' && payment.invoice
-            ? [
-                db.invoice.update({
-                  where: { id: payment.invoice.id },
-                  data: { status: 'PAID', paidAt: new Date() },
-                }),
-              ]
-            : []),
-        ]);
-
-        if (webhookData.status === 'succeeded' && payment.invoice) {
-
-          // Auto-save card token for recurring billing (if provider returned one)
-          if (webhookData.paymentMethodToken && payment.invoice.customer) {
-            const token = webhookData.paymentMethodToken;
-            const customerId = payment.invoice.customer.id;
-
-            // Only save if this token doesn't already exist
-            const existing = await db.paymentMethod.findFirst({
-              where: { provider: providerName, tokenId: token.token },
-            });
-
-            if (!existing) {
-              const existingCount = await db.paymentMethod.count({
-                where: { customerId },
-              });
-
-              await db.paymentMethod.create({
-                data: {
-                  customerId,
-                  provider: providerName,
-                  type: 'CARD',
-                  tokenId: token.token,
-                  isDefault: existingCount === 0,
-                  last4: token.last4,
-                  brand: token.brand,
-                  expMonth: token.expMonth,
-                  expYear: token.expYear,
-                },
-              });
-
-              this.logger.log(
-                `Auto-saved payment method for customer ${customerId} (${providerName} ${token.last4 ? `****${token.last4}` : 'token'})`,
-              );
-            }
-          }
-
-          // Send payment confirmation email with invoice PDF attached
-          if (payment.invoice.customer?.email) {
-            const tenantName = tenant.name || 'Your billing provider';
-            const invoiceNumber = payment.invoice.invoiceNumber || payment.invoiceId;
-            const formattedAmount = PdfService.formatAmount(payment.amount, payment.currency);
-
-            // Try to attach the existing invoice PDF
-            let pdfAttachments: { filename: string; content: string; contentType: string }[] | undefined;
-            try {
-              const pdfPath = join(process.cwd(), 'uploads', `invoice-${payment.invoice.id}.pdf`);
-              const pdfBuffer = await readFile(pdfPath);
-              pdfAttachments = [{
-                filename: `${invoiceNumber}.pdf`,
-                content: pdfBuffer.toString('base64'),
-                contentType: 'application/pdf',
-              }];
-            } catch {
-              this.logger.debug(`No PDF found for invoice ${payment.invoice.id}, skipping attachment`);
-            }
-
-            await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
-              tenantId: tenant.id,
-              to: payment.invoice.customer.email,
-              subject: `Payment received for ${invoiceNumber} — ${tenantName}`,
-              template: 'payment-confirmation',
-              context: {
-                tenantName,
-                customerName: payment.invoice.customer.name || payment.invoice.customer.email,
-                invoiceId: invoiceNumber,
-                amount: formattedAmount,
-                currency: payment.currency,
-              },
-              attachments: pdfAttachments,
-            });
-          }
-        }
-
-        // If payment failed, notify customer
-        if (webhookData.status === 'failed' && payment.invoice?.customer?.email) {
-          const tenantName = tenant.name || 'Your billing provider';
-          const invoiceNumber = payment.invoice.invoiceNumber || payment.invoiceId;
-          const formattedAmount = PdfService.formatAmount(payment.amount, payment.currency);
-
-          await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
-            tenantId: tenant.id,
-            to: payment.invoice.customer.email,
-            subject: `Payment failed for ${invoiceNumber} — ${tenantName}`,
-            template: 'payment-failed',
-            context: {
-              tenantName,
-              customerName: payment.invoice.customer.name || payment.invoice.customer.email,
-              invoiceId: invoiceNumber,
-              amount: formattedAmount,
-              currency: payment.currency,
-              reason: 'Payment was declined by the payment provider',
-            },
-          });
-        }
-
-        // Forward event to tenant's webhook URL
-        await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
-          tenantId: tenant.id,
-          event: `payment.${webhookData.status}`,
-          payload: {
-            paymentId: payment.id,
-            invoiceId: payment.invoiceId,
-            amount: Number(payment.amount),
-            currency: payment.currency,
-            provider: providerName,
-            transactionId: webhookData.transactionId,
-          },
-        });
-
-        this.logger.log(
-          `Processed ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} → ${newStatus}`,
-        );
-        return; // Found the matching tenant, stop searching
-      } catch (error) {
-        this.logger.error(
-          `Error processing webhook for tenant ${tenant.id}`,
-          error instanceof Error ? error.stack : error,
-        );
-      }
+    // A tenant may have configured this provider since the list was cached: refresh once and retry.
+    const cached = this.tenantsByProvider.get(providerName);
+    if (!onlyTenantId && cached && Date.now() - cached.at > 30_000) {
+      this.tenantsByProvider.delete(providerName);
+      if (await this.tryTenants(await this.candidates(providerName), providerName, route, payload, signature, rawBody)) return;
     }
 
     this.logger.warn(`No matching tenant/payment found for ${providerName} webhook`);
   }
 
+  /** True once a tenant's credentials verified the notification and it was handled. */
+  private async tryTenants(
+    tenants: { id: string; name: string }[],
+    providerName: string,
+    route: string,
+    payload: Record<string, unknown>,
+    signature: string,
+    rawBody?: string,
+  ): Promise<boolean> {
+    for (const tenant of tenants) {
+      let db: PrismaClient;
+      let webhookData: WebhookData;
+      try {
+        db = await this.tenantDbService.getTenantClient(tenant.id);
+        const providerConfig = await db.paymentProvider.findFirst({ where: { providerName, isActive: true } });
+        if (!providerConfig) continue;
+
+        const credentials = JSON.parse(this.encryptionService.decrypt(providerConfig.credentials));
+        const provider = ProviderFactory.create(providerName, credentials);
+        webhookData = await provider.handleWebhook(payload, signature, rawBody);
+      } catch (error) {
+        // Not this tenant's notification (or it failed verification): try the next one.
+        this.logger.warn(
+          `Webhook verification failed for tenant ${tenant.id}: ${error instanceof Error ? error.message : 'Unknown'}`,
+        );
+        continue;
+      }
+
+      try {
+        await this.centralPrisma.client.webhookLog.create({
+          data: {
+            tenantId: tenant.id,
+            event: `inbound.${providerName}.${String(payload.event || payload.type || payload.event_type || 'webhook')}`,
+            url: `inbound:${providerName}`,
+            payload: payload as any,
+            success: true,
+            statusCode: 200,
+            attemptCount: 1,
+          },
+        });
+        await this.settle(db, tenant, providerName, route, payload, webhookData);
+        return true;
+      } catch (error) {
+        this.logger.error(
+          `Error processing ${providerName} webhook for tenant ${tenant.id}`,
+          error instanceof Error ? error.stack : error,
+        );
+        throw new WebhookProcessingError(`Could not process ${providerName} webhook`);
+      }
+    }
+    return false;
+  }
+
+  private async settle(
+    db: PrismaClient,
+    tenant: { id: string; name: string },
+    providerName: string,
+    route: string,
+    payload: Record<string, unknown>,
+    webhookData: WebhookData,
+  ): Promise<void> {
+    const payment = await this.findPayment(db, providerName, webhookData);
+
+    if (!payment) {
+      // Not an invoice payment: it may be a one-time collection started
+      // through this provider's hosted checkout.
+      await this.money.handleCheckoutNotification(db, tenant.id, providerName, route, payload, webhookData);
+      return;
+    }
+
+    const decision = await this.recordEvent(db, providerName, route, payload, webhookData, payment);
+    if (decision === 'duplicate' || decision === 'out_of_order') {
+      this.logger.log(`Skipped ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} (${decision})`);
+      return;
+    }
+
+    if (decision === 'held') {
+      const mismatch = this.describeMismatch(webhookData, payment) ?? 'amount not reported';
+      await db.payment.updateMany({
+        where: { id: payment.id, status: { in: OPEN_PAYMENT } },
+        data: {
+          status: 'PROCESSING',
+          failureReason: `Held for review: provider reported ${mismatch}`,
+          ...(webhookData.transactionId && { providerTransactionId: webhookData.transactionId }),
+        },
+      });
+      await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
+        tenantId: tenant.id,
+        event: 'payment.held_for_review',
+        payload: {
+          paymentId: payment.id,
+          invoiceId: payment.invoiceId,
+          expectedAmount: Number(payment.amount),
+          expectedCurrency: payment.currency,
+          reportedAmount: webhookData.amount,
+          reportedCurrency: webhookData.currency,
+          provider: providerName,
+          transactionId: webhookData.transactionId,
+        },
+      });
+      this.logger.warn(`Held ${providerName} payment ${payment.id} for review: ${mismatch}`);
+      return;
+    }
+
+    // 'pending': the provider acknowledged the payment but has not confirmed it.
+    if (webhookData.status === 'pending') {
+      if (webhookData.transactionId) {
+        await db.payment.updateMany({
+          where: { id: payment.id, status: { in: OPEN_PAYMENT } },
+          data: { status: 'PROCESSING', providerTransactionId: webhookData.transactionId },
+        });
+      }
+      await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
+        tenantId: tenant.id,
+        event: 'payment.pending',
+        payload: {
+          paymentId: payment.id,
+          invoiceId: payment.invoiceId,
+          amount: Number(payment.amount),
+          currency: payment.currency,
+          provider: providerName,
+          transactionId: webhookData.transactionId,
+        },
+      });
+      return;
+    }
+
+    const succeeded = webhookData.status === 'succeeded';
+    const newStatus = succeeded ? 'SUCCEEDED' : 'FAILED';
+
+    // Payment and invoice change together, and only from an open state, so a
+    // concurrent redelivery cannot apply the outcome twice.
+    const { won, invoicePaid } = await db.$transaction(async (tx) => {
+      const moved = await tx.payment.updateMany({
+        where: { id: payment.id, status: { in: OPEN_PAYMENT } },
+        data: {
+          status: newStatus,
+          ...(webhookData.transactionId && { providerTransactionId: webhookData.transactionId }),
+          failureReason: succeeded ? null : 'Payment failed via webhook',
+        },
+      });
+      if (moved.count === 0) return { won: false, invoicePaid: false };
+      if (!succeeded) return { won: true, invoicePaid: false };
+      const paid = await tx.invoice.updateMany({
+        where: { id: payment.invoiceId, status: { in: PAYABLE_INVOICE } },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+      return { won: true, invoicePaid: paid.count > 0 };
+    });
+
+    if (!won) {
+      this.logger.log(`Payment ${payment.id} was already settled; ${providerName} webhook not applied again`);
+      return;
+    }
+
+    const invoice = payment.invoice;
+    const customer = invoice?.customer;
+    const tenantName = tenant.name || 'Your billing provider';
+    const invoiceNumber = invoice?.invoiceNumber || payment.invoiceId;
+    const formattedAmount = PdfService.formatAmount(payment.amount, payment.currency);
+
+    if (succeeded && !invoicePaid) {
+      // Money arrived for an invoice that is already paid or voided: the tenant must refund or apply it.
+      this.logger.warn(`Payment ${payment.id} succeeded but invoice ${payment.invoiceId} is ${invoice?.status}; flagged for refund`);
+      await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
+        tenantId: tenant.id,
+        event: 'payment.duplicate',
+        payload: {
+          paymentId: payment.id,
+          invoiceId: payment.invoiceId,
+          invoiceStatus: invoice?.status,
+          amount: Number(payment.amount),
+          currency: payment.currency,
+          provider: providerName,
+          transactionId: webhookData.transactionId,
+        },
+      });
+      return;
+    }
+
+    if (succeeded && invoice) {
+      // Save the card for recurring billing, if the provider returned a reusable token.
+      if (webhookData.paymentMethodToken && customer) {
+        const token = webhookData.paymentMethodToken;
+        const existing = await db.paymentMethod.findFirst({ where: { provider: providerName, tokenId: token.token } });
+        if (!existing) {
+          const existingCount = await db.paymentMethod.count({ where: { customerId: customer.id } });
+          await db.paymentMethod.create({
+            data: {
+              customerId: customer.id,
+              provider: providerName,
+              type: 'CARD',
+              tokenId: token.token,
+              isDefault: existingCount === 0,
+              last4: token.last4,
+              brand: token.brand,
+              expMonth: token.expMonth,
+              expYear: token.expYear,
+            },
+          });
+          this.logger.log(`Auto-saved payment method for customer ${customer.id} (${providerName})`);
+        }
+      }
+
+      if (customer?.email) {
+        const pdf = await this.pdfService?.readInvoicePdf(invoice.id);
+        await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
+          tenantId: tenant.id,
+          to: customer.email,
+          subject: `Payment received for ${invoiceNumber} — ${tenantName}`,
+          template: 'payment-confirmation',
+          context: {
+            tenantName,
+            customerName: customer.name || customer.email,
+            invoiceId: invoiceNumber,
+            amount: formattedAmount,
+            currency: payment.currency,
+          },
+          attachments: pdf
+            ? [{ filename: `${invoiceNumber}.pdf`, content: pdf.toString('base64'), contentType: 'application/pdf' }]
+            : undefined,
+        });
+      }
+    }
+
+    if (!succeeded && customer?.email) {
+      await this.emailQueue.add(EmailJobType.SEND_EMAIL, {
+        tenantId: tenant.id,
+        to: customer.email,
+        subject: `Payment failed for ${invoiceNumber} — ${tenantName}`,
+        template: 'payment-failed',
+        context: {
+          tenantName,
+          customerName: customer.name || customer.email,
+          invoiceId: invoiceNumber,
+          amount: formattedAmount,
+          currency: payment.currency,
+          reason: 'Payment was declined by the payment provider',
+        },
+      });
+    }
+
+    await this.webhookQueue.add(WebhookJobType.SEND_WEBHOOK, {
+      tenantId: tenant.id,
+      event: `payment.${webhookData.status}`,
+      payload: {
+        paymentId: payment.id,
+        invoiceId: payment.invoiceId,
+        amount: Number(payment.amount),
+        currency: payment.currency,
+        provider: providerName,
+        transactionId: webhookData.transactionId,
+      },
+    });
+
+    this.logger.log(`Processed ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} → ${newStatus}`);
+  }
+
   /**
-   * Match a provider notification to a payment. Each lookup runs only when the
-   * provider actually supplied that reference: an undefined filter value would
-   * otherwise match every payment for the provider. Transaction id wins; the
-   * invoice reference is a fallback, newest payment first.
+   * Match a provider notification to a payment. The provider's transaction id
+   * wins. Otherwise our reference is used, but only when it is verified
+   * (signed, or reported by the provider's API): the payment id, or, for
+   * payments started before references were per payment, the invoice id.
    */
   private async findPayment(db: PrismaClient, providerName: string, webhookData: WebhookData) {
     const include = { invoice: { include: { customer: true } } } as const;
@@ -523,9 +555,12 @@ export class WebhooksController {
       });
       if (byTransaction) return byTransaction;
     }
-    if (webhookData.invoiceId) {
+    const reference = webhookData.referenceVerified ? webhookData.invoiceId : undefined;
+    if (reference) {
+      const byId = await db.payment.findFirst({ where: { id: reference, provider: providerName }, include });
+      if (byId) return byId;
       return db.payment.findFirst({
-        where: { provider: providerName, invoiceId: webhookData.invoiceId },
+        where: { provider: providerName, invoiceId: reference },
         orderBy: { createdAt: 'desc' },
         include,
       });
@@ -534,11 +569,11 @@ export class WebhooksController {
   }
 
   /**
-   * Record the notification in the tenant's inbox and decide whether to act on
-   * it. Redeliveries of the same notification, and notifications that would
-   * move a settled payment backwards (a late "failed" after "succeeded"), are
-   * recorded but not processed. Amount or currency differences are recorded
-   * for review without changing the outcome.
+   * Record the notification in the tenant's inbox and decide whether to act
+   * on it. Redeliveries, and notifications that would move a settled payment
+   * backwards (a late "failed" after "succeeded"), are recorded but not
+   * processed. A success whose amount or currency differs from the payment,
+   * or that reports no amount, is held for review instead of settling it.
    */
   private async recordEvent(
     db: PrismaClient,
@@ -547,15 +582,16 @@ export class WebhooksController {
     payload: Record<string, unknown>,
     webhookData: WebhookData,
     payment: { id: string; status: string; amount: { toString(): string }; currency: string },
-  ): Promise<'process' | 'duplicate' | 'out_of_order'> {
+  ): Promise<Decision> {
     const settled = payment.status === 'SUCCEEDED' || payment.status === 'REFUNDED';
     const incoming = webhookData.status;
-    let decision: 'process' | 'duplicate' | 'out_of_order' = 'process';
+    const mismatch = this.describeMismatch(webhookData, payment);
+    let decision: Decision = 'process';
     if (settled && incoming === 'succeeded') decision = 'duplicate';
     else if (settled) decision = 'out_of_order';
     else if (payment.status === 'FAILED' && incoming === 'failed') decision = 'duplicate';
+    else if (incoming === 'succeeded' && (mismatch || !(webhookData.amount > 0))) decision = 'held';
 
-    const mismatch = this.describeMismatch(webhookData, payment);
     if (mismatch) {
       this.logger.warn(`${providerName} reported ${mismatch} for payment ${payment.id}`);
     }
@@ -569,12 +605,12 @@ export class WebhooksController {
           provider: providerName,
           eventKey,
           eventType: String(payload.event_type ?? payload.event ?? payload.type ?? incoming),
-          status: decision === 'process' ? 'PROCESSED' : decision === 'duplicate' ? 'DUPLICATE' : 'IGNORED',
+          status: { process: 'PROCESSED', duplicate: 'DUPLICATE', out_of_order: 'IGNORED', held: 'HELD' }[decision] as never,
           route,
           paymentId: payment.id,
           amount: webhookData.amount ? String(webhookData.amount) : null,
           currency: webhookData.currency || null,
-          mismatch,
+          mismatch: mismatch ?? (decision === 'held' ? 'amount not reported' : null),
           error: decision === 'out_of_order' ? `Payment already ${payment.status}; ignored "${incoming}"` : null,
           payload: payload as never,
         },
@@ -585,8 +621,8 @@ export class WebhooksController {
         // crashed before updating it, this redelivery still gets processed.
         return decision;
       }
-      // Tenant databases that have not been synced to the new schema have no
-      // inbox table yet; fall back to the state checks alone.
+      // Tenant databases that have not been migrated have no inbox table yet;
+      // fall back to the state checks alone.
       if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021')) {
         this.logger.warn(`Could not record provider event: ${error instanceof Error ? error.message : error}`);
       }
@@ -602,8 +638,7 @@ export class WebhooksController {
     if (webhookData.currency && webhookData.currency.toUpperCase() !== payment.currency.toUpperCase()) {
       problems.push(`currency ${webhookData.currency} (expected ${payment.currency})`);
     }
-    // Providers that cannot report an amount send 0.
-    if (webhookData.amount > 0 && Math.abs(webhookData.amount - Number(payment.amount.toString())) > 0.005) {
+    if (webhookData.amount > 0 && toScaled(webhookData.amount) !== toScaled(payment.amount.toString())) {
       problems.push(`amount ${webhookData.amount} (expected ${payment.amount.toString()})`);
     }
     return problems.length ? problems.join(', ') : null;
