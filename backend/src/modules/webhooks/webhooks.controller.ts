@@ -322,8 +322,9 @@ export class WebhooksController {
             attemptCount: 1,
           },
         });
-        await this.settle(db, tenant, providerName, route, payload, webhookData);
-        return true;
+        // A tenant sharing the provider account with others may not own this payment: keep looking.
+        if (await this.settle(db, tenant, providerName, route, payload, webhookData)) return true;
+        continue;
       } catch (error) {
         this.logger.error(
           `Error processing ${providerName} webhook for tenant ${tenant.id}`,
@@ -342,20 +343,20 @@ export class WebhooksController {
     route: string,
     payload: Record<string, unknown>,
     webhookData: WebhookData,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const payment = await this.findPayment(db, providerName, webhookData);
 
     if (!payment) {
       // Not an invoice payment: it may be a one-time collection started
-      // through this provider's hosted checkout.
-      await this.money.handleCheckoutNotification(db, tenant.id, providerName, route, payload, webhookData);
-      return;
+      // through this provider's hosted checkout. If not, it is not this
+      // tenant's: another tenant may share the same provider account.
+      return this.money.handleCheckoutNotification(db, tenant.id, providerName, route, payload, webhookData);
     }
 
     const decision = await this.recordEvent(db, providerName, route, payload, webhookData, payment);
     if (decision === 'duplicate' || decision === 'out_of_order') {
       this.logger.log(`Skipped ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} (${decision})`);
-      return;
+      return true;
     }
 
     if (decision === 'held') {
@@ -383,7 +384,7 @@ export class WebhooksController {
         },
       });
       this.logger.warn(`Held ${providerName} payment ${payment.id} for review: ${mismatch}`);
-      return;
+      return true;
     }
 
     // 'pending': the provider acknowledged the payment but has not confirmed it.
@@ -406,7 +407,7 @@ export class WebhooksController {
           transactionId: webhookData.transactionId,
         },
       });
-      return;
+      return true;
     }
 
     const succeeded = webhookData.status === 'succeeded';
@@ -434,7 +435,7 @@ export class WebhooksController {
 
     if (!won) {
       this.logger.log(`Payment ${payment.id} was already settled; ${providerName} webhook not applied again`);
-      return;
+      return true;
     }
 
     const invoice = payment.invoice;
@@ -459,7 +460,7 @@ export class WebhooksController {
           transactionId: webhookData.transactionId,
         },
       });
-      return;
+      return true;
     }
 
     if (succeeded && invoice) {
@@ -538,6 +539,7 @@ export class WebhooksController {
     });
 
     this.logger.log(`Processed ${providerName} webhook for tenant ${tenant.id}: payment ${payment.id} → ${newStatus}`);
+    return true;
   }
 
   /**
