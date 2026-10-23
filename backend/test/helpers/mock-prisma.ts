@@ -46,6 +46,7 @@ export function createMockPrisma() {
     chargeFilter: makeModelMock(),
     wallet: makeModelMock(),
     walletTransaction: makeModelMock(),
+    providerEvent: makeModelMock(),
     paymentMethod: makeModelMock(),
     tax: makeModelMock(),
     customerTax: makeModelMock(),
