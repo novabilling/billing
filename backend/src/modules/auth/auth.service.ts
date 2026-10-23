@@ -8,6 +8,9 @@ import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { permissionsOf } from '../../common/auth/permissions';
+import { hashApiKey, lastFour } from '../../common/auth/api-keys';
+import { derivedSecret, issuedBeforePasswordChange, passwordFingerprint } from '../../common/auth/tokens';
+import { EmailService } from '../../services/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -21,7 +24,11 @@ export interface SessionPayload {
   sub: string;
   uid?: string;
   email: string;
+  typ?: 'access' | 'refresh';
+  iat?: number;
 }
+
+const RESET_TTL_SECONDS = 60 * 60;
 
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -37,6 +44,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly encryptionService: EncryptionService,
+    private readonly emailService: EmailService,
   ) {}
 
   private get db() {
@@ -82,7 +90,8 @@ export class AuthService {
         name: companyName,
         slug,
         email: user.email,
-        apiKey,
+        apiKeyHash: hashApiKey(apiKey),
+        apiKeyLast4: lastFour(apiKey),
         webhookSecret: this.encryptionService.generateWebhookSecret(),
         settings: { ownerName: user.name },
         tenantBilling: { create: { status: 'active' } },
@@ -152,10 +161,14 @@ export class AuthService {
   async refreshTokens(refreshToken: string): Promise<TokenPair> {
     let payload: SessionPayload;
     try {
-      payload = this.jwtService.verify(refreshToken, { secret: this.configService.get<string>('JWT_REFRESH_SECRET') });
+      payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        algorithms: ['HS256'],
+      });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+    if (payload.typ !== undefined && payload.typ !== 'refresh') throw new UnauthorizedException('Invalid refresh token');
     // Sessions from before people had their own logins belong to the organisation's owner.
     const userId = payload.uid ?? (await this.ownerOf(payload.sub))?.id;
     if (!userId) throw new UnauthorizedException('Invalid refresh token');
@@ -165,6 +178,7 @@ export class AuthService {
       include: { tenant: true },
     });
     if (!user?.isActive || !membership?.tenant.isActive) throw new UnauthorizedException('Invalid refresh token');
+    if (issuedBeforePasswordChange(payload, user.passwordChangedAt)) throw new UnauthorizedException('Your session has ended. Please sign in again.');
     return this.generateTokens(payload.sub, user);
   }
 
@@ -203,35 +217,76 @@ export class AuthService {
 
   // --- Passwords ---
 
+  /**
+   * Emails a one-hour reset link. The token is signed with its own key and
+   * carries a fingerprint of the current password hash, so it stops working
+   * once used. Never logged.
+   */
   async forgotPassword(email: string): Promise<void> {
     const user = await this.db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     // Don't reveal whether the email exists
-    if (!user) return;
+    if (!user || !user.isActive) return;
     const resetToken = this.jwtService.sign(
-      { sub: user.id, type: 'password-reset' },
-      { secret: this.configService.get<string>('JWT_SECRET'), expiresIn: '1h' },
+      { sub: user.id, typ: 'password-reset', pwd: passwordFingerprint(user.password) },
+      { secret: this.resetSecret(), expiresIn: RESET_TTL_SECONDS, algorithm: 'HS256' },
     );
-    this.logger.log(`Password reset token generated for user ${user.id}: ${resetToken}`);
-    // In production, send email with reset link
+    const dashboardUrl = (process.env.DASHBOARD_URL || 'http://localhost:4002').replace(/\/$/, '');
+    const link = `${dashboardUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const sent = await this.emailService
+      .sendHtml(
+        user.email,
+        'Reset your password',
+        `<p>Someone asked to reset the password for this account.</p><p><a href="${link}">Choose a new password</a> (valid for one hour).</p><p>If this wasn't you, you can ignore this email.</p>`,
+      )
+      .catch((error: Error) => {
+        this.logger.warn(`Password reset email for user ${user.id} not sent: ${error.message}`);
+        return false;
+      });
+    if (!sent) this.logger.warn(`Password reset requested for user ${user.id}, but no email could be sent (check SMTP settings)`);
   }
 
+  /** Sets the new password and ends every existing session for the person. */
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    let payload: { sub: string; type?: string };
+    let payload: { sub: string; typ?: string; pwd?: string };
     try {
-      payload = this.jwtService.verify(token, { secret: this.configService.get<string>('JWT_SECRET') });
+      payload = this.jwtService.verify(token, { secret: this.resetSecret(), algorithms: ['HS256'] });
     } catch {
       throw new BadRequestException('Invalid or expired reset token');
     }
-    if (payload.type !== 'password-reset') throw new BadRequestException('Invalid reset token');
-    const updated = await this.db.user.updateMany({ where: { id: payload.sub }, data: { password: await argon2.hash(newPassword) } });
+    if (payload.typ !== 'password-reset' || !payload.pwd) throw new BadRequestException('Invalid reset token');
+    const user = await this.db.user.findUnique({ where: { id: payload.sub } });
+    if (!user || !user.isActive || passwordFingerprint(user.password) !== payload.pwd) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+    // Compare-and-set on the old hash, so the same link cannot be used twice concurrently.
+    const updated = await this.db.user.updateMany({
+      where: { id: user.id, password: user.password },
+      data: { password: await argon2.hash(newPassword), passwordChangedAt: new Date() },
+    });
     if (updated.count === 0) throw new BadRequestException('Invalid or expired reset token');
+  }
+
+  private resetSecret(): string {
+    return derivedSecret(this.configService.get<string>('JWT_SECRET')!, 'password-reset');
   }
 
   // --- Helpers ---
 
   private session(user: User, tenant: Tenant, role: MemberRole, organisations?: Awaited<ReturnType<AuthService['organisations']>>) {
     // Access and operator state are for the platform; the dashboard reads them from /admin/me.
-    const { password: _password, isPlatformOperator: _operator, accessMode: _mode, accessReason: _reason, accessUrl: _url, ...org } = tenant;
+    // Credentials never go into a session: any member could read them. The API
+    // key is shown once at creation; the webhook secret is in developer settings.
+    const {
+      password: _password,
+      apiKey: _apiKey,
+      apiKeyHash: _apiKeyHash,
+      webhookSecret: _webhookSecret,
+      isPlatformOperator: _operator,
+      accessMode: _mode,
+      accessReason: _reason,
+      accessUrl: _url,
+      ...org
+    } = tenant;
     return {
       // Kept for older dashboards, which read the organisation from here.
       tenant: org,
@@ -259,13 +314,15 @@ export class AuthService {
 
   private generateTokens(tenantId: string, user: Pick<User, 'id' | 'email'>): TokenPair {
     const payload: SessionPayload = { sub: tenantId, uid: user.id, email: user.email };
-    const accessToken = this.jwtService.sign(payload, {
+    const accessToken = this.jwtService.sign({ ...payload, typ: 'access' }, {
       secret: this.configService.get<string>('JWT_SECRET'),
       expiresIn: this.configService.get<string>('JWT_EXPIRATION', '1h') as never,
+      algorithm: 'HS256',
     });
-    const refreshToken = this.jwtService.sign(payload, {
+    const refreshToken = this.jwtService.sign({ ...payload, typ: 'refresh' }, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d') as never,
+      algorithm: 'HS256',
     });
     return { accessToken, refreshToken };
   }

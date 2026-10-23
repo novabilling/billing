@@ -7,10 +7,18 @@ import {
   Body,
   UseGuards,
   NotFoundException,
+  BadRequestException,
+  Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { InvoicesService } from '../invoices/invoices.service';
+import { ConfigService } from '@nestjs/config';
+import { RequestWithTenant } from '../../common/interfaces/request-with-tenant.interface';
+import { signPortalToken } from '../../common/auth/tokens';
+import { PortalGuard } from './portal.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { PrismaClient } from '../../generated/prisma-tenant/client';
-import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantDb } from '../../common/decorators/tenant-db.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { PortalService } from './portal.service';
@@ -22,18 +30,50 @@ import { PaginatedPaymentResponse } from '../payments/dto/payment-response.dto';
 /**
  * Customer-facing billing portal API.
  *
- * Authenticated via the tenant's API key (same TenantGuard), but scoped
- * to a specific customer via their `externalId` in the URL path.
- * This is the API that tenant developers embed in their apps so their
- * end-users can view invoices, manage subscriptions, and pay.
+ * Called server to server with the tenant's API key, or from the browser
+ * with a portal token issued for one customer (see `sessions`). Never put an
+ * API key in a link given to a customer: it grants full access to the account.
  */
 @ApiTags('Customer Portal')
 @ApiBearerAuth('api-key')
 @Public()
-@UseGuards(TenantGuard)
+@UseGuards(PortalGuard)
 @Controller('portal/customers')
 export class PortalController {
-  constructor(private readonly portalService: PortalService) {}
+  constructor(
+    private readonly portalService: PortalService,
+    private readonly config: ConfigService,
+    private readonly invoices: InvoicesService,
+  ) {}
+
+  @Post(':externalId/sessions')
+  @ApiOperation({
+    summary: 'Create a customer portal link',
+    description:
+      'Issues a short-lived token that opens the portal for this one customer, and the hosted portal URL that uses it. ' +
+      'Hand customers this link, never your API key.',
+  })
+  @ApiParam({ name: 'externalId', description: 'Customer external ID' })
+  @ApiResponse({ status: 201, description: 'Token, URL and expiry' })
+  async createSession(
+    @Req() req: RequestWithTenant,
+    @TenantDb() db: PrismaClient,
+    @Param('externalId') externalId: string,
+    @Body() body: { expiresInMinutes?: number },
+  ) {
+    await this.resolveCustomerId(db, externalId);
+    const minutes = body?.expiresInMinutes ?? 60;
+    if (!Number.isInteger(minutes) || minutes < 5 || minutes > 7 * 24 * 60) {
+      throw new BadRequestException('expiresInMinutes must be a whole number between 5 and 10080 (7 days)');
+    }
+    const token = signPortalToken(this.config.get<string>('JWT_SECRET')!, req.tenant.id, externalId, minutes * 60);
+    const dashboardUrl = (process.env.DASHBOARD_URL || 'http://localhost:4002').replace(/\/$/, '');
+    return {
+      token,
+      url: `${dashboardUrl}/portal/${encodeURIComponent(externalId)}?token=${encodeURIComponent(token)}`,
+      expiresAt: new Date(Date.now() + minutes * 60_000).toISOString(),
+    };
+  }
 
   private async resolveCustomerId(db: PrismaClient, externalId: string): Promise<string> {
     const customer = await this.portalService.getCustomerByExternalId(db, externalId);
@@ -112,7 +152,34 @@ export class PortalController {
     @Body() body: { callbackUrl?: string },
   ) {
     const customerId = await this.resolveCustomerId(db, externalId);
-    return this.portalService.getInvoiceCheckout(db, customerId, invoiceId, body.callbackUrl);
+    if (body?.callbackUrl !== undefined && !/^https?:\/\//i.test(String(body.callbackUrl))) {
+      throw new BadRequestException('callbackUrl must be an http(s) URL');
+    }
+    return this.portalService.getInvoiceCheckout(db, customerId, invoiceId, body?.callbackUrl);
+  }
+
+  @Get(':externalId/invoices/:invoiceId/pdf')
+  @ApiOperation({ summary: "Download one of the customer's invoices as PDF" })
+  @ApiParam({ name: 'externalId', description: 'Customer external ID' })
+  @ApiParam({ name: 'invoiceId', description: 'Invoice ID' })
+  @ApiResponse({ status: 200, description: 'The PDF' })
+  async getInvoicePdf(
+    @Req() req: RequestWithTenant,
+    @Res() res: Response,
+    @TenantDb() db: PrismaClient,
+    @Param('externalId') externalId: string,
+    @Param('invoiceId') invoiceId: string,
+  ) {
+    const customerId = await this.resolveCustomerId(db, externalId);
+    const invoice = await db.invoice.findUnique({ where: { id: invoiceId }, select: { customerId: true, invoiceNumber: true } });
+    if (!invoice || invoice.customerId !== customerId) throw new NotFoundException('Invoice not found');
+    const pdf = await this.invoices.generateOrGetPdf(db, req.tenant.id, invoiceId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${(invoice.invoiceNumber || invoiceId).replace(/[^A-Za-z0-9_.-]/g, '_')}.pdf"`,
+      'Cache-Control': 'private, no-store',
+    });
+    res.send(pdf);
   }
 
   @Get(':externalId/payments')

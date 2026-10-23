@@ -90,7 +90,30 @@ export default function CustomerBillingPortal() {
   const params = useParams();
   const searchParams = useSearchParams();
   const externalId = params.externalId as string;
-  const apiKey = searchParams.get("key") || "";
+  // A short-lived portal token from the link (never an API key). Move it out of
+  // the address bar so it does not linger in history or leak in Referer headers.
+  const [token, setToken] = useState("");
+  const [tokenChecked, setTokenChecked] = useState(false);
+  useEffect(() => {
+    const storageKey = `portal-token:${externalId}`;
+    const fromUrl = searchParams.get("token");
+    let value = fromUrl || "";
+    try {
+      if (fromUrl) {
+        sessionStorage.setItem(storageKey, fromUrl);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("token");
+        window.history.replaceState(null, "", url.toString());
+      } else {
+        value = sessionStorage.getItem(storageKey) || "";
+      }
+    } catch {
+      // Storage unavailable: keep the token in memory for this visit.
+    }
+    setToken(value);
+    setTokenChecked(true);
+  }, [externalId, searchParams]);
+  const authHeaders = { Authorization: `Bearer ${token}` };
 
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,18 +123,31 @@ export default function CustomerBillingPortal() {
   const [expandedSub, setExpandedSub] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!apiKey) {
-      setError("Missing API key. This page requires a valid tenant API key.");
+    if (!tokenChecked) return;
+    if (!token) {
+      setError("This portal link is missing its access token or has expired. Ask for a new link.");
       setLoading(false);
       return;
     }
     loadBilling();
-  }, [externalId, apiKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalId, token, tokenChecked]);
+
+  async function downloadPdf(invoiceId: string, invoiceNumber: string) {
+    const res = await fetch(`/api/portal/${encodeURIComponent(externalId)}?resource=pdf&invoiceId=${encodeURIComponent(invoiceId)}`, { headers: authHeaders });
+    if (!res.ok) return setError("Could not download the invoice");
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${invoiceNumber}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function loadBilling() {
     try {
       setLoading(true);
-      const res = await fetch(`/api/portal/${encodeURIComponent(externalId)}?key=${encodeURIComponent(apiKey)}&resource=billing`);
+      const res = await fetch(`/api/portal/${encodeURIComponent(externalId)}?resource=billing`, { headers: authHeaders });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || `Error ${res.status}`);
@@ -129,8 +165,8 @@ export default function CustomerBillingPortal() {
     setCheckoutLoading(invoiceId);
     try {
       const res = await fetch(
-        `/api/portal/${encodeURIComponent(externalId)}?key=${encodeURIComponent(apiKey)}&invoiceId=${invoiceId}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ callbackUrl: window.location.href }) },
+        `/api/portal/${encodeURIComponent(externalId)}?invoiceId=${encodeURIComponent(invoiceId)}`,
+        { method: "POST", headers: { ...authHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ callbackUrl: window.location.href }) },
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -299,15 +335,14 @@ export default function CustomerBillingPortal() {
                 </div>
                 <div className="flex items-center gap-2">
                   {inv.pdfUrl && (
-                    <a
-                      href={inv.pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => downloadPdf(inv.id, inv.invoiceNumber)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border hover:bg-muted transition-colors"
                     >
                       <Download className="h-3 w-3" />
                       PDF
-                    </a>
+                    </button>
                   )}
                   {inv.status === "PENDING" && (
                     <button

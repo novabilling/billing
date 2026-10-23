@@ -8,8 +8,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
+import { JwtPayload } from 'jsonwebtoken';
 import { can, Permission, PERMISSION_KEY } from '../auth/permissions';
-import { verify, JwtPayload } from 'jsonwebtoken';
+import { hashApiKey, scopesAllow } from '../auth/api-keys';
+import { issuedBeforePasswordChange, verifySessionToken } from '../auth/tokens';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { isPlatformOperator } from '../platform-operator';
@@ -44,10 +46,11 @@ export class TenantGuard implements CanActivate {
       throw new UnauthorizedException('Invalid authorization format');
     }
 
-    // Try JWT first — dashboard sessions use this path
+    // Try a dashboard session first, then an API key.
     const session = await this.resolveFromJwt(token);
     const sessionTenant = session?.tenant ?? null;
-    const tenant = sessionTenant ?? (await this.resolveFromApiKey(token));
+    const keyed = sessionTenant ? null : await this.resolveFromApiKey(token);
+    const tenant = sessionTenant ?? keyed?.tenant;
 
     if (!tenant) {
       throw new UnauthorizedException('Invalid credentials');
@@ -57,8 +60,15 @@ export class TenantGuard implements CanActivate {
       throw new UnauthorizedException('Tenant account is deactivated');
     }
 
-    const operator = isPlatformOperator(tenant, this.configService);
     const path = request.originalUrl ?? request.url ?? '';
+    // A key acts only within its scopes: a read-only key can only read.
+    if (keyed && !scopesAllow(keyed.scopes, request.method, routeOf(path))) {
+      throw new ForbiddenException(
+        `This API key's scopes (${keyed.scopes.join(', ') || 'none'}) do not allow ${request.method} ${routeOf(path)}.`,
+      );
+    }
+
+    const operator = isPlatformOperator(tenant, this.configService);
     if (!operator) assertTenantAccess(tenant, request.method, path);
 
     const tenantDbClient = await this.tenantDb.getTenantClient(tenant.id);
@@ -73,6 +83,7 @@ export class TenantGuard implements CanActivate {
     request.tenant = tenant;
     request.tenantDb = tenantDbClient;
     request.authMethod = sessionTenant ? 'session' : 'api_key';
+    request.apiKeyScopes = keyed?.scopes;
     if (session) {
       request.member = session.member;
       this.authorize(context, request.method, session.member.role);
@@ -84,7 +95,7 @@ export class TenantGuard implements CanActivate {
   /**
    * People act within their role. A route's own permission wins; otherwise
    * reads need `read` and writes need the controller's permission, or
-   * `billing.write`. API keys are not people and keep full access.
+   * `billing.write`. API keys are limited by their scopes instead.
    */
   private authorize(context: ExecutionContext, method: string, role: Parameters<typeof can>[0]) {
     const own = this.reflector.get<Permission | undefined>(PERMISSION_KEY, context.getHandler());
@@ -97,19 +108,14 @@ export class TenantGuard implements CanActivate {
 
   /**
    * A dashboard session: the organisation, and the person with their current
-   * role, read fresh so a removed member or changed role takes effect at once.
-   * Sessions from before people had their own logins act as the owner.
+   * role, read fresh so a removed member, changed role or changed password
+   * takes effect at once. Sessions from before people had their own logins
+   * act as the owner.
    */
   private async resolveFromJwt(token: string) {
-    let payload: JwtPayload;
-    try {
-      payload = verify(token, this.jwtSecret) as JwtPayload;
-    } catch {
-      // Not a valid JWT — fall through to API key resolution
-      return null;
-    }
-    if (!payload.sub) return null;
-    const tenant = await this.centralPrisma.client.tenant.findUnique({ where: { id: payload.sub } });
+    const payload: JwtPayload | null = verifySessionToken(token, this.jwtSecret);
+    if (!payload) return null;
+    const tenant = await this.centralPrisma.client.tenant.findUnique({ where: { id: String(payload.sub) } });
     if (!tenant) return null;
 
     const membership = await this.centralPrisma.client.membership.findFirst({
@@ -120,16 +126,20 @@ export class TenantGuard implements CanActivate {
     if (!membership || !membership.user.isActive) {
       throw new UnauthorizedException('You are no longer a member of this organisation');
     }
+    if (issuedBeforePasswordChange(payload, membership.user.passwordChangedAt)) {
+      throw new UnauthorizedException('Your session has ended. Please sign in again.');
+    }
     return {
       tenant,
       member: { userId: membership.userId, email: membership.user.email, name: membership.user.name, role: membership.role },
     };
   }
 
+  /** An API key, by its hash: an organisation key, or the organisation's own key (full access). */
   private async resolveFromApiKey(apiKey: string) {
-    // Try finding by ApiKey table first
+    const keyHash = hashApiKey(apiKey);
     const apiKeyRecord = await this.centralPrisma.client.apiKey.findUnique({
-      where: { key: apiKey },
+      where: { keyHash },
       include: { tenant: true },
     });
 
@@ -138,7 +148,6 @@ export class TenantGuard implements CanActivate {
         throw new UnauthorizedException('API key has expired');
       }
 
-      // Update lastUsed
       await this.centralPrisma.client.apiKey
         .update({
           where: { id: apiKeyRecord.id },
@@ -148,12 +157,12 @@ export class TenantGuard implements CanActivate {
           this.logger.warn(`Failed to update API key lastUsed: ${err.message}`);
         });
 
-      return apiKeyRecord.tenant;
+      return { tenant: apiKeyRecord.tenant, scopes: apiKeyRecord.scopes };
     }
 
-    // Fallback: check Tenant.apiKey directly
-    return await this.centralPrisma.client.tenant.findUnique({
-      where: { apiKey },
+    const tenant = await this.centralPrisma.client.tenant.findUnique({
+      where: { apiKeyHash: keyHash },
     });
+    return tenant ? { tenant, scopes: ['read', 'write'] } : null;
   }
 }

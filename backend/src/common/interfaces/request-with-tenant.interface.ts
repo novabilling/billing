@@ -7,7 +7,6 @@ export interface TenantInfo {
   name: string;
   slug: string;
   email: string;
-  apiKey: string;
   isActive: boolean;
   webhookUrl: string | null;
   webhookSecret: string | null;
@@ -24,7 +23,9 @@ export interface RequestWithTenant extends Request {
   tenant: TenantInfo;
   tenantDb: PrismaClient;
   /** How the request authenticated: a dashboard session (JWT) or an API key. */
-  authMethod?: 'session' | 'api_key';
+  authMethod?: 'session' | 'api_key' | 'portal';
+  /** Scopes of the API key used, when authenticated by one. */
+  apiKeyScopes?: string[];
   /** The signed-in person and their role here; absent for API keys. */
   member?: { userId: string; email: string; name: string; role: MemberRole };
 }

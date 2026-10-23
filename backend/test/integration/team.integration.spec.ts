@@ -39,7 +39,7 @@ describeDb('team access (postgres)', () => {
   const central = new CentralPrismaService(config as never);
   const tenantDb = { createTenantDatabase: jest.fn(), getTenantClient: jest.fn(async () => ({})) };
   const encryption = { generateApiKey: () => `sk_test_${Math.random().toString(36).slice(2)}`, generateWebhookSecret: () => 'whsec' };
-  const auth = new AuthService(central, tenantDb as never, new JwtService(), config as never, encryption as never);
+  const auth = new AuthService(central, tenantDb as never, new JwtService(), config as never, encryption as never, { sendHtml: jest.fn().mockResolvedValue(true) } as never);
   const email = { sendHtml: jest.fn(async () => false) };
   const team = new TeamService(central, email as never);
   const guard = new TenantGuard(central, tenantDb as never, config as never, new Reflector());
@@ -68,6 +68,10 @@ describeDb('team access (postgres)', () => {
     expect(alice).toMatchObject({ role: 'OWNER', user: { email: 'alice@example.com', name: 'Alice' }, tenant: { name: 'Rapcio' } });
     expect(alice.permissions).toEqual(expect.arrayContaining(['team.manage', 'settings.providers', 'money.approve']));
     expect(alice.tenant).not.toHaveProperty('password');
+    // Credentials are never part of a session any member can read.
+    expect(alice.tenant).not.toHaveProperty('apiKey');
+    expect(alice.tenant).not.toHaveProperty('apiKeyHash');
+    expect(alice.tenant).not.toHaveProperty('webhookSecret');
     const req = await call(alice.accessToken, 'POST', 'providers');
     expect(req.member).toMatchObject({ role: 'OWNER' });
     await expect(auth.register({ name: 'X', email: 'alice@example.com', password: 'whatever-1', companyName: 'Other' })).rejects.toThrow(/already registered/);

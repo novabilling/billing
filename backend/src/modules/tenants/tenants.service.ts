@@ -3,9 +3,12 @@ import { Prisma } from '../../generated/prisma-central/client';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { EncryptionService } from '../../services/encryption.service';
-import { EmailService } from '../../services/email.service';
+import { EmailService, SMTP_PASSWORD_MASK, SMTP_PORTS, SmtpSettings } from '../../services/email.service';
+import { resolvePublicHost } from '../../common/net/safe-url';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { getBrand } from '../../config/brand';
+import { SCOPE_PATTERN, hashApiKey, lastFour, maskedKey } from '../../common/auth/api-keys';
+import { assertSafeWebhookUrl } from '../../common/net/safe-url';
 
 @Injectable()
 export class TenantsService {
@@ -18,7 +21,12 @@ export class TenantsService {
     private readonly emailService: EmailService,
   ) {}
 
-  async getTenant(tenantId: string) {
+  /**
+   * The organisation's profile. The API key is only ever shown masked (it is
+   * stored hashed); the webhook secret only to people who manage developer
+   * settings, and to API keys that can write.
+   */
+  async getTenant(tenantId: string, opts: { includeSecrets?: boolean } = {}) {
     const tenant = await this.centralPrisma.client.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -26,7 +34,7 @@ export class TenantsService {
         name: true,
         slug: true,
         email: true,
-        apiKey: true,
+        apiKeyLast4: true,
         webhookUrl: true,
         webhookSecret: true,
         isActive: true,
@@ -41,14 +49,46 @@ export class TenantsService {
       throw new NotFoundException('Tenant not found');
     }
 
-    return tenant;
+    const { apiKeyLast4, webhookSecret, ...rest } = tenant;
+    const settings = (rest.settings ?? null) as Record<string, unknown> | null;
+    const smtp = settings?.smtp as SmtpSettings | undefined;
+    return {
+      ...rest,
+      // The SMTP password is never sent back, only whether one is set.
+      settings: smtp?.password ? { ...settings, smtp: { ...smtp, password: SMTP_PASSWORD_MASK } } : settings,
+      apiKey: maskedKey(apiKeyLast4),
+      webhookSecret: opts.includeSecrets ? webhookSecret : null,
+    };
+  }
+
+  /** Replace the organisation's own API key; the old one stops working at once. Shown once. */
+  async rotateApiKey(tenantId: string) {
+    const key = this.encryptionService.generateApiKey();
+    await this.centralPrisma.client.tenant.update({
+      where: { id: tenantId },
+      data: { apiKey: null, apiKeyHash: hashApiKey(key), apiKeyLast4: lastFour(key) },
+    });
+    this.logger.log(`API key rotated for tenant ${tenantId}`);
+    return { key };
+  }
+
+  /** Replace the secret that signs outbound webhooks. */
+  async rotateWebhookSecret(tenantId: string) {
+    const webhookSecret = this.encryptionService.generateWebhookSecret();
+    await this.centralPrisma.client.tenant.update({ where: { id: tenantId }, data: { webhookSecret } });
+    this.logger.log(`Webhook secret rotated for tenant ${tenantId}`);
+    return { webhookSecret };
   }
 
   async updateTenant(tenantId: string, dto: UpdateTenantDto) {
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.email !== undefined) data.email = dto.email;
-    if (dto.webhookUrl !== undefined) data.webhookUrl = dto.webhookUrl;
+    if (dto.webhookUrl !== undefined) {
+      // Refuse internal addresses up front; delivery checks again, since DNS can change.
+      if (dto.webhookUrl) await assertSafeWebhookUrl(dto.webhookUrl);
+      data.webhookUrl = dto.webhookUrl || null;
+    }
 
     // Merge settings instead of overwriting to preserve sibling keys (smtp, webhookEvents, etc.)
     if (dto.settings !== undefined) {
@@ -60,7 +100,11 @@ export class TenantsService {
       // Money-movement settings change only through /money/settings and the
       // platform console (payouts need operator approval), never here.
       const { money: _ignored, ...incoming } = (dto.settings ?? {}) as Record<string, unknown>;
+      if (incoming.smtp !== undefined && incoming.smtp !== null) {
+        incoming.smtp = await this.prepareSmtp(incoming.smtp as SmtpSettings, currentSettings.smtp as SmtpSettings | undefined);
+      }
       data.settings = { ...currentSettings, ...incoming } as any;
+      this.emailService.forgetTenant(tenantId);
     }
 
     const tenant = await this.centralPrisma.client.tenant.update({
@@ -80,6 +124,26 @@ export class TenantsService {
     });
 
     return tenant;
+  }
+
+  /**
+   * Checks a tenant's SMTP server is a public host on a mail port, and stores
+   * the password encrypted. The masked placeholder keeps the saved password.
+   */
+  private async prepareSmtp(smtp: SmtpSettings, existing?: SmtpSettings): Promise<SmtpSettings> {
+    if (typeof smtp !== 'object') throw new BadRequestException('smtp must be an object');
+    if (smtp.host) {
+      const port = Number(smtp.port || 587);
+      if (!SMTP_PORTS.includes(port)) {
+        throw new BadRequestException(`SMTP port must be one of ${SMTP_PORTS.join(', ')}`);
+      }
+      await resolvePublicHost(String(smtp.host));
+      smtp = { ...smtp, port };
+    }
+    if (smtp.password === SMTP_PASSWORD_MASK || smtp.password === undefined) {
+      return { ...smtp, password: existing?.password };
+    }
+    return { ...smtp, password: smtp.password ? this.emailService.encryptSmtpPassword(String(smtp.password)) : undefined };
   }
 
   async getUsage(tenantId: string) {
@@ -106,14 +170,22 @@ export class TenantsService {
   }
 
   async createApiKey(tenantId: string, name: string, scopes: string[], expiresAt?: Date) {
+    const unique = [...new Set(scopes)];
+    if (unique.length === 0 || unique.some((s) => !SCOPE_PATTERN.test(s))) {
+      throw new BadRequestException('Scopes must be "read", "write", or "<resource>:read" / "<resource>:write" (e.g. "customers:read")');
+    }
+    if (expiresAt && (Number.isNaN(expiresAt.getTime()) || expiresAt <= new Date())) {
+      throw new BadRequestException('expiresAt must be a date in the future');
+    }
     const key = this.encryptionService.generateApiKey();
 
     const apiKey = await this.centralPrisma.client.apiKey.create({
       data: {
         tenantId,
-        key,
+        keyHash: hashApiKey(key),
+        last4: lastFour(key),
         name,
-        scopes,
+        scopes: unique,
         expiresAt,
       },
     });
@@ -136,7 +208,7 @@ export class TenantsService {
 
     return keys.map((key: any) => ({
       id: key.id,
-      key: `****${key.key.slice(-4)}`,
+      key: maskedKey(key.last4),
       name: key.name,
       scopes: key.scopes,
       lastUsed: key.lastUsed,

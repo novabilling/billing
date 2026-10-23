@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtPayload, verify } from 'jsonwebtoken';
+import { issuedBeforePasswordChange, verifySessionToken } from '../../common/auth/tokens';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { isPlatformOperator } from '../../common/platform-operator';
 
@@ -23,12 +23,8 @@ export class PlatformAdminGuard implements CanActivate {
     const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
     if (!token) throw new UnauthorizedException('Missing Authorization header');
 
-    let payload: JwtPayload;
-    try {
-      payload = verify(token, this.config.get<string>('JWT_SECRET')!) as JwtPayload;
-    } catch {
-      throw new UnauthorizedException('Platform access requires a dashboard session');
-    }
+    const payload = verifySessionToken(token, this.config.get<string>('JWT_SECRET')!);
+    if (!payload) throw new UnauthorizedException('Platform access requires a dashboard session');
 
     const tenant = payload.sub
       ? await this.centralPrisma.client.tenant.findUnique({ where: { id: String(payload.sub) }, select: { id: true, isPlatformOperator: true } })
@@ -36,15 +32,17 @@ export class PlatformAdminGuard implements CanActivate {
     if (!tenant || !isPlatformOperator(tenant, this.config)) {
       throw new ForbiddenException('This account does not have platform access');
     }
-    // Sessions from before people had their own logins belong to the owner.
-    if (payload.uid) {
-      const membership = await this.centralPrisma.client.membership.findUnique({
-        where: { userId_tenantId: { userId: String(payload.uid), tenantId: tenant.id } },
-        include: { user: { select: { isActive: true } } },
-      });
-      if (!membership?.user.isActive || !['OWNER', 'ADMIN'].includes(membership.role)) {
-        throw new ForbiddenException('Platform access needs an owner or admin of the operator organisation');
-      }
+    // Platform access is always a named person: owner or admin of the operator organisation.
+    if (!payload.uid) throw new UnauthorizedException('Please sign in again');
+    const membership = await this.centralPrisma.client.membership.findUnique({
+      where: { userId_tenantId: { userId: String(payload.uid), tenantId: tenant.id } },
+      include: { user: { select: { isActive: true, passwordChangedAt: true } } },
+    });
+    if (!membership?.user.isActive || !['OWNER', 'ADMIN'].includes(membership.role)) {
+      throw new ForbiddenException('Platform access needs an owner or admin of the operator organisation');
+    }
+    if (issuedBeforePasswordChange(payload, membership.user.passwordChangedAt)) {
+      throw new UnauthorizedException('Your session has ended. Please sign in again.');
     }
     request.platformAdminId = tenant.id;
     return true;

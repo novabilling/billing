@@ -7,6 +7,8 @@ import {
   MaxLength,
   IsNotEmpty,
   IsArray,
+  ArrayNotEmpty,
+  Matches,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -24,7 +26,7 @@ export class UpdateTenantDto {
   email?: string;
 
   @ApiProperty({ required: false, example: 'https://example.com/webhooks' })
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
   webhookUrl?: string;
 
@@ -54,9 +56,13 @@ export class CreateApiKeyBodyDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: ['read', 'write'] })
+  @ApiProperty({
+    example: ['read'],
+    description: '"read" (reads only) or "write" (everything) for the whole API, or per resource: "customers:read", "invoices:write"',
+  })
   @IsArray()
-  @IsString({ each: true })
+  @ArrayNotEmpty()
+  @Matches(/^(read|write|[a-z][a-z0-9-]*:(read|write))$/, { each: true })
   scopes: string[];
 
   @ApiProperty({ required: false })
