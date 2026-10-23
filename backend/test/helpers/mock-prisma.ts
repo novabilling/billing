@@ -7,6 +7,7 @@ function makeModelMock() {
   return {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findUniqueOrThrow: jest.fn(),
     findFirst: jest.fn(),
     create: jest.fn(),
     createMany: jest.fn(),

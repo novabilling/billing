@@ -11,6 +11,7 @@ import { PdfService } from '../services/pdf.service';
 import { WalletsService } from '../modules/wallets/wallets.service';
 import { TaxesService } from '../modules/taxes/taxes.service';
 import { PlanOverridesService } from '../modules/plan-overrides/plan-overrides.service';
+import { RecurringChargeService } from '../modules/billing/recurring-charge.service';
 import { BILLING_QUEUE, PAYMENT_QUEUE, WEBHOOK_QUEUE, EMAIL_QUEUE } from './billing.queue';
 
 @Module({
@@ -52,6 +53,7 @@ import { BILLING_QUEUE, PAYMENT_QUEUE, WEBHOOK_QUEUE, EMAIL_QUEUE } from './bill
     WalletsService,
     TaxesService,
     PlanOverridesService,
+    RecurringChargeService,
   ],
   exports: [BullModule],
 })

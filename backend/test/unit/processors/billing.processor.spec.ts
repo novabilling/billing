@@ -1,63 +1,68 @@
+import { Prisma } from '../../../src/generated/prisma-tenant/client';
 import { BillingProcessor } from '../../../src/queues/processors/billing.processor';
-import { BillingJobType, BILLING_QUEUE, WEBHOOK_QUEUE, EMAIL_QUEUE, PAYMENT_QUEUE } from '../../../src/queues/billing.queue';
+import { BillingJobType } from '../../../src/queues/billing.queue';
 import { createMockPrisma } from '../../helpers/mock-prisma';
 import { createMockQueue } from '../../helpers/mock-queue';
-import { makeSubscription, makePlan, makePlanPrice, makeCustomer, makeInvoice } from '../../helpers/fixtures';
+import { makeCustomer, makePlan, makePlanPrice } from '../../helpers/fixtures';
+
+const iso = (s: string) => new Date(s).toISOString();
 
 describe('BillingProcessor', () => {
   let processor: BillingProcessor;
-  let centralPrisma: { client: Record<string, any> };
-  let tenantDbService: { getTenantClient: jest.Mock };
-  let pdfService: { generateInvoicePDF: jest.Mock; savePdf: jest.Mock; getPublicUrl: jest.Mock; getInvoiceApiUrl: jest.Mock };
-  let walletsService: { applyToInvoice: jest.Mock };
-  let taxesService: { resolveTaxes: jest.Mock };
-  let planOverridesService: {
-    resolvePrice: jest.Mock;
-    resolveChargeProperties: jest.Mock;
-    resolveMinimumCommitment: jest.Mock;
-  };
+  let db: ReturnType<typeof createMockPrisma> & { $queryRaw: jest.Mock };
   let billingQueue: ReturnType<typeof createMockQueue>;
   let webhookQueue: ReturnType<typeof createMockQueue>;
   let emailQueue: ReturnType<typeof createMockQueue>;
   let paymentQueue: ReturnType<typeof createMockQueue>;
-  let db: ReturnType<typeof createMockPrisma>;
+  let walletsService: { applyToInvoice: jest.Mock };
+  let taxesService: { resolveTaxes: jest.Mock };
+  let planOverrides: { resolvePrice: jest.Mock; resolveChargeProperties: jest.Mock; resolveMinimumCommitment: jest.Mock };
+  let usageUnits: number;
+  let invoiceSeq: number;
+
+  const job = (name: string, data: Record<string, unknown>) => ({ name, data, attemptsMade: 0 }) as any;
 
   beforeEach(() => {
-    db = createMockPrisma();
-    tenantDbService = { getTenantClient: jest.fn().mockResolvedValue(db) };
-    centralPrisma = {
-      client: {
-        databaseConnection: { findMany: jest.fn().mockResolvedValue([]) },
-        tenant: {
-          findUnique: jest.fn().mockResolvedValue({ name: 'Acme Corp', email: 'billing@acme.com', settings: {} }),
-        },
-      },
-    };
-    pdfService = {
-      generateInvoicePDF: jest.fn().mockResolvedValue(Buffer.from('pdf')),
-      savePdf: jest.fn().mockResolvedValue(undefined),
-      getPublicUrl: jest.fn().mockReturnValue('https://cdn.example.com/invoice.pdf'),
-      getInvoiceApiUrl: jest.fn().mockReturnValue('http://localhost:3000/invoices/test-id/pdf'),
-    };
-    walletsService = { applyToInvoice: jest.fn().mockResolvedValue(0) };
-    taxesService = { resolveTaxes: jest.fn().mockResolvedValue([]) };
-    planOverridesService = {
-      resolvePrice: jest.fn().mockResolvedValue(null),
-      resolveChargeProperties: jest.fn().mockResolvedValue(null),
-      resolveMinimumCommitment: jest.fn().mockResolvedValue(null),
-    };
+    db = createMockPrisma() as any;
+    usageUnits = 0;
+    invoiceSeq = 41;
+    // Raw SQL: the invoice counter (tagged template) and usage aggregation (Prisma.sql).
+    db.$queryRaw = jest.fn(async (query: unknown) => {
+      const text = Array.isArray(query) ? query.join('?') : (query as Prisma.Sql).sql;
+      if (text.includes('"Sequence"')) return [{ value: ++invoiceSeq }];
+      if (text.includes('"UsageEvent"')) return [{ v: String(usageUnits) }];
+      return [];
+    });
+    db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(db));
+
     billingQueue = createMockQueue();
     webhookQueue = createMockQueue();
     emailQueue = createMockQueue();
     paymentQueue = createMockQueue();
+    walletsService = { applyToInvoice: jest.fn().mockResolvedValue(0) };
+    taxesService = { resolveTaxes: jest.fn().mockResolvedValue([]) };
+    planOverrides = {
+      resolvePrice: jest.fn().mockResolvedValue(null),
+      resolveChargeProperties: jest.fn().mockResolvedValue(null),
+      resolveMinimumCommitment: jest.fn().mockResolvedValue(null),
+    };
 
     processor = new BillingProcessor(
-      centralPrisma as any,
-      tenantDbService as any,
-      pdfService as any,
+      {
+        client: {
+          databaseConnection: { findMany: jest.fn().mockResolvedValue([]) },
+          tenant: { findUnique: jest.fn().mockResolvedValue({ name: 'Acme', email: 'billing@acme.com', settings: {} }) },
+        },
+      } as any,
+      { getTenantClient: jest.fn().mockResolvedValue(db) } as any,
+      {
+        generateInvoicePDF: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+        savePdf: jest.fn().mockResolvedValue(undefined),
+        getPublicUrl: jest.fn().mockReturnValue('/api/invoices/inv_new/pdf'),
+      } as any,
       walletsService as any,
       taxesService as any,
-      planOverridesService as any,
+      planOverrides as any,
       billingQueue as any,
       webhookQueue as any,
       emailQueue as any,
@@ -65,642 +70,317 @@ describe('BillingProcessor', () => {
     );
   });
 
-  function makeJob(name: string, data: Record<string, unknown>) {
-    return { name, data, attemptsMade: 0 } as any;
-  }
+  // ============================================================
+  // Renewal
+  // ============================================================
 
-  // =============================================================
-  // aggregateEvents (private — test via handleGenerateInvoice or extract)
-  // =============================================================
-
-  describe('aggregateEvents (via invoice generation)', () => {
-    const baseSub = {
-      ...makeSubscription(),
-      plan: {
-        ...makePlan(),
-        prices: [makePlanPrice()],
-        charges: [],
-        invoiceGracePeriodDays: null,
-      },
-    };
-
-    function setupBaseInvoiceMocks(charges: any[] = []) {
-      const sub = { ...baseSub, plan: { ...baseSub.plan, charges } };
-      db.subscription.findUnique.mockResolvedValue(sub);
-      db.customer.findUnique.mockResolvedValue(makeCustomer());
-      db.invoice.findFirst.mockResolvedValue(null); // no previous invoice
-      db.appliedCoupon.findMany.mockResolvedValue([]);
-      db.appliedAddOn.findMany.mockResolvedValue([]);
-      db.invoice.create.mockResolvedValue(makeInvoice());
-      db.invoice.update.mockResolvedValue({});
-      return sub;
-    }
-
-    it('should generate a basic invoice with plan charge only', async () => {
-      setupBaseInvoiceMocks();
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            customerId: 'cust_1',
-            subscriptionId: 'sub_1',
-            status: 'PENDING',
-          }),
-        }),
-      );
-      expect(webhookQueue.add).toHaveBeenCalled();
-      expect(emailQueue.add).toHaveBeenCalled();
+  describe('renewal', () => {
+    const start = new Date('2026-01-31T00:00:00Z');
+    const end = new Date('2026-02-28T00:00:00Z');
+    const sub = (overrides: Record<string, unknown> = {}) => ({
+      id: 'sub_1',
+      customerId: 'cust_1',
+      planId: 'plan_1',
+      status: 'ACTIVE',
+      currency: 'USD',
+      billingTiming: 'IN_ARREARS',
+      currentPeriodStart: start,
+      currentPeriodEnd: end,
+      billingAnchor: start,
+      cancelAt: null,
+      metadata: null,
+      plan: makePlan({ billingInterval: 'MONTHLY', billingTiming: 'IN_ARREARS' }),
+      ...overrides,
     });
 
-    it('should count usage events for COUNT aggregation', async () => {
-      const charges = [{
-        id: 'charge_1',
-        chargeModel: 'STANDARD',
-        properties: { amount: '0.01' },
-        billableMetric: { code: 'api_calls', aggregationType: 'COUNT', fieldName: null },
-        graduatedRanges: [],
-        minAmountCents: null,
-        invoiceDisplayName: null,
-      }];
+    beforeEach(() => {
+      jest.useFakeTimers({ now: new Date('2026-02-28T03:00:00Z'), doNotFake: ['nextTick', 'setImmediate'] });
+      db.subscription.findMany.mockImplementation(async (args: any) => (args.where.status === 'ACTIVE' ? [sub()] : []));
+      db.subscription.updateMany.mockResolvedValue({ count: 1 });
+    });
+    afterEach(() => jest.useRealTimers());
 
-      setupBaseInvoiceMocks(charges);
-      db.usageEvent.findMany.mockResolvedValue([
-        { properties: {}, timestamp: new Date() },
-        { properties: {}, timestamp: new Date() },
-        { properties: {}, timestamp: new Date() },
+    it('closes the ended period once and bills its usage and in-arrears price, keyed on the period end', async () => {
+      await processor.process(job(BillingJobType.SUBSCRIPTION_RENEWAL, { tenantId: 't1' }));
+
+      expect(db.subscription.updateMany).toHaveBeenCalledWith({
+        where: { id: 'sub_1', status: 'ACTIVE', currentPeriodEnd: end },
+        data: expect.objectContaining({
+          currentPeriodStart: end,
+          // Anchored on the 31st: March 31, not March 28.
+          currentPeriodEnd: new Date('2026-03-31T00:00:00Z'),
+        }),
+      });
+      const [name, data, opts] = billingQueue.add.mock.calls[0];
+      expect(name).toBe(BillingJobType.GENERATE_INVOICE);
+      expect(data).toMatchObject({
+        kind: 'renewal',
+        billingKey: `sub_1|renewal|${end.toISOString()}`,
+        bases: [{ planId: 'plan_1', periodStart: start.toISOString(), periodEnd: end.toISOString() }],
+        usage: { planId: 'plan_1', periodStart: start.toISOString(), from: start.toISOString(), to: end.toISOString() },
+      });
+      expect(opts.jobId).not.toContain(':');
+    });
+
+    it('bills an in-advance price for the next period instead', async () => {
+      db.subscription.findMany.mockImplementation(async (args: any) =>
+        args.where.status === 'ACTIVE' ? [sub({ billingTiming: 'IN_ADVANCE', plan: makePlan({ billingTiming: 'IN_ADVANCE' }) })] : [],
+      );
+      await processor.process(job(BillingJobType.SUBSCRIPTION_RENEWAL, { tenantId: 't1' }));
+      expect(billingQueue.add.mock.calls[0][1].bases).toEqual([
+        { planId: 'plan_1', periodStart: end.toISOString(), periodEnd: iso('2026-03-31T00:00:00Z') },
       ]);
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      // Invoice should include usage charge: 3 * 0.01 = 0.03
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            // total = 49 (plan) + 0.03 (usage) = 49.03
-            amount: expect.any(Number),
-          }),
-        }),
-      );
     });
 
-    it('should sum values for SUM aggregation', async () => {
-      const charges = [{
-        id: 'charge_1',
-        chargeModel: 'STANDARD',
-        properties: { amount: '1' },
-        billableMetric: { code: 'data_transfer', aggregationType: 'SUM', fieldName: 'bytes' },
-        graduatedRanges: [],
-        minAmountCents: null,
-        invoiceDisplayName: null,
-      }];
+    it('applies a scheduled plan change at the boundary', async () => {
+      db.subscription.findMany.mockImplementation(async (args: any) =>
+        args.where.status === 'ACTIVE' ? [sub({ metadata: { pendingPlanChange: { newPlanId: 'plan_small' }, note: 'kept' } })] : [],
+      );
+      db.plan.findUnique.mockResolvedValue(makePlan({ id: 'plan_small', billingInterval: 'MONTHLY', billingTiming: 'IN_ADVANCE' }));
 
-      setupBaseInvoiceMocks(charges);
-      db.usageEvent.findMany.mockResolvedValue([
-        { properties: { bytes: 100 }, timestamp: new Date() },
-        { properties: { bytes: 200 }, timestamp: new Date() },
-      ]);
+      await processor.process(job(BillingJobType.SUBSCRIPTION_RENEWAL, { tenantId: 't1' }));
 
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      // 300 units * 1 = 300 usage charge
-      expect(db.invoice.create).toHaveBeenCalled();
+      const update = db.subscription.updateMany.mock.calls[0][0];
+      expect(update.data).toMatchObject({ planId: 'plan_small', previousPlanId: 'plan_1', billingTiming: 'IN_ADVANCE', metadata: { note: 'kept' } });
+      const data = billingQueue.add.mock.calls[0][1];
+      // Usage and arrears price of the old plan for the old period; advance price of the new plan for the new one.
+      expect(data.usage.planId).toBe('plan_1');
+      expect(data.bases.map((b: any) => b.planId)).toEqual(['plan_1', 'plan_small']);
+      expect(webhookQueue.add).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ event: 'subscription.plan_changed' }));
     });
 
-    it('should apply taxes', async () => {
-      setupBaseInvoiceMocks();
-      taxesService.resolveTaxes.mockResolvedValue([
-        { name: 'VAT', rate: '18', code: 'vat' },
-      ]);
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      // Plan: 49 + VAT 18% = 49 + 8.82 = 57.82
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            amount: 57.82,
-          }),
-        }),
-      );
-    });
-
-    it('should apply coupon discount', async () => {
-      setupBaseInvoiceMocks();
-      db.appliedCoupon.findMany.mockResolvedValue([{
-        id: 'ac_1',
-        coupon: {
-          isActive: true,
-          expiresAt: null,
-          discountType: 'PERCENTAGE',
-          discountValue: '10',
-          code: 'SAVE10',
-          currency: null,
-        },
-        usesRemaining: null,
-      }]);
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      // Plan: 49 - 10% = 49 - 4.9 = 44.1
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            amount: 44.1,
-          }),
-        }),
-      );
-    });
-
-    it('should apply wallet credits', async () => {
-      setupBaseInvoiceMocks();
-      walletsService.applyToInvoice.mockResolvedValue(20);
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      expect(walletsService.applyToInvoice).toHaveBeenCalledWith(
-        db, 'tenant_1', 'cust_1', expect.any(String), 49, 'USD',
-      );
-      // Should update invoice with reduced amount
-      expect(db.invoice.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ amount: 29 }),
-        }),
-      );
-    });
-
-    it('should apply plan price override', async () => {
-      setupBaseInvoiceMocks();
-      planOverridesService.resolvePrice.mockResolvedValue(39);
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ amount: 39 }),
-        }),
-      );
-    });
-
-    it('should apply minimum commitment true-up', async () => {
-      const sub = setupBaseInvoiceMocks();
-      // Plan price is 49, minimum commitment is 100
-      (sub.plan as any).minimumCommitment = '100.00';
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            amount: 100,
-            metadata: expect.objectContaining({
-              items: expect.arrayContaining([
-                expect.objectContaining({ type: 'minimum_commitment' }),
-              ]),
-            }),
-          }),
-        }),
-      );
-    });
-
-    it('should create DRAFT invoice when grace period is set', async () => {
-      const sub = setupBaseInvoiceMocks();
-      (sub.plan as any).invoiceGracePeriodDays = 3;
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'DRAFT',
-          }),
-        }),
-      );
-      // Draft invoices should NOT send email or auto-charge
-      expect(emailQueue.add).not.toHaveBeenCalled();
-      expect(paymentQueue.add).not.toHaveBeenCalled();
-      // But should still send webhook
-      expect(webhookQueue.add).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ event: 'invoice.drafted' }),
-      );
-    });
-
-    it('should not generate invoice when subscription not found', async () => {
-      db.subscription.findUnique.mockResolvedValue(null);
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'missing',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.invoice.create).not.toHaveBeenCalled();
-    });
-
-    it('should auto-charge when paymentMethodId is present', async () => {
-      const sub = setupBaseInvoiceMocks();
-      (sub as any).paymentMethodId = 'pm_1';
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      expect(paymentQueue.add).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          tenantId: 'tenant_1',
-          paymentMethodId: 'pm_1',
-        }),
-      );
-    });
-
-    it('should add pending add-ons to invoice', async () => {
-      setupBaseInvoiceMocks();
-      db.appliedAddOn.findMany.mockResolvedValue([
-        { id: 'aa_1', addOnId: 'addon_1', amount: '10.00', currency: 'USD' },
-      ]);
-      db.appliedAddOn.updateMany.mockResolvedValue({});
-
-      const job = makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-        customerId: 'cust_1',
-      });
-
-      await processor.process(job);
-
-      // Plan 49 + Add-on 10 = 59
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ amount: 59 }),
-        }),
-      );
-      expect(db.appliedAddOn.updateMany).toHaveBeenCalled();
-    });
-  });
-
-  // =============================================================
-  // handleFinalizeDraftInvoices
-  // =============================================================
-
-  describe('handleFinalizeDraftInvoices', () => {
-    it('should finalize draft invoices past grace period', async () => {
-      const pastGrace = new Date();
-      pastGrace.setDate(pastGrace.getDate() - 1);
-
-      db.invoice.findMany.mockResolvedValue([{
-        id: 'inv_1',
-        invoiceNumber: 'INV-00001',
-        customerId: 'cust_1',
-        subscriptionId: 'sub_1',
-        amount: '49.00',
-        currency: 'USD',
-        dueDate: new Date(),
-        metadata: { gracePeriodEndsAt: pastGrace.toISOString() },
-        customer: { id: 'cust_1', name: 'John', email: 'john@test.com' },
-        subscription: { paymentMethodId: 'pm_1' },
-      }]);
-      db.invoice.update.mockResolvedValue({});
-
-      const job = makeJob(BillingJobType.FINALIZE_DRAFT_INVOICES, { tenantId: 'tenant_1' });
-
-      await processor.process(job);
-
-      // Should update status to PENDING
-      expect(db.invoice.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'PENDING' }),
-        }),
-      );
-      // Should send email
-      expect(emailQueue.add).toHaveBeenCalled();
-      // Should send webhook
-      expect(webhookQueue.add).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ event: 'invoice.finalized' }),
-      );
-      // Should auto-charge
-      expect(paymentQueue.add).toHaveBeenCalled();
-    });
-
-    it('should skip draft invoices still within grace period', async () => {
-      const futureGrace = new Date();
-      futureGrace.setDate(futureGrace.getDate() + 3);
-
-      db.invoice.findMany.mockResolvedValue([{
-        id: 'inv_1',
-        metadata: { gracePeriodEndsAt: futureGrace.toISOString() },
-        customer: { email: 'john@test.com' },
-        subscription: {},
-      }]);
-
-      const job = makeJob(BillingJobType.FINALIZE_DRAFT_INVOICES, { tenantId: 'tenant_1' });
-
-      await processor.process(job);
-
-      expect(db.invoice.update).not.toHaveBeenCalled();
-      expect(emailQueue.add).not.toHaveBeenCalled();
-    });
-  });
-
-  // =============================================================
-  // handleCheckProgressiveBilling
-  // =============================================================
-
-  describe('handleCheckProgressiveBilling', () => {
-    it('should trigger invoice when usage exceeds threshold', async () => {
-      db.subscription.findUnique.mockResolvedValue({
-        id: 'sub_1',
-        status: 'ACTIVE',
-        customerId: 'cust_1',
-        currentPeriodStart: new Date('2026-01-01'),
-        lastProgressiveBillingAt: null,
-        plan: {
-          progressiveBillingThreshold: '100.00',
-          charges: [{
-            id: 'charge_1',
-            chargeModel: 'STANDARD',
-            properties: { amount: '1' },
-            billableMetric: { code: 'api_calls', aggregationType: 'COUNT', fieldName: null },
-            graduatedRanges: [],
-          }],
-        },
-      });
-
-      // 150 events * $1 = $150 (exceeds $100 threshold)
-      db.usageEvent.findMany.mockResolvedValue(
-        Array.from({ length: 150 }, (_, i) => ({
-          properties: {},
-          timestamp: new Date(`2026-01-${String(i % 28 + 1).padStart(2, '0')}`),
-        })),
-      );
-      db.subscription.update.mockResolvedValue({});
-
-      const job = makeJob(BillingJobType.CHECK_PROGRESSIVE_BILLING, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-      });
-
-      await processor.process(job);
-
-      // Should update lastProgressiveBillingAt
-      expect(db.subscription.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ lastProgressiveBillingAt: expect.any(Date) }),
-        }),
-      );
-
-      // Should queue invoice generation
-      expect(billingQueue.add).toHaveBeenCalledWith(
-        BillingJobType.GENERATE_INVOICE,
-        expect.objectContaining({
-          subscriptionId: 'sub_1',
-          progressive: true,
-        }),
-      );
-    });
-
-    it('should not trigger when usage is below threshold', async () => {
-      db.subscription.findUnique.mockResolvedValue({
-        id: 'sub_1',
-        status: 'ACTIVE',
-        customerId: 'cust_1',
-        currentPeriodStart: new Date('2026-01-01'),
-        lastProgressiveBillingAt: null,
-        plan: {
-          progressiveBillingThreshold: '100.00',
-          charges: [{
-            id: 'charge_1',
-            chargeModel: 'STANDARD',
-            properties: { amount: '1' },
-            billableMetric: { code: 'api_calls', aggregationType: 'COUNT', fieldName: null },
-            graduatedRanges: [],
-          }],
-        },
-      });
-
-      // 50 events * $1 = $50 (below $100 threshold)
-      db.usageEvent.findMany.mockResolvedValue(
-        Array.from({ length: 50 }, () => ({
-          properties: {},
-          timestamp: new Date(),
-        })),
-      );
-
-      const job = makeJob(BillingJobType.CHECK_PROGRESSIVE_BILLING, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.subscription.update).not.toHaveBeenCalled();
+    it('does nothing when another run already closed the period', async () => {
+      db.subscription.updateMany.mockResolvedValue({ count: 0 });
+      await processor.process(job(BillingJobType.SUBSCRIPTION_RENEWAL, { tenantId: 't1' }));
       expect(billingQueue.add).not.toHaveBeenCalled();
     });
 
-    it('should skip inactive subscription', async () => {
-      db.subscription.findUnique.mockResolvedValue({
-        id: 'sub_1',
-        status: 'CANCELED',
-        plan: { progressiveBillingThreshold: '100.00' },
-      });
-
-      const job = makeJob(BillingJobType.CHECK_PROGRESSIVE_BILLING, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.usageEvent.findMany).not.toHaveBeenCalled();
+    it('ends a subscription canceled at period end with a final invoice and no next period', async () => {
+      db.subscription.findMany.mockImplementation(async (args: any) =>
+        args.where.status === 'ACTIVE' ? [sub({ cancelAt: end })] : [],
+      );
+      await processor.process(job(BillingJobType.SUBSCRIPTION_RENEWAL, { tenantId: 't1' }));
+      expect(db.subscription.updateMany.mock.calls[0][0].data).toMatchObject({ status: 'CANCELED', canceledAt: end });
+      expect(billingQueue.add.mock.calls[0][1]).toMatchObject({ kind: 'cancellation', usage: { to: end.toISOString() } });
+      expect(billingQueue.add).toHaveBeenCalledTimes(1);
     });
 
-    it('should skip when no threshold configured', async () => {
-      db.subscription.findUnique.mockResolvedValue({
-        id: 'sub_1',
-        status: 'ACTIVE',
-        plan: { progressiveBillingThreshold: null, charges: [] },
-      });
-
-      const job = makeJob(BillingJobType.CHECK_PROGRESSIVE_BILLING, {
-        tenantId: 'tenant_1',
-        subscriptionId: 'sub_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.usageEvent.findMany).not.toHaveBeenCalled();
+    it('catches up on several missed hourly periods, one invoice each', async () => {
+      const hStart = new Date('2026-02-28T00:00:00Z');
+      db.subscription.findMany.mockImplementation(async (args: any) =>
+        args.where.status === 'ACTIVE'
+          ? [sub({ currentPeriodStart: hStart, currentPeriodEnd: new Date('2026-02-28T01:00:00Z'), billingAnchor: hStart, plan: makePlan({ billingInterval: 'HOURLY' }) })]
+          : [],
+      );
+      await processor.process(job(BillingJobType.SUBSCRIPTION_RENEWAL, { tenantId: 't1' }));
+      // Periods ending 01:00, 02:00 and 03:00 have all ended at 03:00.
+      expect(billingQueue.add.mock.calls.map((c: any[]) => c[1].billingKey)).toEqual([
+        'sub_1|renewal|2026-02-28T01:00:00.000Z',
+        'sub_1|renewal|2026-02-28T02:00:00.000Z',
+        'sub_1|renewal|2026-02-28T03:00:00.000Z',
+      ]);
     });
   });
 
-  // =============================================================
-  // calculateChargeCost (tested via invoice generation)
-  // =============================================================
+  // ============================================================
+  // Invoice generation
+  // ============================================================
 
-  describe('charge cost calculations', () => {
-    function setupChargeTest(chargeModel: string, properties: any, events: any[], graduatedRanges?: any[]) {
-      const charges = [{
-        id: 'charge_1',
-        chargeModel,
-        properties,
-        billableMetric: { code: 'metric', aggregationType: 'COUNT', fieldName: null },
-        graduatedRanges: graduatedRanges || [],
-        minAmountCents: null,
-        invoiceDisplayName: null,
-      }];
+  describe('invoice generation', () => {
+    const periodStart = '2026-01-01T00:00:00.000Z';
+    const periodEnd = '2026-02-01T00:00:00.000Z';
+    const data = (overrides: Record<string, unknown> = {}) => ({
+      tenantId: 't1',
+      subscriptionId: 'sub_1',
+      customerId: 'cust_1',
+      kind: 'renewal',
+      billingKey: `sub_1|renewal|${periodEnd}`,
+      bases: [{ planId: 'plan_1', periodStart, periodEnd }],
+      ...overrides,
+    });
 
-      const sub = {
-        ...makeSubscription(),
-        plan: {
-          ...makePlan(),
-          prices: [{ ...makePlanPrice(), amount: '0' }], // Zero plan price to isolate charge cost
-          charges,
-          invoiceGracePeriodDays: null,
-          minimumCommitment: null,
-        },
-      };
-
-      db.subscription.findUnique.mockResolvedValue(sub);
+    beforeEach(() => {
+      db.subscription.findUnique.mockResolvedValue({
+        id: 'sub_1',
+        planId: 'plan_1',
+        currency: 'USD',
+        currentPeriodStart: new Date(periodEnd),
+        currentPeriodEnd: new Date('2026-03-01T00:00:00Z'),
+      });
       db.customer.findUnique.mockResolvedValue(makeCustomer());
-      db.invoice.findFirst.mockResolvedValue(null);
+      db.plan.findUnique.mockResolvedValue({ ...makePlan(), prices: [makePlanPrice({ amount: '49.00' })] });
+      db.invoice.findUnique.mockImplementation(async (args: any) => (args.where.billingKey ? null : null));
+      db.invoice.findMany.mockResolvedValue([]);
       db.appliedCoupon.findMany.mockResolvedValue([]);
       db.appliedAddOn.findMany.mockResolvedValue([]);
-      db.invoice.create.mockResolvedValue(makeInvoice());
-      db.invoice.update.mockResolvedValue({});
-      db.usageEvent.findMany.mockResolvedValue(events);
-    }
+      db.charge.findMany.mockResolvedValue([]);
+      db.invoice.create.mockImplementation(async (args: any) => ({ id: 'inv_new', ...args.data }));
+      db.invoice.findUniqueOrThrow.mockImplementation(async () => ({
+        ...db.invoice.create.mock.calls[0][0].data,
+        id: 'inv_new',
+        createdAt: new Date(),
+        customer: makeCustomer(),
+        subscription: { paymentMethodId: 'pm_1' },
+      }));
+      db.invoice.update.mockImplementation(async (args: any) => ({
+        ...db.invoice.create.mock.calls[0][0].data,
+        ...args.data,
+        id: 'inv_new',
+        createdAt: new Date(),
+        customer: makeCustomer(),
+        subscription: { paymentMethodId: 'pm_1' },
+      }));
+      db.subscription.update.mockResolvedValue({});
+    });
 
-    it('STANDARD: unit * amount', async () => {
-      setupChargeTest('STANDARD', { amount: '0.05' }, [
-        { properties: {}, timestamp: new Date() },
-        { properties: {}, timestamp: new Date() },
+    const created = () => db.invoice.create.mock.calls[0][0].data;
+
+    it('creates one invoice per billing key, numbered from the atomic counter', async () => {
+      await processor.process(job(BillingJobType.GENERATE_INVOICE, data()));
+      expect(created()).toMatchObject({
+        invoiceNumber: 'INV-00042',
+        billingKey: `sub_1|renewal|${periodEnd}`,
+        kind: 'renewal',
+        status: 'PENDING',
+      });
+      expect(created().amount.toString()).toBe('49');
+      expect(paymentQueue.add).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ jobId: 'charge-inv_new' }));
+    });
+
+    it('does not create a second invoice for a key that exists', async () => {
+      db.invoice.findUnique.mockImplementation(async (args: any) =>
+        args.where.billingKey ? { id: 'inv_old', metadata: { postProcessed: true } } : null,
+      );
+      await processor.process(job(BillingJobType.GENERATE_INVOICE, data()));
+      expect(db.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('treats a unique-key race with another worker as done', async () => {
+      db.invoice.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'x', meta: { target: ['billingKey'] } }),
+      );
+      await expect(processor.process(job(BillingJobType.GENERATE_INVOICE, data()))).resolves.toBeUndefined();
+    });
+
+    it('bills usage aggregated in the database for the period that ended', async () => {
+      usageUnits = 1500;
+      db.charge.findMany.mockResolvedValue([
+        {
+          id: 'ch_1',
+          chargeModel: 'STANDARD',
+          properties: { amount: '0.01' },
+          billableMetric: { code: 'api_calls', name: 'API calls', aggregationType: 'COUNT', fieldName: null },
+          graduatedRanges: [],
+          minAmountCents: null,
+          invoiceDisplayName: null,
+        },
       ]);
+      await processor.process(job(BillingJobType.GENERATE_INVOICE, data({ usage: { planId: 'plan_1', periodStart, from: periodStart, to: periodEnd } })));
 
-      await processor.process(makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1', subscriptionId: 'sub_1', customerId: 'cust_1',
-      }));
-
-      // 2 events * $0.05 = $0.10
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ amount: 0.1 }),
-        }),
-      );
+      const usageQuery = db.$queryRaw.mock.calls.find((c: any[]) => !Array.isArray(c[0]) && c[0].sql.includes('"UsageEvent"'))[0];
+      expect(usageQuery.values).toEqual(expect.arrayContaining(['sub_1', 'api_calls', new Date(periodStart), new Date(periodEnd)]));
+      expect(created().amount.toString()).toBe('64'); // 49 + 1500 × 0.01
+      expect(created().metadata.usageByCharge).toEqual({ ch_1: '15' });
     });
 
-    it('PACKAGE: ceil(units/packageSize) * amount', async () => {
-      setupChargeTest(
-        'PACKAGE',
-        { packageSize: '1000', amount: '5' },
-        Array.from({ length: 2500 }, () => ({ properties: {}, timestamp: new Date() })),
-      );
-
-      await processor.process(makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1', subscriptionId: 'sub_1', customerId: 'cust_1',
-      }));
-
-      // ceil(2500/1000) * 5 = 3 * 5 = 15
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ amount: 15 }),
-        }),
-      );
+    it('subtracts usage already billed by progressive invoices in the same period', async () => {
+      usageUnits = 1500;
+      db.charge.findMany.mockResolvedValue([
+        { id: 'ch_1', chargeModel: 'STANDARD', properties: { amount: '0.01' }, billableMetric: { code: 'c', name: 'C', aggregationType: 'COUNT', fieldName: null }, graduatedRanges: [], minAmountCents: null, invoiceDisplayName: null },
+      ]);
+      db.invoice.findMany.mockResolvedValue([{ metadata: { usageByCharge: { ch_1: '10' } } }]);
+      await processor.process(job(BillingJobType.GENERATE_INVOICE, data({ bases: [], usage: { planId: 'plan_1', periodStart, from: periodStart, to: periodEnd } })));
+      expect(created().amount.toString()).toBe('5');
     });
 
-    it('GRADUATED: tiered per-unit pricing', async () => {
-      setupChargeTest(
-        'GRADUATED',
-        {},
-        Array.from({ length: 15 }, () => ({ properties: {}, timestamp: new Date() })),
-        [
-          { fromValue: 0, toValue: 10, perUnitAmount: '1.00', flatAmount: '0' },
-          { fromValue: 11, toValue: null, perUnitAmount: '0.50', flatAmount: '0' },
-        ],
-      );
+    it('applies coupons and taxes in decimal, claiming coupon uses atomically', async () => {
+      db.appliedCoupon.findMany.mockResolvedValue([
+        { id: 'ac_1', usesRemaining: 2, coupon: { code: 'TEN', isActive: true, expiresAt: null, discountType: 'PERCENTAGE', discountValue: '10', currency: null, appliesToPlanIds: [] } },
+      ]);
+      db.appliedCoupon.updateMany.mockResolvedValue({ count: 1 });
+      taxesService.resolveTaxes.mockResolvedValue([{ name: 'VAT', rate: '16' }]);
 
-      await processor.process(makeJob(BillingJobType.GENERATE_INVOICE, {
-        tenantId: 'tenant_1', subscriptionId: 'sub_1', customerId: 'cust_1',
-      }));
+      await processor.process(job(BillingJobType.GENERATE_INVOICE, data()));
 
-      // First 11 units * $1 + 4 units * $0.50 = 11 + 2 = 13
-      expect(db.invoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ amount: 13 }),
-        }),
-      );
+      expect(db.appliedCoupon.updateMany).toHaveBeenCalledWith({ where: { id: 'ac_1', usesRemaining: 2 }, data: { usesRemaining: 1 } });
+      // 49 − 4.90 = 44.10; VAT 16% = 7.056 → 7.06; total 51.16
+      expect(created().amount.toString()).toBe('51.16');
+      expect(created().metadata.taxAmount).toBe('7.06');
+    });
+
+    it('keeps the grace period and tax total when wallet credits are applied to a draft', async () => {
+      db.plan.findUnique.mockResolvedValue({ ...makePlan({ invoiceGracePeriodDays: 3 }), prices: [makePlanPrice({ amount: '49.00' })] });
+      walletsService.applyToInvoice.mockResolvedValue(20);
+
+      await processor.process(job(BillingJobType.GENERATE_INVOICE, data()));
+
+      expect(created().status).toBe('DRAFT');
+      const walletUpdate = db.invoice.update.mock.calls.find((c: any[]) => c[0].data.prepaidCreditAmount !== undefined || c[0].data.metadata?.prepaidCreditAmount);
+      expect(walletUpdate[0].data.amount.toString()).toBe('29');
+      expect(walletUpdate[0].data.metadata.gracePeriodEndsAt).toBeDefined();
+      expect(walletUpdate[0].data.metadata.taxAmount).toBe('0');
+      // Drafts are not emailed or charged until finalized.
+      expect(paymentQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('creates nothing when there is nothing to bill', async () => {
+      await processor.process(job(BillingJobType.GENERATE_INVOICE, data({ bases: [], usage: { planId: 'plan_1', periodStart, from: periodStart, to: periodEnd } })));
+      expect(db.invoice.create).not.toHaveBeenCalled();
     });
   });
 
-  // =============================================================
-  // Edge cases
-  // =============================================================
+  // ============================================================
+  // Drafts and progressive billing
+  // ============================================================
 
-  describe('process routing', () => {
-    it('should not throw for unknown job type', async () => {
-      const job = makeJob('UNKNOWN_JOB', {});
-      await expect(processor.process(job)).resolves.toBeUndefined();
+  it('finalizes a draft past its grace period exactly once', async () => {
+    db.invoice.findMany.mockResolvedValue([
+      {
+        id: 'inv_d',
+        invoiceNumber: 'INV-00007',
+        status: 'DRAFT',
+        amount: '10',
+        currency: 'USD',
+        dueDate: new Date(),
+        createdAt: new Date(),
+        customerId: 'cust_1',
+        subscriptionId: 'sub_1',
+        metadata: { gracePeriodEndsAt: '2020-01-01T00:00:00Z' },
+        customer: makeCustomer(),
+        subscription: { paymentMethodId: 'pm_1' },
+      },
+    ]);
+    db.invoice.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+
+    await processor.process(job(BillingJobType.FINALIZE_DRAFT_INVOICES, { tenantId: 't1' }));
+    await processor.process(job(BillingJobType.FINALIZE_DRAFT_INVOICES, { tenantId: 't1' }));
+
+    expect(db.invoice.updateMany).toHaveBeenCalledWith({ where: { id: 'inv_d', status: 'DRAFT' }, data: { status: 'PENDING' } });
+    expect(webhookQueue.add.mock.calls.filter((c: any[]) => c[1].event === 'invoice.finalized')).toHaveLength(1);
+  });
+
+  it('queues a progressive invoice only for usage not yet billed this period', async () => {
+    db.subscription.findUnique.mockResolvedValue({
+      id: 'sub_1',
+      status: 'ACTIVE',
+      planId: 'plan_1',
+      customerId: 'cust_1',
+      currency: 'USD',
+      currentPeriodStart: new Date('2026-01-01T00:00:00Z'),
+      plan: makePlan({ progressiveBillingThreshold: '100' }),
     });
+    db.charge.findMany.mockResolvedValue([
+      { id: 'ch_1', chargeModel: 'STANDARD', properties: { amount: '1' }, billableMetric: { code: 'c', name: 'C', aggregationType: 'COUNT', fieldName: null }, graduatedRanges: [], minAmountCents: null, invoiceDisplayName: null },
+    ]);
+    usageUnits = 150;
+    db.invoice.findMany.mockResolvedValue([{ metadata: { usageByCharge: { ch_1: '100' } } }]);
+
+    await processor.process(job(BillingJobType.CHECK_PROGRESSIVE_BILLING, { tenantId: 't1', subscriptionId: 'sub_1' }));
+    // 150 used, 100 already billed: 50 is under the threshold.
+    expect(billingQueue.add).not.toHaveBeenCalled();
+
+    usageUnits = 250;
+    await processor.process(job(BillingJobType.CHECK_PROGRESSIVE_BILLING, { tenantId: 't1', subscriptionId: 'sub_1' }));
+    expect(billingQueue.add.mock.calls[0][1]).toMatchObject({ kind: 'progressive', usage: { periodStart: iso('2026-01-01T00:00:00Z') } });
   });
 });

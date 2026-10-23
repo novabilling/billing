@@ -8,6 +8,9 @@ import { EncryptionService } from '../../services/encryption.service';
 import { PdfService } from '../../services/pdf.service';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { CHECKOUT_PROVIDER_NAMES, ProviderFactory } from '../../providers/provider.factory';
+import { WalletsService } from '../wallets/wallets.service';
+import { nextInvoiceNumber } from '../billing/invoice-number';
+import { dec, Dec, roundMoney } from '../billing/pricing';
 import {
   EMAIL_QUEUE,
   WEBHOOK_QUEUE,
@@ -25,21 +28,11 @@ export class InvoicesService {
     private readonly centralPrisma: CentralPrismaService,
     @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
     @InjectQueue(WEBHOOK_QUEUE) private readonly webhookQueue: Queue,
+    private readonly wallets?: WalletsService,
   ) {}
 
   async generateInvoiceNumber(db: PrismaClient): Promise<string> {
-    const lastInvoice = await db.invoice.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { invoiceNumber: true },
-    });
-
-    let nextSeq = 1;
-    if (lastInvoice?.invoiceNumber) {
-      const match = lastInvoice.invoiceNumber.match(/INV-(\d+)/);
-      if (match) nextSeq = parseInt(match[1], 10) + 1;
-    }
-
-    return `INV-${String(nextSeq).padStart(5, '0')}`;
+    return nextInvoiceNumber(db);
   }
 
   private async getTenantInfo(tenantId: string) {
@@ -115,9 +108,15 @@ export class InvoicesService {
       throw new NotFoundException('Customer not found');
     }
 
-    const totalAmount = dto.items.reduce((sum, item) => sum + item.quantity * item.unitAmount, 0);
-    const invoiceNumber = dto.invoiceNumber || await this.generateInvoiceNumber(db);
     const currency = dto.currency?.toUpperCase() || customer.currency;
+    const totalAmount = roundMoney(
+      dto.items.reduce((sum, item) => sum.add(dec(item.quantity).mul(dec(item.unitAmount))), new Dec(0)),
+      currency,
+    );
+    if (dto.invoiceNumber && (await db.invoice.findUnique({ where: { invoiceNumber: dto.invoiceNumber }, select: { id: true } }))) {
+      throw new BadRequestException(`Invoice number ${dto.invoiceNumber} is already used`);
+    }
+    const invoiceNumber = dto.invoiceNumber || await this.generateInvoiceNumber(db);
 
     const invoice = await db.invoice.create({
       data: {
@@ -142,8 +141,8 @@ export class InvoicesService {
         {
           id: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
-          amount: totalAmount,
-          currency: customer.currency,
+          amount: totalAmount.toString(),
+          currency,
           status: invoice.status,
           dueDate: new Date(dto.dueDate),
           createdAt: invoice.createdAt,
@@ -253,12 +252,22 @@ export class InvoicesService {
     if (invoice.status === 'PAID') {
       throw new BadRequestException('Cannot void a paid invoice');
     }
+    if (invoice.status === 'CANCELED') {
+      throw new BadRequestException('Invoice is already voided');
+    }
 
-    const updated = await db.invoice.update({
-      where: { id },
+    // Compare-and-set, so a payment settling at the same moment wins or loses cleanly.
+    const moved = await db.invoice.updateMany({
+      where: { id, status: { in: ['DRAFT', 'PENDING', 'FAILED'] } },
       data: { status: 'CANCELED' },
-      include: { customer: true },
     });
+    if (moved.count === 0) throw new BadRequestException('Invoice changed while voiding; reload and try again');
+    const updated = await db.invoice.findUniqueOrThrow({ where: { id }, include: { customer: true } });
+
+    // Prepaid credits it used go back to the customer's wallets; stop open retries.
+    const refunded = (await this.wallets?.refundInvoice(db, id)) ?? 0;
+    if (refunded > 0) this.logger.log(`Returned ${refunded} ${invoice.currency} of wallet credits for voided invoice ${id}`);
+    await db.paymentRetry.updateMany({ where: { invoiceId: id, status: { in: ['PENDING', 'PROCESSING'] } }, data: { status: 'CANCELED' } });
 
     // Email customer
     if (invoice.customer?.email) {
@@ -302,26 +311,26 @@ export class InvoicesService {
     if (invoice.status === 'PAID') {
       throw new BadRequestException('Invoice is already paid');
     }
+    if (invoice.status === 'CANCELED') {
+      throw new BadRequestException('A voided invoice cannot be marked paid');
+    }
 
     const now = new Date();
     const provider = paymentMethod || 'manual';
 
-    const [updatedInvoice] = await Promise.all([
-      db.invoice.update({
-        where: { id },
+    // Invoice and payment record change together, and only from an unpaid state.
+    const updatedInvoice = await db.$transaction(async (tx) => {
+      const moved = await tx.invoice.updateMany({
+        where: { id, status: { in: ['DRAFT', 'PENDING', 'FAILED'] } },
         data: { status: 'PAID', paidAt: now },
-        include: { customer: true },
-      }),
-      db.payment.create({
-        data: {
-          invoiceId: id,
-          provider,
-          amount: invoice.amount,
-          currency: invoice.currency,
-          status: 'SUCCEEDED',
-        },
-      }),
-    ]);
+      });
+      if (moved.count === 0) throw new BadRequestException('Invoice changed meanwhile; reload and try again');
+      await tx.payment.create({
+        data: { invoiceId: id, provider, amount: invoice.amount, currency: invoice.currency, status: 'SUCCEEDED' },
+      });
+      return tx.invoice.findUniqueOrThrow({ where: { id }, include: { customer: true } });
+    });
+    await db.paymentRetry.updateMany({ where: { invoiceId: id, status: { in: ['PENDING', 'PROCESSING'] } }, data: { status: 'SUCCESS' } });
 
     // Email customer
     if (invoice.customer?.email) {
@@ -469,6 +478,9 @@ export class InvoicesService {
     if (invoice.status === 'CANCELED') {
       throw new BadRequestException('Invoice has been voided');
     }
+    if (dec(invoice.amount).lte(0)) {
+      throw new BadRequestException('Nothing to pay on this invoice');
+    }
 
     // Find the requested provider or fall back to the highest-priority active one
     const providerConfig = providerName
@@ -509,7 +521,8 @@ export class InvoicesService {
       currency: invoice.currency,
       email: invoice.customer.email,
       customerName: invoice.customer.name ?? undefined,
-      reference: invoice.id,
+      // Each attempt has its own reference (providers refuse a reused one); webhooks match it to this payment.
+      reference: payment.id,
       callbackUrl,
       paymentOptions: 'card',
       metadata: { invoiceId: id, paymentId: payment.id },

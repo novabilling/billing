@@ -21,6 +21,7 @@ describe('PaymentProcessor', () => {
   let emailQueue: ReturnType<typeof createMockQueue>;
   let webhookQueue: ReturnType<typeof createMockQueue>;
   let db: ReturnType<typeof createMockPrisma>;
+  let recurring: { chargeInvoice: jest.Mock };
 
   beforeEach(() => {
     db = createMockPrisma();
@@ -33,6 +34,7 @@ describe('PaymentProcessor', () => {
     encryptionService = { decrypt: jest.fn().mockReturnValue('{"secret_key":"sk_test"}') };
     emailQueue = createMockQueue();
     webhookQueue = createMockQueue();
+    recurring = { chargeInvoice: jest.fn() };
 
     processor = new PaymentProcessor(
       tenantDbService as any,
@@ -40,6 +42,7 @@ describe('PaymentProcessor', () => {
       encryptionService as any,
       emailQueue as any,
       webhookQueue as any,
+      recurring as any,
     );
   });
 
@@ -52,100 +55,11 @@ describe('PaymentProcessor', () => {
     customer: { id: 'cust_1', name: 'John Doe', email: 'john@example.com' },
   };
 
-  describe('handleProcessPayment', () => {
-    it('should process a successful payment', async () => {
-      db.invoice.findUnique.mockResolvedValue(invoice);
-      db.paymentProvider.findFirst.mockResolvedValue(makePaymentProvider());
-      db.payment.create.mockResolvedValue(makePayment());
-      db.payment.update.mockResolvedValue({});
-      db.invoice.update.mockResolvedValue({});
-
-      const mockProvider = {
-        charge: jest.fn().mockResolvedValue({ success: true, transactionId: 'txn_123' }),
-      };
-      (ProviderFactory.create as jest.Mock).mockReturnValue(mockProvider);
-
-      const job = makeJob(PaymentJobType.PROCESS_PAYMENT, {
-        tenantId: 'tenant_1',
-        invoiceId: 'inv_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.payment.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'SUCCEEDED' }),
-        }),
-      );
-      expect(db.invoice.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'PAID' }),
-        }),
-      );
-      expect(emailQueue.add).toHaveBeenCalled();
-      expect(webhookQueue.add).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ event: 'payment.succeeded' }),
-      );
-    });
-
-    it('should handle failed payment', async () => {
-      db.invoice.findUnique.mockResolvedValue(invoice);
-      db.paymentProvider.findFirst.mockResolvedValue(makePaymentProvider());
-      db.payment.create.mockResolvedValue(makePayment());
-      db.payment.update.mockResolvedValue({});
-
-      const mockProvider = {
-        charge: jest.fn().mockResolvedValue({ success: false, error: 'Insufficient funds' }),
-      };
-      (ProviderFactory.create as jest.Mock).mockReturnValue(mockProvider);
-
-      const job = makeJob(PaymentJobType.PROCESS_PAYMENT, {
-        tenantId: 'tenant_1',
-        invoiceId: 'inv_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.payment.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'FAILED',
-            failureReason: 'Insufficient funds',
-          }),
-        }),
-      );
-      expect(webhookQueue.add).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ event: 'payment.failed' }),
-      );
-    });
-
-    it('should skip when invoice not found', async () => {
-      db.invoice.findUnique.mockResolvedValue(null);
-
-      const job = makeJob(PaymentJobType.PROCESS_PAYMENT, {
-        tenantId: 'tenant_1',
-        invoiceId: 'missing',
-      });
-
-      await processor.process(job);
-
-      expect(db.payment.create).not.toHaveBeenCalled();
-    });
-
-    it('should skip when no active payment provider', async () => {
-      db.invoice.findUnique.mockResolvedValue(invoice);
-      db.paymentProvider.findFirst.mockResolvedValue(null);
-
-      const job = makeJob(PaymentJobType.PROCESS_PAYMENT, {
-        tenantId: 'tenant_1',
-        invoiceId: 'inv_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.payment.create).not.toHaveBeenCalled();
+  describe('retired jobs', () => {
+    it('ignores PROCESS_PAYMENT instead of marking an invoice paid on checkout creation', async () => {
+      await processor.process(makeJob(PaymentJobType.PROCESS_PAYMENT, { tenantId: 'tenant_1', invoiceId: 'inv_1' }));
+      expect(ProviderFactory.create).not.toHaveBeenCalled();
+      expect(db.invoice.update).not.toHaveBeenCalled();
     });
   });
 
@@ -196,95 +110,45 @@ describe('PaymentProcessor', () => {
   });
 
   describe('handleAutoCharge', () => {
-    it('should auto-charge a saved payment method', async () => {
-      db.invoice.findUnique.mockResolvedValue(invoice);
-      db.paymentMethod.findUnique.mockResolvedValue({
-        id: 'pm_1',
-        provider: 'stripe',
-        tokenId: 'tok_123',
-        customerId: 'cust_1',
-      });
-      db.paymentProvider.findFirst.mockResolvedValue(makePaymentProvider());
-      db.payment.create.mockResolvedValue(makePayment());
-      db.payment.update.mockResolvedValue({});
-      db.invoice.update.mockResolvedValue({});
+    const job = () =>
+      makeJob(PaymentJobType.AUTO_CHARGE_PAYMENT_METHOD, { tenantId: 'tenant_1', invoiceId: 'inv_1', subscriptionId: 'sub_1', paymentMethodId: 'pm_1' });
 
-      const mockProvider = {
-        chargePaymentMethod: jest.fn().mockResolvedValue({ success: true, transactionId: 'txn_456' }),
-      };
-      (ProviderFactory.create as jest.Mock).mockReturnValue(mockProvider);
-
-      const job = makeJob(PaymentJobType.AUTO_CHARGE_PAYMENT_METHOD, {
-        tenantId: 'tenant_1',
-        invoiceId: 'inv_1',
-        subscriptionId: 'sub_1',
-        paymentMethodId: 'pm_1',
-      });
-
-      await processor.process(job);
-
-      expect(mockProvider.chargePaymentMethod).toHaveBeenCalled();
-      expect(db.payment.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'SUCCEEDED' }),
-        }),
-      );
+    it('charges through the shared recurring charge service', async () => {
+      recurring.chargeInvoice.mockResolvedValue({ result: 'succeeded', paymentId: 'pay_1' });
+      await processor.process(job());
+      expect(recurring.chargeInvoice).toHaveBeenCalledWith(db, 'tenant_1', 'inv_1', 'pm_1', 'auto');
+      expect(db.paymentRetry.create).not.toHaveBeenCalled();
     });
 
-    it('should handle failed auto-charge and create dunning retry', async () => {
-      db.invoice.findUnique.mockResolvedValue(invoice);
-      db.paymentMethod.findUnique.mockResolvedValue({
-        id: 'pm_1',
-        provider: 'stripe',
-        tokenId: 'tok_123',
-        customerId: 'cust_1',
-      });
-      db.paymentProvider.findFirst.mockResolvedValue(makePaymentProvider());
-      db.payment.create.mockResolvedValue(makePayment());
-      db.payment.update.mockResolvedValue({});
-      db.paymentRetry = { create: jest.fn().mockResolvedValue({}) } as any;
-      db.subscription.update.mockResolvedValue({});
+    it('starts one dunning schedule and marks the subscription past due on a decline', async () => {
+      recurring.chargeInvoice.mockResolvedValue({ result: 'failed', paymentId: 'pay_1', error: 'declined' });
+      db.paymentRetry.findFirst.mockResolvedValue(null);
+      db.subscription.updateMany.mockResolvedValue({ count: 1 });
 
-      const mockProvider = {
-        chargePaymentMethod: jest.fn().mockResolvedValue({ success: false, error: 'Card declined' }),
-      };
-      (ProviderFactory.create as jest.Mock).mockReturnValue(mockProvider);
+      await processor.process(job());
 
-      const job = makeJob(PaymentJobType.AUTO_CHARGE_PAYMENT_METHOD, {
-        tenantId: 'tenant_1',
-        invoiceId: 'inv_1',
-        subscriptionId: 'sub_1',
-        paymentMethodId: 'pm_1',
-      });
-
-      await processor.process(job);
-
-      expect(db.payment.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'FAILED' }),
-        }),
+      expect(db.paymentRetry.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ invoiceId: 'inv_1', subscriptionId: 'sub_1', lastError: 'declined' }) }),
       );
-      expect(db.paymentRetry.create).toHaveBeenCalled();
-      expect(db.subscription.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'PAST_DUE' }),
-        }),
-      );
+      expect(db.subscription.updateMany).toHaveBeenCalledWith({ where: { id: 'sub_1', status: 'ACTIVE' }, data: { status: 'PAST_DUE' } });
     });
 
-    it('should skip when invoice already paid', async () => {
-      db.invoice.findUnique.mockResolvedValue({ ...invoice, status: 'PAID' });
+    it('does not start a second dunning schedule for the same invoice', async () => {
+      recurring.chargeInvoice.mockResolvedValue({ result: 'failed', paymentId: 'pay_1', error: 'declined' });
+      db.paymentRetry.findFirst.mockResolvedValue({ id: 'retry_1' });
+      db.subscription.updateMany.mockResolvedValue({ count: 0 });
 
-      const job = makeJob(PaymentJobType.AUTO_CHARGE_PAYMENT_METHOD, {
-        tenantId: 'tenant_1',
-        invoiceId: 'inv_1',
-        subscriptionId: 'sub_1',
-        paymentMethodId: 'pm_1',
-      });
+      await processor.process(job());
+      expect(db.paymentRetry.create).not.toHaveBeenCalled();
+    });
 
-      await processor.process(job);
-
-      expect(db.paymentMethod.findUnique).not.toHaveBeenCalled();
+    it('waits on an ambiguous outcome or a skipped invoice', async () => {
+      recurring.chargeInvoice.mockResolvedValueOnce({ result: 'pending', paymentId: 'pay_1' });
+      await processor.process(job());
+      recurring.chargeInvoice.mockResolvedValueOnce({ result: 'skipped', reason: 'Invoice is paid' });
+      await processor.process(job());
+      expect(db.paymentRetry.create).not.toHaveBeenCalled();
+      expect(db.subscription.updateMany).not.toHaveBeenCalled();
     });
   });
 

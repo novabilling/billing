@@ -224,6 +224,8 @@ export class LedgerProjectorService {
       PURCHASED: Accounts.walletTopUpClearing(wallet.currency),
       GRANTED: Accounts.promotionalCredits(wallet.currency),
       INVOICED: Accounts.receivable(wallet.currency),
+      // Credits handed back when the invoice they paid is voided: reverses INVOICED.
+      REFUNDED: Accounts.receivable(wallet.currency),
       VOIDED: Accounts.walletBreakage(wallet.currency),
       // Payouts and transfers: the wallet leg posts here; the money-movement
       // service posts the other leg against the same clearing account.

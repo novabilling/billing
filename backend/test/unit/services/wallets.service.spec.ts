@@ -23,6 +23,7 @@ describe('WalletsService', () => {
     // Credits move inside a locked transaction; run it against the same mocks.
     (db as unknown as Record<string, unknown>).$queryRaw = jest.fn().mockResolvedValue([]);
     db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(db));
+    db.walletTransaction.findMany.mockResolvedValue([]);
   });
 
   describe('create', () => {
@@ -212,12 +213,56 @@ describe('WalletsService', () => {
       expect(deducted).toBe(0);
     });
 
+    it('returns what was already deducted instead of deducting again (job retries)', async () => {
+      db.walletTransaction.findMany.mockResolvedValue([{ amount: '30.00' }, { amount: '20.50' }]);
+
+      const deducted = await service.applyToInvoice(db as never, 'tenant_1', 'cust_1', 'inv_1', 75, 'USD');
+
+      expect(deducted).toBe(50.5);
+      expect(db.wallet.findMany).not.toHaveBeenCalled();
+      expect(db.walletTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('converts with decimal arithmetic at the wallet rate', async () => {
+      const wallet = makeWallet({ id: 'w1', balance: '0.30', creditsBalance: '3.00', rateAmount: '0.10' });
+      db.wallet.findMany.mockResolvedValue([wallet]);
+      db.wallet.findUnique.mockResolvedValue(wallet);
+      db.walletTransaction.create.mockResolvedValue(makeWalletTransaction());
+      db.wallet.update.mockResolvedValue({});
+
+      const deducted = await service.applyToInvoice(db as never, 'tenant_1', 'cust_1', 'inv_1', 0.3, 'USD');
+
+      expect(deducted).toBe(0.3);
+      // 0.30 / 0.10 is exactly 3 credits (floating point gives 2.9999999999999996).
+      expect(db.walletTransaction.create.mock.calls[0][0].data.creditAmount).toBe(3);
+    });
+
     it('should return 0 for zero invoice amount', async () => {
       const deducted = await service.applyToInvoice(
         db as never, 'tenant_1', 'cust_1', 'inv_1', 0, 'USD',
       );
 
       expect(deducted).toBe(0);
+    });
+  });
+
+  describe('refundInvoice', () => {
+    it('returns the credits a voided invoice used, once', async () => {
+      const wallet = makeWallet({ id: 'w1', balance: '10.00', creditsBalance: '10.00', rateAmount: '1.00' });
+      db.walletTransaction.findMany.mockResolvedValue([{ walletId: 'w1', creditAmount: '25.00', amount: '25.00' }]);
+      db.walletTransaction.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'refund_1' });
+      db.wallet.findUnique.mockResolvedValue(wallet);
+      db.walletTransaction.create.mockResolvedValue(makeWalletTransaction());
+      db.wallet.update.mockResolvedValue({});
+
+      expect(await service.refundInvoice(db as never, 'inv_1')).toBe(25);
+      expect(db.walletTransaction.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ transactionStatus: 'REFUNDED', transactionType: 'INBOUND', invoiceId: 'inv_1' }) }),
+      );
+
+      // A second void (or retry) finds the refund and does nothing.
+      expect(await service.refundInvoice(db as never, 'inv_1')).toBe(0);
+      expect(db.walletTransaction.create).toHaveBeenCalledTimes(1);
     });
   });
 
