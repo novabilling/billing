@@ -1,4 +1,7 @@
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 import { Client } from 'pg';
 
 /**
@@ -32,10 +35,10 @@ const MARKERS: Record<MigrationTarget, [migration: string, table: string][]> = {
 
 export async function migrate(target: MigrationTarget, url: string, log: (line: string) => void = () => undefined): Promise<void> {
   for (const migration of await baselineNeeded(target, url)) {
-    prisma(target, url, ['migrate', 'resolve', '--applied', migration]);
+    await prisma(target, url, ['migrate', 'resolve', '--applied', migration]);
     log(`baselined ${migration}`);
   }
-  const output = prisma(target, url, ['migrate', 'deploy']);
+  const output = await prisma(target, url, ['migrate', 'deploy']);
   log(output.trim().split('\n').pop() ?? 'done');
 }
 
@@ -58,13 +61,15 @@ export async function baselineNeeded(target: MigrationTarget, url: string): Prom
   }
 }
 
-function prisma(target: MigrationTarget, url: string, args: string[]): string {
-  return execFileSync('npx', ['prisma', ...args, '--config', CONFIG[target]], {
+/** Runs the Prisma CLI without blocking the event loop (signup migrates a new tenant database while the API serves). */
+async function prisma(target: MigrationTarget, url: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync('npx', ['--no-install', 'prisma', ...args, '--config', CONFIG[target]], {
     env: { ...process.env, DATABASE_URL: url, CENTRAL_DATABASE_URL: url },
     timeout: 120_000,
     encoding: 'utf-8',
-    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 10 * 1024 * 1024,
   });
+  return stdout;
 }
 
 /**
@@ -86,6 +91,9 @@ export async function migrateTenant(tenantUrl: string, log: (line: string) => vo
     await client.query(`GRANT USAGE, CREATE ON SCHEMA public TO ${role}`);
     await client.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${role}`);
     await client.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${role}`);
+    // Only its own user may connect to a tenant database (Postgres lets every role connect by default).
+    const database = new URL(admin.url).pathname.replace(/^\//, '');
+    if (database) await client.query(`REVOKE CONNECT ON DATABASE "${database.replace(/"/g, '""')}" FROM PUBLIC`);
   } finally {
     await client.end();
   }

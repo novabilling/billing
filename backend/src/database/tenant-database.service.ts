@@ -23,7 +23,12 @@ export interface HealthCheckResult {
 @Injectable()
 export class TenantDatabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(TenantDatabaseService.name);
+  /** Open clients, least recently used first; each holds a connection pool. */
   private readonly tenantClients: Map<string, PrismaClient> = new Map();
+  /** Clients being opened, so concurrent first requests share one instead of each opening a pool. */
+  private readonly opening: Map<string, Promise<PrismaClient>> = new Map();
+  private readonly maxClients = Number(process.env.TENANT_CLIENT_CACHE_SIZE || 200);
+  private readonly poolSize = Number(process.env.TENANT_POOL_SIZE || 5);
 
   constructor(
     private readonly centralPrisma: CentralPrismaService,
@@ -34,9 +39,19 @@ export class TenantDatabaseService implements OnModuleDestroy {
   async getTenantClient(tenantId: string): Promise<PrismaClient> {
     const cached = this.tenantClients.get(tenantId);
     if (cached) {
+      // Mark as recently used.
+      this.tenantClients.delete(tenantId);
+      this.tenantClients.set(tenantId, cached);
       return cached;
     }
+    const pending = this.opening.get(tenantId);
+    if (pending) return pending;
+    const open = this.openTenantClient(tenantId).finally(() => this.opening.delete(tenantId));
+    this.opening.set(tenantId, open);
+    return open;
+  }
 
+  private async openTenantClient(tenantId: string): Promise<PrismaClient> {
     const connection = await this.centralPrisma.client.databaseConnection.findUnique({
       where: { tenantId },
     });
@@ -53,7 +68,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
 
     const connectionUrl = this.encryptionService.decrypt(connection.connectionUrl);
 
-    const adapter = new PrismaPg({ connectionString: connectionUrl });
+    const adapter = new PrismaPg({ connectionString: connectionUrl, max: this.poolSize, idleTimeoutMillis: 60_000 });
     const client = new PrismaClient({ adapter });
 
     try {
@@ -65,6 +80,13 @@ export class TenantDatabaseService implements OnModuleDestroy {
     }
 
     this.tenantClients.set(tenantId, client);
+    // Bound open pools: close the least recently used tenant's client.
+    while (this.tenantClients.size > this.maxClients) {
+      const [oldestId, oldest] = this.tenantClients.entries().next().value as [string, PrismaClient];
+      this.tenantClients.delete(oldestId);
+      // Give requests already using it time to finish before closing its pool.
+      setTimeout(() => oldest.$disconnect().catch(() => undefined), 60_000).unref();
+    }
     return client;
   }
 
@@ -92,6 +114,8 @@ export class TenantDatabaseService implements OnModuleDestroy {
       await adminClient.$executeRawUnsafe(
         `GRANT ALL PRIVILEGES ON DATABASE "${dbName}" TO "${dbUser}"`,
       );
+      // Postgres lets every role connect to a new database; only its own user should.
+      await adminClient.$executeRawUnsafe(`REVOKE CONNECT ON DATABASE "${dbName}" FROM PUBLIC`);
 
       // PostgreSQL 15+ no longer grants CREATE on public schema by default.
       // Connect to the new database as admin to grant schema permissions.

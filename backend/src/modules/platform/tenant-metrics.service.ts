@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CronLockService } from '../../common/scheduling/cron-lock.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
@@ -56,9 +57,16 @@ export class TenantMetricsService {
   constructor(
     private readonly centralPrisma: CentralPrismaService,
     private readonly tenantDb: TenantDatabaseService,
+    private readonly cronLock?: CronLockService,
   ) {}
 
+  /** Scheduled on every process; the lock lets one of them run it. */
   @Cron(CronExpression.EVERY_3_HOURS)
+  async scheduledRefreshAll(): Promise<void> {
+    if (!this.cronLock) return void (await this.refreshAll());
+    await this.cronLock.runExclusive('tenant-metrics', 170 * 60_000, () => this.refreshAll());
+  }
+
   async refreshAll(): Promise<{ refreshed: number; failed: number }> {
     if (this.running) return { refreshed: 0, failed: 0 };
     this.running = true;

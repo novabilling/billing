@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CronLockService } from '../../common/scheduling/cron-lock.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CentralPrismaService } from '../../database/central-prisma.service';
 import { TenantDatabaseService } from '../../database/tenant-database.service';
@@ -26,9 +27,16 @@ export class MoneyPollerService {
     private readonly tenantDb: TenantDatabaseService,
     private readonly money: MoneyService,
     private readonly registry: ProviderRegistryService,
+    private readonly cronLock?: CronLockService,
   ) {}
 
+  /** Scheduled on every process; the lock lets one of them run it. */
   @Cron(CronExpression.EVERY_5_MINUTES)
+  async scheduledPollAll(): Promise<void> {
+    if (!this.cronLock) return void (await this.pollAll());
+    await this.cronLock.runExclusive('money-poll', 4.5 * 60_000, () => this.pollAll());
+  }
+
   async pollAll(): Promise<void> {
     if (this.running) return;
     this.running = true;
@@ -53,7 +61,13 @@ export class MoneyPollerService {
    * Watch-only crypto: read new transfers to each merchant's own address
    * every minute, then settle (or expire) the collections waiting on them.
    */
+  /** Scheduled on every process; the lock lets one of them run it. */
   @Cron(CronExpression.EVERY_MINUTE)
+  async scheduledWatchChains(): Promise<void> {
+    if (!this.cronLock) return void (await this.watchChains());
+    await this.cronLock.runExclusive('chain-watch', 55_000, () => this.watchChains());
+  }
+
   async watchChains(): Promise<void> {
     if (this.watching) return;
     this.watching = true;
