@@ -1,4 +1,4 @@
-import { createHash, createHmac } from 'crypto';
+import { createHmac } from 'crypto';
 import { JwtPayload, sign, verify } from 'jsonwebtoken';
 
 /**
@@ -36,9 +36,12 @@ export function issuedBeforePasswordChange(payload: JwtPayload, passwordChangedA
   return typeof payload.iat !== 'number' || payload.iat < Math.floor(passwordChangedAt.getTime() / 1000);
 }
 
-/** Short fingerprint of a password hash: a reset token stops working once the password changes. */
-export function passwordFingerprint(passwordHash: string): string {
-  return createHash('sha256').update(passwordHash).digest('hex').slice(0, 16);
+/**
+ * A reset token names the password version it may replace (when the password
+ * last changed, 0 for never); once the password changes, the token is spent.
+ */
+export function passwordVersion(passwordChangedAt: Date | null | undefined): number {
+  return passwordChangedAt ? passwordChangedAt.getTime() : 0;
 }
 
 export interface PortalTokenPayload {

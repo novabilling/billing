@@ -1024,10 +1024,9 @@
             "type": "string"
           },
           "scopes": {
-            "description": "\"read\" allows reads only; \"write\" allows everything",
+            "description": "\"read\" (reads only) or \"write\" (everything) for the whole API, or per resource: \"customers:read\", \"invoices:write\"",
             "example": [
-              "read",
-              "write"
+              "read"
             ],
             "items": {
               "type": "string"
@@ -5504,10 +5503,6 @@
       },
       "TenantInfoResponse": {
         "properties": {
-          "apiKey": {
-            "example": "sk_live_abc123...",
-            "type": "string"
-          },
           "createdAt": {
             "type": "string"
           },
@@ -5541,9 +5536,6 @@
           "updatedAt": {
             "type": "string"
           },
-          "webhookSecret": {
-            "type": "string"
-          },
           "webhookUrl": {
             "example": "https://example.com/webhooks",
             "type": "string"
@@ -5554,7 +5546,6 @@
           "name",
           "slug",
           "email",
-          "apiKey",
           "isActive",
           "createdAt",
           "updatedAt"
@@ -5564,7 +5555,9 @@
       "TenantResponse": {
         "properties": {
           "apiKey": {
-            "example": "sk_live_abc123...",
+            "description": "The organisation key, masked: keys are stored hashed and shown in full only when created or rotated",
+            "example": "sk_live_****a1b2",
+            "nullable": true,
             "type": "string"
           },
           "createdAt": {
@@ -5601,7 +5594,9 @@
             "type": "string"
           },
           "webhookSecret": {
+            "description": "Only for people who manage developer settings, and API keys with write access; null otherwise",
             "example": "whsec_abc123...",
+            "nullable": true,
             "type": "string"
           },
           "webhookUrl": {
@@ -5614,7 +5609,6 @@
           "name",
           "slug",
           "email",
-          "apiKey",
           "isActive",
           "createdAt",
           "updatedAt"

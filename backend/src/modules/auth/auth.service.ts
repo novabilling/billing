@@ -9,7 +9,7 @@ import { TenantDatabaseService } from '../../database/tenant-database.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { permissionsOf } from '../../common/auth/permissions';
 import { hashApiKey, lastFour } from '../../common/auth/api-keys';
-import { derivedSecret, issuedBeforePasswordChange, passwordFingerprint } from '../../common/auth/tokens';
+import { derivedSecret, issuedBeforePasswordChange, passwordVersion } from '../../common/auth/tokens';
 import { EmailService } from '../../services/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -219,15 +219,15 @@ export class AuthService {
 
   /**
    * Emails a one-hour reset link. The token is signed with its own key and
-   * carries a fingerprint of the current password hash, so it stops working
-   * once used. Never logged.
+   * names the current password version, so it stops working once used.
+   * Never logged.
    */
   async forgotPassword(email: string): Promise<void> {
     const user = await this.db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     // Don't reveal whether the email exists
     if (!user || !user.isActive) return;
     const resetToken = this.jwtService.sign(
-      { sub: user.id, typ: 'password-reset', pwd: passwordFingerprint(user.password) },
+      { sub: user.id, typ: 'password-reset', ver: passwordVersion(user.passwordChangedAt) },
       { secret: this.resetSecret(), expiresIn: RESET_TTL_SECONDS, algorithm: 'HS256' },
     );
     const dashboardUrl = (process.env.DASHBOARD_URL || 'http://localhost:4002').replace(/\/$/, '');
@@ -247,20 +247,20 @@ export class AuthService {
 
   /** Sets the new password and ends every existing session for the person. */
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    let payload: { sub: string; typ?: string; pwd?: string };
+    let payload: { sub: string; typ?: string; ver?: number };
     try {
       payload = this.jwtService.verify(token, { secret: this.resetSecret(), algorithms: ['HS256'] });
     } catch {
       throw new BadRequestException('Invalid or expired reset token');
     }
-    if (payload.typ !== 'password-reset' || !payload.pwd) throw new BadRequestException('Invalid reset token');
+    if (payload.typ !== 'password-reset' || typeof payload.ver !== 'number') throw new BadRequestException('Invalid reset token');
     const user = await this.db.user.findUnique({ where: { id: payload.sub } });
-    if (!user || !user.isActive || passwordFingerprint(user.password) !== payload.pwd) {
+    if (!user || !user.isActive || passwordVersion(user.passwordChangedAt) !== payload.ver) {
       throw new BadRequestException('Invalid or expired reset token');
     }
-    // Compare-and-set on the old hash, so the same link cannot be used twice concurrently.
+    // Compare-and-set on the password version, so the same link cannot be used twice, even concurrently.
     const updated = await this.db.user.updateMany({
-      where: { id: user.id, password: user.password },
+      where: { id: user.id, passwordChangedAt: user.passwordChangedAt },
       data: { password: await argon2.hash(newPassword), passwordChangedAt: new Date() },
     });
     if (updated.count === 0) throw new BadRequestException('Invalid or expired reset token');
@@ -280,6 +280,7 @@ export class AuthService {
       password: _password,
       apiKey: _apiKey,
       apiKeyHash: _apiKeyHash,
+      apiKeyLast4: _apiKeyLast4,
       webhookSecret: _webhookSecret,
       isPlatformOperator: _operator,
       accessMode: _mode,

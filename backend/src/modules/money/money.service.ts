@@ -705,7 +705,8 @@ export class MoneyService {
   private async checkDailyLimit(db: Prisma.TransactionClient, settings: MoneySettings, currency: string, amount: string) {
     const limit = settings.payoutDailyLimit[currency];
     if (limit === undefined) return;
-    await db.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout-daily-limit:${currency}`}))`;
+    // The lock function returns void, which Prisma cannot read back: cast it.
+    await db.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`payout-daily-limit:${currency}`}))::text AS locked`;
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
     const today = await db.moneyIntent.aggregate({
