@@ -1,4 +1,7 @@
 import { createHmac } from 'crypto';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+import { OpenManagedAccountDto } from '../../../src/modules/money/dto/money.dto';
 import { ManagedAdapter, ManagedPaymentsClient } from '../../../src/modules/money/adapters/managed.adapter';
 import { ManagedAccountsService } from '../../../src/modules/money/managed.service';
 
@@ -118,5 +121,24 @@ describe('ManagedAccountsService', () => {
   it('reports managed payments as unavailable without a subscription', async () => {
     delete process.env.MANAGED_PAYMENTS_URL;
     expect(await service.status({} as never)).toEqual({ available: false, account: null });
+  });
+});
+
+describe('OpenManagedAccountDto', () => {
+  const base = { businessName: 'Rapcio Ltd', email: 'finance@rapcio.com', phone: '+256700000001', country: 'UG', currency: 'UGX' };
+  const errors = (body: Record<string, unknown>) => validateSync(plainToInstance(OpenManagedAccountDto, { ...base, ...body })).map((e) => e.property);
+
+  it('takes bank details, a payout destination, or both', () => {
+    expect(errors({ bank: { code: '031', accountNumber: '9030012345678' } })).toEqual([]);
+    expect(errors({ payoutDestination: { type: 'mobile_money', msisdn: '256771234567' } })).toEqual([]);
+    expect(errors({ payoutDestination: { type: 'paypal', email: 'pay@rapcio.com' } })).toEqual([]);
+    expect(errors({})).toEqual(['bank']);
+  });
+
+  it('requires the fields each destination type pays out to', () => {
+    expect(errors({ payoutDestination: { type: 'mobile_money' } })).toEqual(['payoutDestination']);
+    expect(errors({ payoutDestination: { type: 'paypal', email: 'not-an-email' } })).toEqual(['payoutDestination']);
+    expect(errors({ payoutDestination: { type: 'bank', bankCode: '031', accountNumber: '9030012345678' } })).toEqual(['payoutDestination']);
+    expect(errors({ payoutDestination: { type: 'cheque' } })).toEqual(['payoutDestination']);
   });
 });
