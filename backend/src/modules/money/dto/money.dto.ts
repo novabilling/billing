@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PayerOtpDto, partySchema } from './party.dto';
-import { IsBoolean, IsDefined, IsEmail, IsObject, IsOptional, IsString, IsUrl, Length, MaxLength, ValidateNested } from 'class-validator';
+import { IsBoolean, IsDefined, IsEmail, IsIn, IsObject, IsOptional, IsString, IsUrl, Length, MaxLength, ValidateIf, ValidateNested } from 'class-validator';
 
 export class CreateCollectionDto {
   @ApiProperty({
@@ -192,6 +192,44 @@ export class ManagedBankDto {
   accountName?: string;
 }
 
+export const MANAGED_PAYOUT_TYPES = ['mobile_money', 'bank', 'paypal'] as const;
+
+/** Where the platform pays out the balance it collects on the tenant's behalf. */
+export class ManagedPayoutDestinationDto {
+  @ApiProperty({ enum: MANAGED_PAYOUT_TYPES, example: 'mobile_money' })
+  @IsIn(MANAGED_PAYOUT_TYPES)
+  type!: (typeof MANAGED_PAYOUT_TYPES)[number];
+
+  @ApiPropertyOptional({ example: '256771234567', description: 'Mobile money number in international format (mobile_money)' })
+  @ValidateIf((d: ManagedPayoutDestinationDto) => d.type === 'mobile_money')
+  @IsString()
+  @Length(9, 16)
+  msisdn?: string;
+
+  @ApiPropertyOptional({ example: 'finance@rapcio.com', description: 'PayPal account email (paypal)' })
+  @ValidateIf((d: ManagedPayoutDestinationDto) => d.type === 'paypal')
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ example: '044', description: 'Bank code (bank)' })
+  @ValidateIf((d: ManagedPayoutDestinationDto) => d.type === 'bank')
+  @IsString()
+  @Length(2, 20)
+  bankCode?: string;
+
+  @ApiPropertyOptional({ example: '0690000031', description: 'Account number (bank)' })
+  @ValidateIf((d: ManagedPayoutDestinationDto) => d.type === 'bank')
+  @IsString()
+  @Length(5, 34)
+  accountNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Name on the bank account (bank)' })
+  @ValidateIf((d: ManagedPayoutDestinationDto) => d.type === 'bank')
+  @IsString()
+  @Length(2, 120)
+  accountName?: string;
+}
+
 export class OpenManagedAccountDto {
   @ApiProperty({ example: 'Rapcio Ltd' })
   @IsString()
@@ -217,10 +255,20 @@ export class OpenManagedAccountDto {
   @Length(3, 3)
   currency!: string;
 
-  @ApiProperty({ type: ManagedBankDto })
+  /** Bank details let the platform settle each payment straight to this account where the provider supports it. */
+  @ApiPropertyOptional({ type: ManagedBankDto })
+  @ValidateIf((d: OpenManagedAccountDto) => d.bank !== undefined || d.payoutDestination === undefined)
+  @IsDefined({ message: 'Give bank details or a payout destination' })
   @ValidateNested()
   @Type(() => ManagedBankDto)
-  bank!: ManagedBankDto;
+  bank?: ManagedBankDto;
+
+  /** Otherwise the platform holds what it collects and pays it out here. */
+  @ApiPropertyOptional({ type: ManagedPayoutDestinationDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ManagedPayoutDestinationDto)
+  payoutDestination?: ManagedPayoutDestinationDto;
 }
 
 export class RequestOtpDto {

@@ -3197,6 +3197,47 @@
         ],
         "type": "object"
       },
+      "ManagedPayoutDestinationDto": {
+        "properties": {
+          "accountName": {
+            "description": "Name on the bank account (bank)",
+            "type": "string"
+          },
+          "accountNumber": {
+            "description": "Account number (bank)",
+            "example": "0690000031",
+            "type": "string"
+          },
+          "bankCode": {
+            "description": "Bank code (bank)",
+            "example": "044",
+            "type": "string"
+          },
+          "email": {
+            "description": "PayPal account email (paypal)",
+            "example": "finance@rapcio.com",
+            "type": "string"
+          },
+          "msisdn": {
+            "description": "Mobile money number in international format (mobile_money)",
+            "example": "256771234567",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "mobile_money",
+              "bank",
+              "paypal"
+            ],
+            "example": "mobile_money",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "ManagedStatusResponse": {
         "properties": {
           "account": {
@@ -3655,6 +3696,9 @@
             "example": "finance@rapcio.com",
             "type": "string"
           },
+          "payoutDestination": {
+            "$ref": "#/components/schemas/ManagedPayoutDestinationDto"
+          },
           "phone": {
             "example": "+256700000001",
             "type": "string"
@@ -3665,8 +3709,7 @@
           "email",
           "phone",
           "country",
-          "currency",
-          "bank"
+          "currency"
         ],
         "type": "object"
       },

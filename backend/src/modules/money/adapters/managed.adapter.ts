@@ -42,6 +42,10 @@ export interface ManagedAccount {
   accountNumberLast4?: string;
   /** Platform fee taken from each payment, e.g. { type: "percentage", value: 2.5 }. */
   fee?: { type: 'percentage' | 'flat'; value: number };
+  /** direct: each payment settles to the bank account; balance: held by the platform and paid out. */
+  settlement?: 'direct' | 'balance';
+  /** Masked, e.g. "Mobile money ****4567". */
+  payoutDestination?: string;
   reason?: string;
 }
 
@@ -52,7 +56,10 @@ export interface OpenManagedAccount {
   phone: string;
   country: string;
   currency: string;
-  bank: { code: string; accountNumber: string; accountName?: string };
+  /** For direct settlement where the provider supports it. */
+  bank?: { code: string; accountNumber: string; accountName?: string };
+  /** Where pooled balances are paid out. Bank details, a payout destination, or both. */
+  payoutDestination?: { type: 'mobile_money' | 'bank' | 'paypal'; msisdn?: string; email?: string; bankCode?: string; accountNumber?: string; accountName?: string };
   /** Where the service reports account status changes for this tenant. */
   notificationUrl?: string;
 }
