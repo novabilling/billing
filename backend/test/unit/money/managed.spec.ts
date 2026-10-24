@@ -26,6 +26,35 @@ describe('ManagedAdapter', () => {
     expect(out).toEqual({ state: 'pending', paymentUrl: 'https://checkout.flutterwave.com/x', providerStatus: 'CHECKOUT_CREATED' });
   });
 
+  it('sends mobile money as a phone prompt, with no checkout page', async () => {
+    const fetch = jest.fn(() => json({ reference: 'col_2', status: 'pending', method: 'mobile_money', amount: '50000', currency: 'UGX' }));
+    const out = await new ManagedAdapter({ accountId: 'acc_9' }, config, fetch as never).collect({
+      reference: 'col_2',
+      amount: '50000',
+      currency: 'UGX',
+      payer: { type: 'mobile_money', msisdn: '256772123456', name: 'Jane' },
+      description: 'Order 2',
+    });
+    const body = JSON.parse(String(((fetch.mock.calls[0] as unknown) as [string, RequestInit])[1].body));
+    expect(body).toMatchObject({ method: 'mobile_money', customer: { phone: '+256772123456', name: 'Jane' } });
+    expect(body.customer.email).toBeUndefined();
+    expect(out).toEqual({ state: 'pending', providerStatus: 'PROMPT_SENT' });
+  });
+
+  it('sends PayPal payers to PayPal', async () => {
+    const fetch = jest.fn(() => json({ reference: 'col_3', status: 'pending', amount: '25.00', currency: 'USD', checkoutUrl: 'https://paypal.example/approve' }));
+    const out = await new ManagedAdapter({ accountId: 'acc_9' }, config, fetch as never).collect({
+      reference: 'col_3',
+      amount: '25.00',
+      currency: 'USD',
+      payer: { type: 'paypal', email: 'p@example.com' },
+      description: 'Order 3',
+      callbackUrl: 'https://shop.example.com/done',
+    });
+    expect(JSON.parse(String(((fetch.mock.calls[0] as unknown) as [string, RequestInit])[1].body))).toMatchObject({ method: 'paypal', customer: { email: 'p@example.com' } });
+    expect(out).toMatchObject({ state: 'pending', paymentUrl: 'https://paypal.example/approve' });
+  });
+
   it('reports refusals and outages as clean failures', async () => {
     const refused = jest.fn(() => json({ message: 'Account is pending review' }, 409));
     const payer = { type: 'hosted' as const, email: 'p@example.com' };

@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
-import { Capabilities, CollectRequest, MoneyProvider, ProviderOutcome } from '../types';
+import { Capabilities, CollectRequest, MoneyProvider, ProviderOutcome, Rail } from '../types';
 
 /**
  * Managed payments: for tenants without their own provider accounts. A
@@ -129,10 +129,14 @@ interface ManagedCollection {
   failureReason?: string;
 }
 
+/** What managed payments can collect; the service routes each method to a provider. */
+export const MANAGED_COLLECT: Rail[] = ['hosted', 'mobile_money', 'paypal'];
+
 export class ManagedAdapter implements MoneyProvider {
   readonly name = 'managed';
-  // The payer picks card, mobile money or bank on the checkout page.
-  readonly capabilities: Capabilities = { collect: ['hosted'], payout: [], balance: false, verifyPayee: false };
+  // Hosted: the payer picks on the checkout page. Mobile money: a prompt on the payer's phone.
+  // PayPal: PayPal's checkout. The service routes each to the provider it has for it.
+  readonly capabilities: Capabilities = { collect: MANAGED_COLLECT, payout: [], balance: false, verifyPayee: false };
   private readonly client: ManagedPaymentsClient;
 
   constructor(
@@ -144,7 +148,21 @@ export class ManagedAdapter implements MoneyProvider {
   }
 
   async collect(request: CollectRequest): Promise<ProviderOutcome> {
-    if (request.payer.type !== 'hosted') return { state: 'failed', failureReason: 'Managed payments take payments on a checkout page' };
+    const payer = request.payer;
+    let method: 'card' | 'mobile_money' | 'paypal';
+    let customer: { email?: string; name?: string; phone?: string };
+    if (payer.type === 'hosted') {
+      method = 'card';
+      customer = { email: payer.email, name: payer.name };
+    } else if (payer.type === 'mobile_money') {
+      method = 'mobile_money';
+      customer = { name: payer.name, phone: `+${payer.msisdn.replace(/[^\d]/g, '')}` };
+    } else if (payer.type === 'paypal') {
+      method = 'paypal';
+      customer = { email: payer.email, name: payer.name };
+    } else {
+      return { state: 'failed', failureReason: `Managed payments cannot collect from ${payer.type.replace('_', ' ')}` };
+    }
     // Creating a checkout moves no money, so errors here are clean failures; the
     // Idempotency-Key makes a retry return the same checkout.
     const r = await this.client
@@ -157,15 +175,20 @@ export class ManagedAdapter implements MoneyProvider {
           amount: request.amount,
           currency: request.currency,
           description: request.description,
-          customer: { email: request.payer.email, name: request.payer.name },
+          method,
+          customer,
           redirectUrl: request.callbackUrl,
           notificationUrl: request.notificationUrl,
         },
         request.reference,
       )
       .catch((error: Error) => ({ status: 0, data: null, error: error.message }));
-    if (!r.data?.checkoutUrl) return { state: 'failed', failureReason: r.error ?? 'Managed payments could not start the checkout' };
-    return { state: 'pending', paymentUrl: r.data.checkoutUrl, providerStatus: 'CHECKOUT_CREATED' };
+    if (!r.data) return { state: 'failed', failureReason: r.error ?? 'Managed payments could not start the payment' };
+    if (r.data.status === 'failed') return { state: 'failed', failureReason: r.data.failureReason ?? 'Payment failed' };
+    if (r.data.checkoutUrl) return { state: 'pending', paymentUrl: r.data.checkoutUrl, providerStatus: 'CHECKOUT_CREATED' };
+    // Mobile money: the payer approves a prompt on their phone; no page to visit.
+    if (method === 'mobile_money') return { state: 'pending', providerStatus: 'PROMPT_SENT' };
+    return { state: 'failed', failureReason: 'Managed payments could not start the checkout' };
   }
 
   /** The service's answer decides; a settled amount other than the one asked for is held for review. */

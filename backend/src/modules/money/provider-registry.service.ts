@@ -13,7 +13,7 @@ import { TronUsdtAdapter, TronUsdtCredentials } from './adapters/tron-usdt.adapt
 import { BscUsdtAdapter, EthUsdtAdapter, EthUsdtCredentials } from './adapters/eth-usdt.adapter';
 import { BINANCE_PAY_COINS, BinancePayAdapter, BinancePayCredentials } from './adapters/binance-pay.adapter';
 import { BtcAdapter, BtcCredentials } from './adapters/btc.adapter';
-import { ManagedAdapter, managedConfig, ManagedCredentials } from './adapters/managed.adapter';
+import { MANAGED_COLLECT, ManagedAdapter, managedConfig, ManagedCredentials } from './adapters/managed.adapter';
 import { detectNetwork } from './msisdn';
 import { Capabilities, MoneyProvider, Party, Rail } from './types';
 
@@ -135,7 +135,7 @@ export class ProviderRegistryService {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
     }
     if (name === 'managed') {
-      return { collect: ['hosted'], payout: [], balance: false, verifyPayee: false };
+      return { collect: MANAGED_COLLECT, payout: [], balance: false, verifyPayee: false };
     }
     if (WATCH_ONLY_PROVIDERS.includes(name) || name === 'binance_pay') {
       return { collect: ['crypto'], payout: [], balance: false, verifyPayee: false };
