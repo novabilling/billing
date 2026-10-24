@@ -71,6 +71,14 @@ export class PlatformServiceController {
     return this.money.updateSettings({ id, settings: tenant.settings as Record<string, unknown> | null }, dto, true);
   }
 
+  /** Rebuild every organisation's figures in the background; they appear on the next read. */
+  @Post('organisations/refresh')
+  @HttpCode(202)
+  refreshAll() {
+    void this.metrics.refreshAll();
+    return { started: true };
+  }
+
   /** Rebuild one organisation's figures now (normally every 3 hours). */
   @Post('organisations/:id/refresh')
   @HttpCode(200)
